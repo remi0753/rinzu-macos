@@ -1,0 +1,7 @@
+.DS_Store
+.cache/
+.rinzu/
+.ruff_cache/
+__pycache__/
+build/
+*.app/

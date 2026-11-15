@@ -1,0 +1,14 @@
+[package]
+name = "rinzu.macos"
+language = "0.5"
+kind = "sdk"
+entry = "src/macos.rinzu"
+
+[requires]
+toolchain = "0.3.0"
+
+[native]
+sources = ["native/src/macos.m"]
+headers = ["native/include/rinzu_macos.h"]
+include-dirs = ["native/include"]
+frameworks = ["AppKit", "Foundation", "Metal", "QuartzCore", "ImageIO", "CoreGraphics", "CoreText"]
