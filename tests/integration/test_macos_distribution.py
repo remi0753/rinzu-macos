@@ -1,19 +1,28 @@
 #!/usr/bin/env python3
-"""Verify the external SDK, its explicit dependency, and a relocated .app."""
+"""Exercise the public rinzu.macos module from a clean macOS toolchain bundle."""
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import json
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 
-from sdk_test_support import installed_toolchain, stage_sdk, test_environment
+from sdk_test_support import IGNORED_OUTPUTS, ROOT, installed_toolchain, test_environment
+
+SDK = "rinzu.macos"
+VERSION = "0.1.0"
+ARCHIVE = (
+    "https://github.com/remi0753/rinzu-macos/releases/download/"
+    f"v{VERSION}/rinzu-macos-{VERSION}.tar.gz"
+)
+SHA256 = "66fffe589c219b728a59e07b28bc236a5b970da32d41b87ef769ea4c46d9fd9a"
 
 
-def run(label, command, scratch, env, *, expected=0, marker=None):
+def run(label, command, cwd, env, *, expected=0, marker=None):
     result = subprocess.run(
-        command, cwd=scratch, env=env, capture_output=True, text=True, timeout=300
+        command, cwd=cwd, env=env, capture_output=True, text=True, timeout=300
     )
     if result.returncode != expected or (
         marker and marker not in result.stdout + result.stderr
@@ -25,93 +34,55 @@ def run(label, command, scratch, env, *, expected=0, marker=None):
     return result.stdout
 
 
-def compare_public_api(cli, original, sdk, scratch, env):
-    baseline = scratch / "bundled.json"
-    external = scratch / "external.json"
-    run("bundled-api", [cli, "api", original, "--output", baseline], scratch, env)
+def stage_app(source, app):
+    shutil.copytree(source, app, ignore=IGNORED_OUTPUTS)
+    manifest = app / "rinzu.toml"
+    text = manifest.read_text(encoding="utf-8")
+    local_dependency = '"rinzu.macos" = { path = "../.." }\n'
+    assert text.count(local_dependency) == 1, manifest
+    manifest.write_text(text.replace(local_dependency, ""), encoding="utf-8")
+
+
+def add_module(cli, app, env):
     run(
-        "external-api",
-        [cli, "api", sdk, "--output", external, "--compare", baseline],
+        f"modules-add-{app.name}",
+        [cli, "modules", "add", SDK, ARCHIVE],
+        app,
+        env,
+        marker=f"added {SDK} (sha256:{SHA256})",
+    )
+    manifest = (app / "rinzu.toml").read_text().splitlines()
+    assert f'"{SDK}" = {{ archive = "{ARCHIVE}" }}' in manifest, manifest
+    lock_path = app / "rinzu.modules.lock"
+    lock = json.loads(lock_path.read_text())
+    package = next(package for package in lock["packages"] if package["name"] == SDK)
+    pin = package["source"]["archive"]
+    assert pin["locator"] == ARCHIVE and pin["sha256"] == SHA256, pin
+    stored = app / f"modules/store/sha256/{SHA256}/package"
+    assert (stored / "native/src/macos.m").is_file(), stored
+    return lock_path
+
+
+def build_bundle(cli, app, scratch, env, marker):
+    expected = run(f"jit-{app.name}", [cli, "run", app], scratch, env, marker=marker)
+    bundle = scratch / f"{app.name} 初回.app"
+    run(f"bundle-{app.name}", [cli, "bundle", app, "--output", bundle], scratch, env)
+    return bundle.rename(scratch / f"{app.name} 移設.app"), expected
+
+
+def verify_relocated_bundle(cli, bundle, executable, expected, scratch, env):
+    run(f"bundle-verify-{executable}", [cli, "bundle-verify", bundle], scratch, env)
+    env = dict(env)
+    env.pop("RINZU_BUNDLE_DEV_ROOT", None)
+    env.pop("RINZU_TOOLCHAIN_ROOT", None)
+    env.pop("RINZU_CACHE_DIR", None)
+    output = run(
+        f"bundle-launch-{executable}",
+        [bundle / "Contents/MacOS" / executable],
         scratch,
         env,
     )
-    report = json.loads(external.with_suffix(".report.json").read_text())
-    assert report["package"] == "rinzu.macos", report
-    assert not report["breaking_candidates"] and not report["additions"], report
-
-
-def verify_relocated_bundle(cli, sdk, scratch, env):
-    app = sdk / "tests/bundle"
-    runtime_env = dict(env, RINZU_BUNDLE_DEV_ROOT=str(app))
-    expected = run(
-        "bundle-fixture-jit",
-        [cli, "run", app],
-        scratch,
-        runtime_env,
-        marker="BUNDLE:closed",
-    )
-    initial = scratch / "Initial 日本語.app"
-    run("bundle", [cli, "bundle", app, "--output", initial], scratch, env)
-    moved = initial.rename(scratch / "Moved 東京.app")
-    # Remove the exact SDK and application sources used in this build before launch.
-    shutil.rmtree(sdk)
-    shutil.rmtree(Path(env["RINZU_CACHE_DIR"]), ignore_errors=True)
-    run("relocated-bundle-verify", [cli, "bundle-verify", moved], scratch, env)
-    runtime_env = dict(env, RINZU_BUNDLE_EXPECT_APP="1")
-    runtime_env.pop("RINZU_BUNDLE_DEV_ROOT", None)
-    runtime_env.pop("RINZU_TOOLCHAIN_ROOT", None)
-    executable = moved / "Contents/MacOS/macos_bundle_probe"
-    actual = run(
-        "relocated-bundle-launch",
-        [executable],
-        scratch,
-        runtime_env,
-        marker="BUNDLE:closed",
-    )
-    assert actual == expected, (actual, expected)
-    asset = moved / "Contents/Resources/app/assets/日本語.txt"
-    asset.write_text("tampered", encoding="utf-8")
-    run(
-        "bundle-rejects-changed-asset",
-        [cli, "bundle-verify", moved],
-        scratch,
-        env,
-        expected=1,
-        marker="inventory changed",
-    )
-
-
-def verify_explicit_dependency(cli, scratch, env):
-    sdk = stage_sdk(scratch / "dependency")
-    app = scratch / "consumer"
-    (app / "src").mkdir(parents=True)
-    (app / "rinzu.toml").write_text(
-        '[package]\nname = "sdk_consumer"\nlanguage = "0.5"\n\n'
-        '[dependencies]\n"rinzu.macos" = { path = "../dependency" }\n',
-        encoding="utf-8",
-    )
-    (app / "src/main.rinzu").write_text(
-        "import rinzu.macos;\n"
-        'fn main() { if rinzu.macos.migrationProbe() != 42 { panic("wrong SDK"); } }\n',
-        encoding="utf-8",
-    )
-    # This export exists exclusively in the explicitly selected source checkout.
-    with (sdk / "src/macos.rinzu").open("a", encoding="utf-8") as source:
-        source.write(
-            "\nfn migrationProbe() -> Int { return 42; }\nexport migrationProbe;\n"
-        )
-    run("explicit-dependency-lock", [cli, "lock", app], scratch, env)
-    run("explicit-dependency-lock-check", [cli, "lock", app, "--check"], scratch, env)
-    run("explicit-dependency-jit", [cli, "run", app], scratch, env)
-    sdk.rename(scratch / "unavailable")
-    run(
-        "missing-explicit-dependency",
-        [cli, "check", app],
-        scratch,
-        env,
-        expected=1,
-        marker="cannot resolve dependency `rinzu.macos`",
-    )
+    assert output == expected, (output, expected)
 
 
 def main():
@@ -119,23 +90,77 @@ def main():
     parser.add_argument("--rinzu", type=Path, required=True)
     args = parser.parse_args()
     cli, resources = installed_toolchain(args.rinzu)
+    if (resources / "sdk/rinzu.macos").exists():
+        raise ValueError("pass a toolchain bundle with external native SDK archive support")
+
     with tempfile.TemporaryDirectory(prefix="rinzu-macos-distribution-") as directory:
         scratch = Path(directory)
         env = test_environment(scratch, resources)
-        sdk = stage_sdk(scratch / "sdk")
-        for area in ("tests", "examples"):
-            for manifest in sorted((sdk / area).glob("*/rinzu.toml")):
-                run(
-                    f"check-{area}-{manifest.parent.name}",
-                    [cli, "check", manifest.parent],
-                    scratch,
-                    env,
-                )
-        bundled = resources / "sdk/rinzu.macos"
-        if bundled.is_dir():
-            compare_public_api(cli, bundled, sdk, scratch, env)
-        verify_explicit_dependency(cli, scratch, env)
-        verify_relocated_bundle(cli, sdk, scratch, env)
+        apps = scratch / "apps"
+        apps.mkdir()
+        probe = apps / "resources"
+        stage_app(ROOT / "tests/bundle", probe)
+        run(
+            "missing-module",
+            [cli, "check", probe],
+            scratch,
+            env,
+            expected=1,
+            marker="SDK package `rinzu.macos` is not a declared dependency",
+        )
+        lock_path = add_module(cli, probe, env)
+        lock = lock_path.read_bytes()
+        shutil.rmtree(probe / "modules")
+        run("modules-restore-offline", [cli, "modules", "sync", "--offline"], probe, env)
+        assert lock_path.read_bytes() == lock
+        run("native-lock", [cli, "lock", probe], scratch, env)
+        run("native-lock-check", [cli, "lock", probe, "--check"], scratch, env)
+
+        samples = sorted((ROOT / "examples").glob("*/rinzu.toml"))
+
+        def check_sample(manifest):
+            app = apps / manifest.parent.name
+            stage_app(manifest.parent, app)
+            add_module(cli, app, env)
+            run(f"check-{app.name}", [cli, "check", app], scratch, env)
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            list(executor.map(check_sample, samples))
+
+        probe_env = dict(env, RINZU_BUNDLE_DEV_ROOT=str(probe))
+        probe_bundle, probe_stdout = build_bundle(
+            cli, probe, scratch, probe_env, "BUNDLE:closed"
+        )
+        sample_env = dict(env, RINZU_MACOS_FRAMES="3")
+        metal_bundle, metal_stdout = build_bundle(
+            cli, apps / "macos-metal", scratch, sample_env, "MACOS:compute-ok"
+        )
+        assert "MACOS:frames=3" in metal_stdout and "MACOS:closed" in metal_stdout
+
+        shutil.rmtree(apps)
+        shutil.rmtree(Path(env["RINZU_CACHE_DIR"]), ignore_errors=True)
+        verify_relocated_bundle(
+            cli,
+            probe_bundle,
+            "macos_bundle_probe",
+            probe_stdout,
+            scratch,
+            dict(env, RINZU_BUNDLE_EXPECT_APP="1"),
+        )
+        verify_relocated_bundle(
+            cli, metal_bundle, "macos_metal", metal_stdout, scratch, sample_env
+        )
+        (probe_bundle / "Contents/Resources/app/assets/日本語.txt").write_text(
+            "tampered", encoding="utf-8"
+        )
+        run(
+            "bundle-rejects-changed-asset",
+            [cli, "bundle-verify", probe_bundle],
+            scratch,
+            env,
+            expected=1,
+            marker="inventory changed",
+        )
 
 
 if __name__ == "__main__":

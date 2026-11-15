@@ -4,24 +4,18 @@ AppKit, CoreText, and Metal SDK for Rinzu on Apple Silicon. It provides native w
 
 ## Install
 
-Use the [Rinzu 0.3.0 toolchain for macOS arm64](https://github.com/remi0753/rinzu/releases/tag/v0.3.0). A desktop session is required for GUI applications.
+Use a macOS arm64 Rinzu toolchain with native SDK archive support. Run GUI applications from a desktop session. [v0.1.0 release](https://github.com/remi0753/rinzu-macos/releases/tag/v0.1.0)
 
-From the directory containing your application checkout, fetch the tagged SDK:
+From your application directory, register the module and refresh the native build lock.
 
 ```sh
-git clone --branch v0.1.0 https://github.com/remi0753/rinzu-macos.git
+rinzu modules add rinzu.macos https://github.com/remi0753/rinzu-macos/releases/download/v0.1.0/rinzu-macos-0.1.0.tar.gz
+rinzu lock .
 ```
 
-Declare the SDK in your application's `rinzu.toml`:
+Use `import rinzu.macos;` in the application. Commit the manifest and `rinzu.modules.lock`, then use `rinzu modules sync` in other checkouts. Rinzu compiles the archived Objective-C sources with the local Xcode toolchain.
 
-```toml
-[dependencies]
-"rinzu.macos" = { path = "../rinzu-macos" }
-```
-
-Use `import rinzu.macos;` in the application and run `rinzu lock .` after changing its dependency inputs. Keep the SDK checkout pinned to the selected tag or commit. The `path` points to the SDK source package, which Rinzu builds with the local Xcode toolchain.
-
-Start with the [GUI guide](docs/guide.md), [API reference](docs/api.md), or [Metal example](examples/macos-metal/src/main.rinzu). Use `rinzu run ./examples/macos-metal` from this checkout to run the example.
+The examples in this SDK checkout use its sources for SDK development. Start with the [GUI guide](docs/guide.md), [API reference](docs/api.md), or [Metal example](examples/macos-metal/src/main.rinzu).
 
 ## Start and stop an application
 
@@ -61,9 +55,10 @@ See [AOT and bundle distribution](https://github.com/remi0753/rinzu/blob/v0.3.0/
 
 ## Compatibility and source provenance
 
-| SDK tag  | Verified Rinzu | Target      |
-| -------- | -------------- | ----------- |
-| `v0.1.0` | `0.3.0`        | macOS arm64 |
+| SDK tag | Dependency | Rinzu | Target |
+| --- | --- | --- | --- |
+| `v0.1.0` | Published module | Toolchain with native SDK archive support | macOS arm64 |
+| `v0.1.0` | SDK checkout | Released Rinzu `0.3.0` | macOS arm64 |
 
 The SDK, examples, and original test vectors come from the [Rinzu v0.3.0 source tree](https://github.com/remi0753/rinzu/tree/7aa3591af36cf4635f579a8d12803362dc48bff8/sdk/macos). The repository records upstream commit `7aa3591af36cf4635f579a8d12803362dc48bff8` as the extraction baseline.
 
@@ -72,7 +67,7 @@ The SDK, examples, and original test vectors come from the [Rinzu v0.3.0 source 
 Provide a `bin/rinzu` from the installed toolchain bundle so the native probes use the distributed ABI headers. Run the GUI cases from an unlocked desktop session with Metal available. The runners build in temporary directories and write any requested reports to the paths you supply.
 
 ```sh
-rinzu_cli=/path/to/rinzu-0.3.0-aarch64-apple-darwin/bin/rinzu
+rinzu_cli=/path/to/rinzu-toolchain/bin/rinzu
 sdk_reports=$(mktemp -d)
 trap 'rm -rf "$sdk_reports"' EXIT
 
@@ -86,4 +81,4 @@ python3 -B tests/integration/test_macos_sheets.py --rinzu "$rinzu_cli" \
 python3 -B tests/integration/test_macos_interrupt.py --rinzu "$rinzu_cli" --sanitize
 ```
 
-The distribution check covers the published API, explicit dependency selection with the bundled SDK also present, and resource loading from a moved, signed `.app`.
+The distribution check registers the public GitHub release asset in fresh applications. It checks the pinned checksum, offline restoration, the example packages, and matching output from JIT and moved, signed AOT app bundles.

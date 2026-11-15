@@ -1,11 +1,6 @@
 # macOS applications and GUI
 
-Install the SDK and the matching Rinzu toolchain by following the [installation instructions](../README.md#install). Place the application and the SDK checkout in the same parent directory to use this dependency.
-
-```toml
-[dependencies]
-"rinzu.macos" = { path = "../rinzu-macos" }
-```
+Register the published SDK from your application directory using the [installation instructions](../README.md#install).
 
 The public API covers Session, Window, View, widgets, owned events, async application handlers, Metal resources, 2D drawing, documents, and sheets. [The SDK reference](../README.md) describes the application entry and resource types; [the source](../src/macos.rinzu) contains exact signatures.
 
