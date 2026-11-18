@@ -409,10 +409,104 @@ static void menus(void) {
   clean();
   puts("PASS:gui-menu:shortcut:command:window-scope:clipboard-snapshot:autoresize:cleanup");
 }
+static void keys(void) {
+  void *scope = rinzu_macos_session(rinzu_macos_open());
+  void *window = rinzu_macos_window(
+      rinzu_macos_window_create(scope, (const uint8_t *)"Key snapshots", 13, 320, 200));
+  struct MacRect rect = {0, 0, 200, 100};
+  void *child = rinzu_macos_view(rinzu_macos_view_create(scope, &rect));
+  assert(rinzu_macos_view_add(rinzu_macos_window_content(window), child) == 0);
+  assert(rinzu_macos_prepare_events(scope) == 0);
+  assert(rinzu_macos_window_show(window) == 0);
+  assert(rinzu_macos_view_focus(child) == 0);
+  unichar nul = 0;
+  NSArray<NSString *> *samples = @[
+    @"x", @"日😀", @"日😀", [NSString stringWithCharacters:&nul length:1], @"\003", @"", @"owned"
+  ];
+  __block NSUInteger seen = 0;
+  __block unsigned ticks = 0;
+  NSTimer *timer = [NSTimer
+      scheduledTimerWithTimeInterval:0.002
+                             repeats:YES
+                               block:^(NSTimer *tick) {
+                                 assert(++ticks < 1000);
+                                 RZMacSession *owner = (RZMacSession *)lookup(scope, RZ_SESSION);
+                                 if (!owner->count)
+                                   return;
+                                 int64_t token = rinzu_macos_wait_token();
+                                 assert(rinzu_macos_event_wait_begin(scope, token) == 0);
+                                 struct MacEvent event;
+                                 assert(rinzu_macos_event_take(scope, token, &event) >= 0);
+                                 if (event.kind == RZ_STARTED) {
+                                   RZMacView *view = (RZMacView *)lookup(child, RZ_VIEW);
+                                   for (NSUInteger index = 0; index < samples.count; ++index) {
+                                     NSMutableString *characters = [samples[index] mutableCopy];
+                                     NSEventModifierFlags modifiers =
+                                         index == 1 ? NSEventModifierFlagShift
+                                                    : (index == 3 || index == 4
+                                                           ? NSEventModifierFlagControl
+                                                           : 0);
+                                     NSEvent *key = [NSEvent
+                                                    keyEventWithType:index == 2 ? NSEventTypeKeyUp
+                                                                                : NSEventTypeKeyDown
+                                                            location:NSZeroPoint
+                                                       modifierFlags:modifiers
+                                                           timestamp:0
+                                                        windowNumber:0
+                                                             context:nil
+                                                          characters:characters
+                                         charactersIgnoringModifiers:characters
+                                                           isARepeat:index == 1 || index == 6
+                                                             keyCode:(unsigned short)(7 + index)];
+                                     if (index == 2)
+                                       [view.view keyUp:key];
+                                     else
+                                       [view.view keyDown:key];
+                                     [characters setString:@"changed after enqueue"];
+                                   }
+                                 } else if (event.kind == RZ_KEY_DOWN || event.kind == RZ_KEY_UP) {
+                                   assert(seen < samples.count);
+                                   assert(event.kind == (seen == 2 ? RZ_KEY_UP : RZ_KEY_DOWN));
+                                   assert(event.windowId == rinzu_macos_window_id(window));
+                                   assert(event.viewId == rinzu_macos_view_id(child) &&
+                                          event.keyCode == 7 + (int64_t)seen);
+                                   assert(event.flags == (seen == 1 || seen == 6 ? 1 : 0));
+                                   NSEventModifierFlags modifiers =
+                                       seen == 1
+                                           ? NSEventModifierFlagShift
+                                           : (seen == 3 || seen == 4 ? NSEventModifierFlagControl
+                                                                     : 0);
+                                   assert(event.modifiers == (int64_t)modifiers);
+                                   NSData *expected_text =
+                                       [samples[seen] dataUsingEncoding:NSUTF8StringEncoding];
+                                   const rinzu_native_byte_array_t *bytes =
+                                       rinzu_macos_event_bytes(scope, token);
+                                   assert(bytes && bytes->length == expected_text.length);
+                                   assert(!bytes->length ||
+                                          !memcmp(bytes->data, expected_text.bytes, bytes->length));
+                                   ++seen;
+                                 }
+                                 assert(rinzu_macos_event_finish(scope, token) == 0);
+                                 assert(rinzu_macos_event_bytes(scope, token) == NULL);
+                                 if (seen == samples.count) {
+                                   assert(rinzu_macos_stop(scope) == 0);
+                                   [tick invalidate];
+                                 }
+                               }];
+  assert(rinzu_macos_run_events(scope) == 0);
+  [timer invalidate];
+  assert(seen == samples.count);
+  assert(rinzu_macos_close(scope) == 0);
+  clean();
+  puts("PASS:gui-keys:owned-utf8-nul:up-down:modifiers:repeat:fifo:cleanup");
+}
+
 int main(int argc, char **argv) {
   assert(argc == 2);
   @autoreleasepool {
-    if (!strcmp(argv[1], "menus"))
+    if (!strcmp(argv[1], "keys"))
+      keys();
+    else if (!strcmp(argv[1], "menus"))
       menus();
     else if (!strcmp(argv[1], "widgets"))
       widgets();

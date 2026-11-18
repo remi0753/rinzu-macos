@@ -512,15 +512,18 @@ static void input(RZMacView *view, NSEvent *input_event, int kind) {
   if (!view || view.closed)
     return;
   struct MacEvent event = view_event(view, kind);
-  if (kind == RZ_KEY_DOWN || kind == RZ_KEY_UP)
+  NSData *characters = nil;
+  if (kind == RZ_KEY_DOWN || kind == RZ_KEY_UP) {
     event.keyCode = input_event.keyCode;
-  else {
+    event.flags = input_event.isARepeat ? 1 : 0;
+    characters = [input_event.characters dataUsingEncoding:NSUTF8StringEncoding];
+  } else {
     NSPoint point = [view.view convertPoint:input_event.locationInWindow fromView:nil];
     event.x = point.x;
     event.y = point.y;
   }
   event.modifiers = (int64_t)input_event.modifierFlags;
-  [view.owner enqueue:event];
+  [view.owner enqueue:event text:characters];
 }
 @implementation RZMacNativeView
 - (BOOL)acceptsFirstResponder {

@@ -208,9 +208,11 @@ def main():
                         )
                     state_binary = scratch / (variant + "-state")
                     state_flags = [
-                        sdk / "tests/state.m"
-                        if item == sdk / "tests/sheets.m"
-                        else item
+                        (
+                            sdk / "tests/state.m"
+                            if item == sdk / "tests/sheets.m"
+                            else item
+                        )
                         for item in flags
                     ]
                     run(

@@ -213,7 +213,7 @@ def main():
                         variant + "-build",
                         ["xcrun", "clang", *flags, *extra, "-o", binary],
                     )
-                    for mode in ("stream", "overflow", "widgets", "menus"):
+                    for mode in ("stream", "overflow", "widgets", "menus", "keys"):
                         run(variant + "-" + mode, [binary, mode], timeout=20)
             if not args.native_only:
                 app = sdk / "tests/gui"
@@ -324,9 +324,9 @@ def main():
                                 timeout=180 if backend == "jit" else 20,
                             )
                         )
-                    assert sample_outputs[0]["stdout"] == sample_outputs[1]["stdout"], (
-                        sample_outputs
-                    )
+                    assert (
+                        sample_outputs[0]["stdout"] == sample_outputs[1]["stdout"]
+                    ), sample_outputs
             evidence["passed"] = True
     finally:
         save()

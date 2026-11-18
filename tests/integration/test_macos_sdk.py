@@ -215,9 +215,10 @@ def main():
 
             def compare_live_runs(name, runs):
                 jit, aot = runs
-                assert (jit["exit"], jit["stdout"]) == (aot["exit"], aot["stdout"]), (
-                    runs
-                )
+                assert (jit["exit"], jit["stdout"]) == (
+                    aot["exit"],
+                    aot["stdout"],
+                ), runs
                 evidence["cases"].append(
                     {
                         "name": name,
@@ -402,14 +403,16 @@ def main():
                                     "RINZU_MACOS_TEST": mode,
                                     "RINZU_RESOURCE_REPORT": str(report),
                                     "RINZU_RESOURCE_INTERVAL_MS": "0",
-                                    "RINZU_GC_STRESS": "1"
-                                    if mode == "callback"
-                                    else "0",
+                                    "RINZU_GC_STRESS": (
+                                        "1" if mode == "callback" else "0"
+                                    ),
                                 },
                                 contains=markers,
-                                timeout=45
-                                if mode == "callback" and backend == "aot"
-                                else None,
+                                timeout=(
+                                    45
+                                    if mode == "callback" and backend == "aot"
+                                    else None
+                                ),
                             )
                         )
                     if mode == "callback" and args.sanitize:

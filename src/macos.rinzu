@@ -1642,6 +1642,9 @@ let eventKeyDown = 6;
 
 let eventKeyUp = 7;
 
+/// UiEvent.flags bit for a repeated raw key event on a native view or surface.
+let keyRepeat = 1;
+
 let eventMouseDown = 8;
 
 let eventMouseUp = 9;
@@ -1905,6 +1908,7 @@ export eventDraw;
 export eventQuitRequested;
 export eventKeyDown;
 export eventKeyUp;
+export keyRepeat;
 export eventMouseDown;
 export eventMouseUp;
 export eventMouseMoved;

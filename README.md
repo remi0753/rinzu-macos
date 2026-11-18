@@ -31,6 +31,8 @@ The low-level run handler has type fn(RunContext,Event)->Unit. RunContext is a l
 
 The SDK includes labels, buttons, text fields/views, menus, checkboxes, layout helpers, accessibility, tooltips, themes, focus/scroll state, and owned window events. Keep application save/close policies in managed handlers. Programmatic state updates do not automatically reproduce user events.
 
+Native views and Metal surfaces report raw key-down and key-up events. `UiEvent.text` owns the event's `NSEvent.characters` as UTF-8, including control characters and NUL. `keyCode` and `modifiers` retain the native values; `flags & keyRepeat` identifies repeats. The existing event queue limits apply to these snapshots. Applications interpret key meaning. Input-method composition is provided by native text controls.
+
 List/table/tree DataView models use stable row IDs, columns, selection, expansion, sorting, and owned cell values. Dataset limits are 100000 rows, 32 columns, 16 MiB UTF-8 content, and tree depth 64. Generation yields every 256 rows and commits a completed model; failed or stopped updates discard uncommitted state. Serialize competing async operations on a view. These are bounded copied models, not remote paging or unbounded lists.
 
 ## Drawing and GPU resources
@@ -55,10 +57,10 @@ See [AOT and bundle distribution](https://github.com/remi0753/rinzu/blob/v0.3.0/
 
 ## Compatibility and source provenance
 
-| SDK tag | Dependency | Rinzu | Target |
-| --- | --- | --- | --- |
+| SDK tag  | Dependency       | Rinzu                                     | Target      |
+| -------- | ---------------- | ----------------------------------------- | ----------- |
 | `v0.1.0` | Published module | Toolchain with native SDK archive support | macOS arm64 |
-| `v0.1.0` | SDK checkout | Released Rinzu `0.3.0` | macOS arm64 |
+| `v0.1.0` | SDK checkout     | Released Rinzu `0.3.0`                    | macOS arm64 |
 
 The SDK, examples, and original test vectors come from the [Rinzu v0.3.0 source tree](https://github.com/remi0753/rinzu/tree/7aa3591af36cf4635f579a8d12803362dc48bff8/sdk/macos). The repository records upstream commit `7aa3591af36cf4635f579a8d12803362dc48bff8` as the extraction baseline.
 

@@ -9,7 +9,12 @@ import shutil
 import subprocess
 import tempfile
 
-from sdk_test_support import IGNORED_OUTPUTS, ROOT, installed_toolchain, test_environment
+from sdk_test_support import (
+    IGNORED_OUTPUTS,
+    ROOT,
+    installed_toolchain,
+    test_environment,
+)
 
 SDK = "rinzu.macos"
 VERSION = "0.1.0"
@@ -91,7 +96,9 @@ def main():
     args = parser.parse_args()
     cli, resources = installed_toolchain(args.rinzu)
     if (resources / "sdk/rinzu.macos").exists():
-        raise ValueError("pass a toolchain bundle with external native SDK archive support")
+        raise ValueError(
+            "pass a toolchain bundle with external native SDK archive support"
+        )
 
     with tempfile.TemporaryDirectory(prefix="rinzu-macos-distribution-") as directory:
         scratch = Path(directory)
@@ -111,7 +118,9 @@ def main():
         lock_path = add_module(cli, probe, env)
         lock = lock_path.read_bytes()
         shutil.rmtree(probe / "modules")
-        run("modules-restore-offline", [cli, "modules", "sync", "--offline"], probe, env)
+        run(
+            "modules-restore-offline", [cli, "modules", "sync", "--offline"], probe, env
+        )
         assert lock_path.read_bytes() == lock
         run("native-lock", [cli, "lock", probe], scratch, env)
         run("native-lock-check", [cli, "lock", probe, "--check"], scratch, env)
