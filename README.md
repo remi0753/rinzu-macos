@@ -4,12 +4,12 @@ AppKit, CoreText, and Metal SDK for Rinzu on Apple Silicon. It provides native w
 
 ## Install
 
-Use a macOS arm64 Rinzu toolchain with native SDK archive support. Run GUI applications from a desktop session. [v0.1.0 release](https://github.com/remi0753/rinzu-macos/releases/tag/v0.1.0)
+Use a macOS arm64 Rinzu toolchain with native SDK archive support. Run GUI applications from a desktop session. [v0.1.1 release](https://github.com/remi0753/rinzu-macos/releases/tag/v0.1.1)
 
 From your application directory, register the module and refresh the native build lock.
 
 ```sh
-rinzu modules add rinzu.macos https://github.com/remi0753/rinzu-macos/releases/download/v0.1.0/rinzu-macos-0.1.0.tar.gz
+rinzu modules add rinzu.macos https://github.com/remi0753/rinzu-macos/releases/download/v0.1.1/rinzu-macos-0.1.1.tar.gz
 rinzu lock .
 ```
 
@@ -55,12 +55,15 @@ Use rinzu bundle to create an application from macos-app.json, then bundle-verif
 
 See [AOT and bundle distribution](https://github.com/remi0753/rinzu/blob/v0.3.0/docs/tooling/distribution.md).
 
+Local candidates can be checked before publishing with `test_macos_distribution.py --archive /path/to/candidate.tar.gz --sha256 DIGEST` using the installed toolchain. The same check covers archive integrity, offline restoration, JIT and relocated signed bundles.
+
 ## Compatibility and source provenance
 
-| SDK tag  | Dependency       | Rinzu                                     | Target      |
-| -------- | ---------------- | ----------------------------------------- | ----------- |
-| `v0.1.0` | Published module | Toolchain with native SDK archive support | macOS arm64 |
-| `v0.1.0` | SDK checkout     | Released Rinzu `0.3.0`                    | macOS arm64 |
+| SDK tag  | Dependency                        | Rinzu                                     | Target      |
+| -------- | --------------------------------- | ----------------------------------------- | ----------- |
+| `v0.1.1` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
+| `v0.1.0` | Published module                  | Toolchain with native SDK archive support | macOS arm64 |
+| `v0.1.0` | SDK checkout                      | Released Rinzu `0.3.0`                    | macOS arm64 |
 
 The SDK, examples, and original test vectors come from the [Rinzu v0.3.0 source tree](https://github.com/remi0753/rinzu/tree/7aa3591af36cf4635f579a8d12803362dc48bff8/sdk/macos). The repository records upstream commit `7aa3591af36cf4635f579a8d12803362dc48bff8` as the extraction baseline.
 

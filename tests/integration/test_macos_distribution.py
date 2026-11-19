@@ -4,6 +4,7 @@
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -17,12 +18,12 @@ from sdk_test_support import (
 )
 
 SDK = "rinzu.macos"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 ARCHIVE = (
     "https://github.com/remi0753/rinzu-macos/releases/download/"
     f"v{VERSION}/rinzu-macos-{VERSION}.tar.gz"
 )
-SHA256 = "66fffe589c219b728a59e07b28bc236a5b970da32d41b87ef769ea4c46d9fd9a"
+SHA256 = "d4a1a835cb7eef51ff9fd070e1a6a6ba4e0df584f43759a6232e2aa4cbc9d8b9"
 
 
 def run(label, command, cwd, env, *, expected=0, marker=None):
@@ -48,22 +49,27 @@ def stage_app(source, app):
     manifest.write_text(text.replace(local_dependency, ""), encoding="utf-8")
 
 
-def add_module(cli, app, env):
+def add_module(cli, app, env, archive, sha256):
+    locator = (
+        archive
+        if archive.startswith("https://")
+        else os.path.relpath(Path(archive).resolve(), app.resolve())
+    )
     run(
         f"modules-add-{app.name}",
-        [cli, "modules", "add", SDK, ARCHIVE],
+        [cli, "modules", "add", SDK, archive],
         app,
         env,
-        marker=f"added {SDK} (sha256:{SHA256})",
+        marker=f"added {SDK} (sha256:{sha256})",
     )
     manifest = (app / "rinzu.toml").read_text().splitlines()
-    assert f'"{SDK}" = {{ archive = "{ARCHIVE}" }}' in manifest, manifest
+    assert f'"{SDK}" = {{ archive = "{locator}" }}' in manifest, manifest
     lock_path = app / "rinzu.modules.lock"
     lock = json.loads(lock_path.read_text())
     package = next(package for package in lock["packages"] if package["name"] == SDK)
     pin = package["source"]["archive"]
-    assert pin["locator"] == ARCHIVE and pin["sha256"] == SHA256, pin
-    stored = app / f"modules/store/sha256/{SHA256}/package"
+    assert pin["locator"] == locator and pin["sha256"] == sha256, pin
+    stored = app / f"modules/store/sha256/{sha256}/package"
     assert (stored / "native/src/macos.m").is_file(), stored
     return lock_path
 
@@ -93,7 +99,13 @@ def verify_relocated_bundle(cli, bundle, executable, expected, scratch, env):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rinzu", type=Path, required=True)
+    parser.add_argument("--archive", help="test a local candidate before publishing it")
+    parser.add_argument("--sha256", help="expected SHA-256 of the candidate archive")
     args = parser.parse_args()
+    if bool(args.archive) != bool(args.sha256):
+        parser.error("provide --archive and --sha256 together")
+    archive = args.archive or ARCHIVE
+    digest = args.sha256 or SHA256
     cli, resources = installed_toolchain(args.rinzu)
     if (resources / "sdk/rinzu.macos").exists():
         raise ValueError(
@@ -115,7 +127,7 @@ def main():
             expected=1,
             marker="SDK package `rinzu.macos` is not a declared dependency",
         )
-        lock_path = add_module(cli, probe, env)
+        lock_path = add_module(cli, probe, env, archive, digest)
         lock = lock_path.read_bytes()
         shutil.rmtree(probe / "modules")
         run(
@@ -130,7 +142,7 @@ def main():
         def check_sample(manifest):
             app = apps / manifest.parent.name
             stage_app(manifest.parent, app)
-            add_module(cli, app, env)
+            add_module(cli, app, env, archive, digest)
             run(f"check-{app.name}", [cli, "check", app], scratch, env)
 
         with ThreadPoolExecutor(max_workers=4) as executor:
