@@ -2266,7 +2266,8 @@ int32_t rinzu_macos_command_compute(void *raw, void *pipeline_raw) {
     }
   }
 }
-int32_t rinzu_macos_command_render(void *raw, void *view_raw, const struct MacColor *clear) {
+static int32_t begin_surface_render(void *raw, void *view_raw, const struct MacColor *clear,
+                                    int64_t width, int64_t height, BOOL matching) {
   @autoreleasepool {
     @try {
       RZMacCommand *command = (RZMacCommand *)lookup(raw, RZ_COMMAND);
@@ -2278,6 +2279,8 @@ int32_t rinzu_macos_command_render(void *raw, void *view_raw, const struct MacCo
       if (view.device != command.device || !clear || !isfinite(clear->red) ||
           !isfinite(clear->green) || !isfinite(clear->blue) || !isfinite(clear->alpha))
         return fail(RZ_ARGUMENT, @"invalid surface, Device or clear color");
+      if (matching && (width < 1 || height < 1 || width > 32768 || height > 32768))
+        return fail(RZ_ARGUMENT, @"invalid expected drawable size");
       if (view.leases)
         return fail(RZ_BUSY, @"surface already has an unfinished command");
       if (!view.view.window || !view.view.window.visible || view.view.hidden ||
@@ -2289,6 +2292,11 @@ int32_t rinzu_macos_command_render(void *raw, void *view_raw, const struct MacCo
       id<CAMetalDrawable> drawable = [layer nextDrawable];
       if (!drawable)
         return fail(RZ_NO_DRAWABLE, @"Metal drawable is temporarily unavailable");
+      // A queued frame can outlive a resize. Reject before command/lease admission,
+      // so its caller can obtain fresh geometry without encoding a stale scissor.
+      if (matching && (drawable.texture.width != (NSUInteger)width ||
+                       drawable.texture.height != (NSUInteger)height))
+        return fail(RZ_NO_DRAWABLE, @"drawable geometry changed before render admission");
       int32_t status = begin_command(command);
       if (status)
         return status;
@@ -2313,6 +2321,13 @@ int32_t rinzu_macos_command_render(void *raw, void *view_raw, const struct MacCo
       return caught(exception);
     }
   }
+}
+int32_t rinzu_macos_command_render(void *raw, void *view_raw, const struct MacColor *clear) {
+  return begin_surface_render(raw, view_raw, clear, 0, 0, NO);
+}
+int32_t rinzu_macos_command_render_matching(void *raw, void *view_raw, const struct MacColor *clear,
+                                            int64_t width, int64_t height) {
+  return begin_surface_render(raw, view_raw, clear, width, height, YES);
 }
 int32_t rinzu_macos_command_pipeline(void *raw, void *pipeline_raw) {
   @autoreleasepool {

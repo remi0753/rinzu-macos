@@ -11,7 +11,7 @@ static BOOL fixture_visible;
 }
 @end
 
-static void *session, *surface, *root, *frame_clock;
+static void *session, *device, *surface, *root, *frame_clock;
 static int64_t token;
 static int phase;
 static double entered;
@@ -30,6 +30,23 @@ static void finish(int expected) {
   assert(rinzu_macos_frame_take(frame_clock, token, &info) == expected);
   if (expected)
     assert(info.width > 0 && info.height > 0 && info.sequence > 0 && info.scale >= 1);
+  if (expected && phase == 1 && !fixture_visible) {
+    void *command = rinzu_macos_command(rinzu_macos_command_create(device));
+    struct MacColor clear = {0, 0, 0, 1};
+    assert(rinzu_macos_command_render_matching(command, surface, &clear, 0, info.height) ==
+           RZ_ARGUMENT);
+    assert(rinzu_macos_command_render_matching(command, surface, &clear, info.width + 1,
+                                               info.height) == RZ_NO_DRAWABLE);
+    RZMacCommand *state = (RZMacCommand *)lookup(command, RZ_COMMAND);
+    RZMacView *view = (RZMacView *)lookup(surface, RZ_VIEW);
+    assert(!state.state && !state.command && !state.drawable && !view.leases);
+    assert(rinzu_macos_command_render_matching(command, surface, &clear, info.width, info.height) ==
+           0);
+    assert(rinzu_macos_command_state(command) == 1 && view.leases == 1);
+    assert(rinzu_macos_command_abandon(command) == 0 && !view.leases);
+    assert(rinzu_macos_command_destroy(command) == 0);
+    puts("PASS:frames:stale-drawable:idle-unleased:matching-abandon");
+  }
   assert(rinzu_macos_frame_finish(frame_clock, token) == 0);
   assert(!rinzu_macos_frame_wait_owned(frame_clock, token));
 }
@@ -47,7 +64,7 @@ int main(int argc, const char **argv) {
     session = rinzu_macos_session(rinzu_macos_open());
     if (!rinzu_macos_metal_available())
       return 77;
-    void *device = rinzu_macos_device(rinzu_macos_device_create(session));
+    device = rinzu_macos_device(rinzu_macos_device_create(session));
     void *window = rinzu_macos_window(
         rinzu_macos_window_create(session, (const uint8_t *)"Frame frame_clock", 11, 320, 180));
     if (fixture_visible)

@@ -4,12 +4,12 @@ AppKit, CoreText, and Metal SDK for Rinzu on Apple Silicon. It provides native w
 
 ## Install
 
-Use a macOS arm64 Rinzu toolchain with native SDK archive support. Run GUI applications from a desktop session. [v0.1.1 release](https://github.com/remi0753/rinzu-macos/releases/tag/v0.1.1)
+Use a macOS arm64 Rinzu toolchain with native SDK archive support. Run GUI applications from a desktop session. [v0.1.2 release](https://github.com/remi0753/rinzu-macos/releases/tag/v0.1.2)
 
 From your application directory, register the module and refresh the native build lock.
 
 ```sh
-rinzu modules add rinzu.macos https://github.com/remi0753/rinzu-macos/releases/download/v0.1.1/rinzu-macos-0.1.1.tar.gz
+rinzu modules add rinzu.macos https://github.com/remi0753/rinzu-macos/releases/download/v0.1.2/rinzu-macos-0.1.2.tar.gz
 rinzu lock .
 ```
 
@@ -41,7 +41,7 @@ Metal APIs cover devices, buffers, textures, samplers, pipelines, compute/render
 
 Batch2D preserves draw order and batches compatible texture/filter/clip operations. Low-level coordinates are top-left drawable pixels. The managed canvas uses points with backing scale, and offers explicit pixel mode. Images are decoded/uploaded on Main. Text2D is a reusable shaped-text/texture snapshot; rebuild it when text changes.
 
-Canvas jobs manage a surface, batch, frame waits, and cleanup. Invalidation coalesces requests. Idle/hidden/minimized/occluded views stop their frame timer; unavailable drawables use bounded backoff. FrameClock schedules Main RunLoop deadlines and does not promise display-link synchronization or exact FPS.
+Surface rendering admits only a drawable matching the captured pixel extent. `Command.beginRenderMatching` exposes that check; a size mismatch remains idle and unleased. Canvas jobs manage a surface, batch, frame waits, and cleanup. Invalidation coalesces requests. Idle/hidden/minimized/occluded views stop their frame timer; unavailable drawables use bounded backoff. FrameClock schedules Main RunLoop deadlines and does not promise display-link synchronization or exact FPS.
 
 ## Documents and sheets
 
@@ -61,6 +61,7 @@ Local candidates can be checked before publishing with `test_macos_distribution.
 
 | SDK tag  | Dependency                        | Rinzu                                     | Target      |
 | -------- | --------------------------------- | ----------------------------------------- | ----------- |
+| `v0.1.2` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.1.1` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.1.0` | Published module                  | Toolchain with native SDK archive support | macOS arm64 |
 | `v0.1.0` | SDK checkout                      | Released Rinzu `0.3.0`                    | macOS arm64 |

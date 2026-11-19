@@ -285,6 +285,8 @@ void *rinzu_macos_command(int64_t id);
 int32_t rinzu_macos_command_destroy(void *command);
 int32_t rinzu_macos_command_compute(void *command, void *pipeline);
 int32_t rinzu_macos_command_render(void *command, void *view, const struct MacColor *clear);
+int32_t rinzu_macos_command_render_matching(void *command, void *view, const struct MacColor *clear,
+                                            int64_t width, int64_t height);
 int32_t rinzu_macos_command_render_texture(void *command, void *texture,
                                            const struct MacColor *clear);
 int32_t rinzu_macos_command_viewport(void *command, const struct MacRect *viewport);

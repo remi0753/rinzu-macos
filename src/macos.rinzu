@@ -68,6 +68,15 @@ class Command {
         return checked(Int(rawBeginRender(self.handle, view.handle, clear)), "macos.command.beginRender");
     }
 
+    /// Admit only a drawable matching a previously captured pixel extent.
+    /// A resize mismatch is retryable (-7810); the command remains idle and unleased.
+    fn beginRenderMatching(self: Command, view: View, clear: Color, width: Int, height: Int) -> Int {
+        return checked(
+            Int(rawBeginRenderMatching(self.handle, view.handle, clear, width, height)),
+            "macos.command.beginRenderMatching"
+        );
+    }
+
     fn setRenderPipeline(self: Command, pipeline: RenderPipeline) -> Int {
         return checked(Int(rawSetPipeline(self.handle, pipeline.handle)), "macos.command.renderPipeline");
     }
@@ -1593,6 +1602,9 @@ native {
 
     fn rawBeginRender(command: CommandHandle, view: ViewHandle, clear: Color)
         -> CInt symbol "rinzu_macos_command_render";
+
+    fn rawBeginRenderMatching(command: CommandHandle, view: ViewHandle, clear: Color, width: Int, height: Int)
+        -> CInt symbol "rinzu_macos_command_render_matching";
 
     fn rawSetPipeline(command: CommandHandle, pipeline: RenderPipelineHandle)
         -> CInt symbol "rinzu_macos_command_pipeline";
@@ -3422,7 +3434,7 @@ class Batch2D {
                 self.rendering = true;
                 admitted = true;
             }
-            let begun = self.command.beginRender(surface, clear);
+            let begun = self.command.beginRenderMatching(surface, clear, self.width, self.height);
             let encoded = self.encodeNow(self.command, pixelBGRA8);
             let submitted = self.command.commit();
             return await self.command.wait();
@@ -3632,7 +3644,8 @@ async fn canvasLoop(job: UiJob, canvas: Canvas2D, draw: fn (Frame2D) -> Future<U
                             switch rinzu.list.get(errors, index) {
                                 case Option.None: {}
                                 case Option.Some(problem): {
-                                    if err.code(problem) != Option<Int>.Some(value: -7810) {
+                                    if err.nativeStatus(problem) != Option<Int>.Some(value: -7810)
+                                        && err.code(problem) != Option<Int>.Some(value: -7810) {
                                         throw problem;
                                     }
                                 }

@@ -857,6 +857,21 @@ method · [source](../src/macos.rinzu#L67).
 fn beginRender(self: Command, view: View, clear: Color) -> Int
 ```
 
+## rinzu.macos.Command.beginRenderMatching
+
+Checked type: `fn(Command,View,Color,Int,Int)->Int`.
+
+Error contract: `throws(Error)` (inferred).
+
+method · [source](../src/macos.rinzu#L73).
+
+```rinzu
+fn beginRenderMatching(self: Command, view: View, clear: Color, width: Int, height: Int) -> Int
+```
+
+Admit only a drawable matching a previously captured pixel extent.
+A resize mismatch is retryable (`nativeStatus = -7810`); the command remains idle and unleased.
+
 ## rinzu.macos.Command.beginRenderTexture
 
 Checked type: `fn(Command,Texture,Color)->Int`.

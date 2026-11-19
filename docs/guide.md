@@ -61,7 +61,9 @@ The low-level run handler is synchronous and receives a RunContext containing a 
 
 Data models are bounded: datasets have at most 100000 rows, 32 columns, and 16 MiB of UTF-8 cell data; trees have at most 64 levels. Updates yield during generation and commit the complete model. Serialize competing async updates to one view in application code.
 
-Batch2D preserves draw order while batching compatible texture/filter/clip state. Low-level batch coordinates use drawable pixels; the high-level canvas uses points and backing scale. A FrameClock schedules Main RunLoop deadlines; it does not promise display-link synchronization or exact frame rates.
+Batch2D preserves draw order while batching compatible texture/filter/clip state. Surface rendering checks the captured pixel extent against the admitted drawable; a resize mismatch is retryable and holds no command or surface lease. Canvas2D obtains fresh frame geometry and retries. Low-level callers can use `Command.beginRenderMatching` for the same admission check.
+
+Low-level batch coordinates use drawable pixels; the high-level canvas uses points and backing scale. A FrameClock schedules Main RunLoop deadlines; it does not promise display-link synchronization or exact frame rates.
 
 ## Resource access and application bundles
 

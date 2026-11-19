@@ -516,6 +516,40 @@ def main():
                             )
                         )
                     compare_live_runs("sample-equivalence", runs)
+                    canvas = staged_sdk / "tests/canvas-geometry"
+                    run("canvas-check", [cli, "check", canvas])
+                    run(
+                        "canvas-build",
+                        [cli, "build", canvas, "--output", scratch / "canvas"],
+                    )
+                    runs = []
+                    for backend in ("jit", "aot"):
+                        report = scratch / f"canvas-{backend}.jsonl"
+                        command = (
+                            [
+                                cli,
+                                "run",
+                                canvas,
+                                "--resource-report",
+                                report,
+                                "--resource-interval-ms",
+                                "0",
+                            ]
+                            if backend == "jit"
+                            else [scratch / "canvas"]
+                        )
+                        runs.append(
+                            run(
+                                "canvas-" + backend,
+                                command,
+                                extra={
+                                    "RINZU_RESOURCE_REPORT": str(report),
+                                    "RINZU_RESOURCE_INTERVAL_MS": "0",
+                                },
+                                contains=["CANVAS:geometry-retry:closed"],
+                            )
+                        )
+                    compare_live_runs("canvas-equivalence", runs)
             evidence["passed"] = True
     finally:
         save()
