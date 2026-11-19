@@ -24,10 +24,25 @@ static void *foreign(void *font) {
   @autoreleasepool {
     assert(rinzu_macos_text_layout(font, (const uint8_t *)"x", 1, 0, 0) == RZ_OWNER);
     assert(rinzu_macos_font_destroy(font) == RZ_OWNER);
+    struct MacFontMetrics face;
+    assert(rinzu_macos_font_metrics(font, &face) == RZ_OWNER);
   }
   return NULL;
 }
 static void measure(void *session, void *font) {
+  struct MacFontMetrics face;
+  assert(rinzu_macos_font_metrics(font, &face) == 0);
+  assert(face.ascent > 0 && face.descent >= 0 && face.leading >= 0 && face.underlineThickness > 0 &&
+         face.unitsPerEm > 0);
+  assert(rinzu_macos_font_metrics(font, NULL) == RZ_ARGUMENT);
+  assert(rinzu_macos_font_metrics(session, &face) == RZ_INVALID);
+  void *large = rinzu_macos_font(rinzu_macos_font_create(session, NULL, 0, 36, 0));
+  struct MacFontMetrics doubled;
+  assert(rinzu_macos_font_metrics(large, &doubled) == 0);
+  assert(doubled.ascent > face.ascent * 1.5 &&
+         doubled.underlineThickness > face.underlineThickness);
+  assert(rinzu_macos_font_destroy(large) == 0);
+
   void *empty = layout(font, "", 0, 0);
   struct MacTextMetrics e = metrics(empty);
   assert(e.width == 0 && e.lines == 1);

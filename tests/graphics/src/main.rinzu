@@ -13,6 +13,83 @@ fn expect(texture: rinzu.macos.Texture, x: Int, y: Int, expected: ByteArray) {
     }
 }
 
+async fn alphaMasks(session: rinzu.macos.Session, device: rinzu.macos.Device) throws(Error) {
+    let font = session.font("Menlo", 13.0, false);
+    try {
+        let metrics = font.metrics();
+        if metrics.ascent <= 0.0 || metrics.underlineThickness <= 0.0 || metrics.unitsPerEm <= 0 {
+            rinzu.core.panic("invalid face metrics");
+        }
+    }
+    finally {
+        let fontRetired = font.destroy();
+    }
+    let mask = device.texture2D(2, 2, rinzu.macos.pixelAlpha8, rinzu.macos.textureSampled);
+    try {
+        let all = rinzu.macos.Scissor(x: 0, y: 0, width: 2, height: 2);
+        let uploaded = mask.write(all, 3, bytesApi.from(b"\xff\x80\x63\x00\x40"));
+        let info = mask.info();
+        if info.bytes != 4 || mask.read(all) != bytesApi.from(b"\xff\x80\x00\x40") {
+            rinzu.core.panic("one-byte texture stride or accounting mismatch");
+        }
+        let target = device.texture2D(2, 2, rinzu.macos.pixelRGBA8, rinzu.macos.textureRenderTarget);
+        try {
+            let batch = device.batch2D(1);
+            try {
+                batch.reset(2, 2);
+                batch.setFilter(rinzu.macos.filterNearest);
+                batch.image(
+                    mask,
+                    rinzu.macos.Rect(x: 0.0, y: 0.0, width: 2.0, height: 2.0),
+                    rinzu.macos.Color(red: 1.0, green: 0.0, blue: 1.0, alpha: 1.0)
+                );
+                let drawn = await batch.renderTexture(
+                    target,
+                    rinzu.macos.Color(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0)
+                );
+                expect(target, 0, 0, bytesApi.from(b"\xff\x00\xff\xff"));
+                expect(target, 1, 0, bytesApi.from(b"\x80\x00\x80\xff"));
+                expect(target, 0, 1, bytesApi.from(b"\x00\x00\x00\xff"));
+                expect(target, 1, 1, bytesApi.from(b"\x40\x00\x40\xff"));
+                let channel = target.readChannel(all, 1);
+                if channel != bytesApi.from(b"\x00\x00\x00\x00") {
+                    rinzu.core.panic("stored channel read mismatch");
+                }
+                let begun = batch.command.beginRenderTexture(
+                    target,
+                    rinzu.macos.Color(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0)
+                );
+                try {
+                    let encoded = batch.encode(batch.command, rinzu.macos.pixelRGBA8);
+                    var rejected = false;
+                    try {
+                        let unavailable = mask.readChannel(all, 0);
+                    }
+                    catch errors {
+                        rejected = true;
+                    }
+                    if !rejected {
+                        rinzu.core.panic("leased alpha texture was readable");
+                    }
+                }
+                finally {
+                    let abandoned = batch.command.abandon();
+                }
+            }
+            finally {
+                batch.destroy();
+            }
+        }
+        finally {
+            let targetRetired = target.destroy();
+        }
+    }
+    finally {
+        let maskRetired = mask.destroy();
+    }
+    rinzu.stdio.writeLine("GRAPHICS:alpha8:one-byte:coverage:channel:metrics:lease");
+}
+
 async fn pixels(device: rinzu.macos.Device) {
     let batch = device.batch2D(8);
     let target = device.texture2D(8, 8, rinzu.macos.pixelRGBA8, rinzu.macos.textureRenderTarget);
@@ -194,6 +271,7 @@ async fn exercise() {
             let session = rinzu.macos.open();
             let device = session.device();
             if mode == "pixels" {
+                await alphaMasks(session, device);
                 await pixels(device);
             }
             else if mode == "cancel" {

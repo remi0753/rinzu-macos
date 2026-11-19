@@ -26,6 +26,10 @@ struct MacQuad2D {
 struct MacScissor {
   int64_t x, y, width, height;
 };
+struct MacFontMetrics {
+  double ascent, descent, leading, underlinePosition, underlineThickness;
+  int64_t unitsPerEm;
+};
 struct MacTextMetrics {
   double width, height, baseline, ascent, descent, leading;
   double left, top, rasterWidth, rasterHeight;
@@ -230,6 +234,8 @@ int32_t rinzu_macos_texture_info(void *texture, struct MacTextureInfo *output);
 int32_t rinzu_macos_texture_write(void *texture, const struct MacScissor *region, int64_t row_bytes,
                                   const uint8_t *bytes, size_t length);
 int32_t rinzu_macos_texture_read(void *texture, const struct MacScissor *region);
+int32_t rinzu_macos_texture_read_channel(void *texture, const struct MacScissor *region,
+                                         int64_t channel);
 const rinzu_native_byte_array_t *rinzu_macos_texture_bytes(void *texture);
 int32_t rinzu_macos_texture_destroy(void *texture);
 int64_t rinzu_macos_sampler_create(void *device, int64_t filter, int64_t address);
@@ -240,6 +246,7 @@ int32_t rinzu_macos_surface_size(void *view, struct MacRect *output);
 int64_t rinzu_macos_font_create(void *session, const uint8_t *name, size_t length, double size,
                                 _Bool bold);
 void *rinzu_macos_font(int64_t id);
+int32_t rinzu_macos_font_metrics(void *font, struct MacFontMetrics *output);
 int32_t rinzu_macos_font_destroy(void *font);
 int64_t rinzu_macos_text_layout(void *font, const uint8_t *text, size_t length, double width,
                                 int64_t alignment);

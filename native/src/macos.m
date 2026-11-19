@@ -940,7 +940,8 @@ int32_t rinzu_macos_statistics(struct MacStatistics *output) {
       case RZ_TEXTURE: {
         RZMacTexture *texture = (RZMacTexture *)handle;
         ++output->textures;
-        output->textureBytes += (int64_t)(texture.texture.width * texture.texture.height * 4);
+        output->textureBytes += (int64_t)(texture.texture.width * texture.texture.height *
+                                          (texture.format >= 3 ? 1 : 4));
         output->snapshotBytes += (int64_t)texture.readback.length;
         break;
       }
@@ -2122,7 +2123,7 @@ int64_t rinzu_macos_render_pipeline_options(void *raw, const uint8_t *vertex, si
         return missing();
       if (!accepting(library))
         return fail(RZ_BUSY, @"Session is closing");
-      if ((format != 1 && format != 2) || blend < 0 || blend > 2)
+      if ((format < 1 || format > 3) || blend < 0 || blend > 2)
         return fail(RZ_ARGUMENT, @"invalid pipeline pixel format or blend mode");
       NSString *vertex_name = text(vertex, vertex_length),
                *fragment_name = text(fragment, fragment_length);
@@ -2136,7 +2137,9 @@ int64_t rinzu_macos_render_pipeline_options(void *raw, const uint8_t *vertex, si
       if (!descriptor.vertexFunction || !descriptor.fragmentFunction)
         return fail(RZ_SHADER, @"render function was not found");
       MTLRenderPipelineColorAttachmentDescriptor *color = descriptor.colorAttachments[0];
-      color.pixelFormat = format == 1 ? MTLPixelFormatRGBA8Unorm : MTLPixelFormatBGRA8Unorm;
+      color.pixelFormat = format == 3   ? MTLPixelFormatR8Unorm
+                          : format == 1 ? MTLPixelFormatRGBA8Unorm
+                                        : MTLPixelFormatBGRA8Unorm;
       if (blend) {
         color.blendingEnabled = YES;
         color.sourceRGBBlendFactor = blend == 1 ? MTLBlendFactorOne : MTLBlendFactorSourceAlpha;
@@ -3967,7 +3970,7 @@ int32_t rinzu_macos_scroll_rect(void *raw, struct MacRect *output) {
   }
 }
 
-// Single-level, four-byte unorm textures. Shared storage is coherent on the
+// Single-level one/four-byte unorm textures. Shared storage is coherent on the
 // macOS arm64 devices supported by this SDK; CPU access still requires no leases.
 static BOOL texture_size(int64_t width, int64_t height) {
   return width > 0 && height > 0 && width <= 8192 && height <= 8192 &&
@@ -3975,18 +3978,23 @@ static BOOL texture_size(int64_t width, int64_t height) {
 }
 static RZMacTexture *new_texture(RZMacDevice *device, int64_t width, int64_t height, int64_t format,
                                  int64_t usage) {
-  if (!texture_size(width, height) || (format != 1 && format != 2) || usage < 1 || usage > 7 ||
-      (format == 2 && (usage & 4))) {
+  if (width < 1 || height < 1 || width > 8192 || height > 8192 || format < 1 || format > 4 ||
+      (uint64_t)width * (uint64_t)height > RZ_BUFFER_LIMIT / (format >= 3 ? 1 : 4) || usage < 1 ||
+      usage > 7 || (format == 2 && (usage & 4)) || (format == 4 && (usage & 2))) {
     fail(RZ_ARGUMENT, @"invalid texture dimensions (1..8192), format or usage");
     return nil;
   }
   MTLTextureDescriptor *descriptor = [MTLTextureDescriptor
-      texture2DDescriptorWithPixelFormat:format == 1 ? MTLPixelFormatRGBA8Unorm
-                                                     : MTLPixelFormatBGRA8Unorm
+      texture2DDescriptorWithPixelFormat:format >= 3   ? MTLPixelFormatR8Unorm
+                                         : format == 1 ? MTLPixelFormatRGBA8Unorm
+                                                       : MTLPixelFormatBGRA8Unorm
                                    width:(NSUInteger)width
                                   height:(NSUInteger)height
                                mipmapped:NO];
   descriptor.storageMode = MTLStorageModeShared;
+  if (format == 4)
+    descriptor.swizzle = MTLTextureSwizzleChannelsMake(MTLTextureSwizzleRed, MTLTextureSwizzleRed,
+                                                       MTLTextureSwizzleRed, MTLTextureSwizzleRed);
   descriptor.usage = (usage & 1 ? MTLTextureUsageShaderRead : 0) |
                      (usage & 2 ? MTLTextureUsageRenderTarget : 0) |
                      (usage & 4 ? MTLTextureUsageShaderWrite : 0);
@@ -4056,7 +4064,8 @@ int32_t rinzu_macos_texture_info(void *raw, struct MacTextureInfo *output) {
       return fail(RZ_ARGUMENT, @"missing texture info output");
     *output = (struct MacTextureInfo){
         (int64_t)texture.texture.width, (int64_t)texture.texture.height, texture.format,
-        texture.usage, (int64_t)(texture.texture.width * texture.texture.height * 4)};
+        texture.usage,
+        (int64_t)(texture.texture.width * texture.texture.height * (texture.format >= 3 ? 1 : 4))};
     return 0;
   }
 }
@@ -4078,9 +4087,10 @@ int32_t rinzu_macos_texture_write(void *raw, const struct MacScissor *region, in
         return missing();
       if (texture.leases)
         return fail(RZ_BUSY, @"texture is leased by a command");
-      if (!texture_region(texture, region) || row_bytes < region->width * 4 ||
-          row_bytes > RZ_BUFFER_LIMIT || row_bytes % 4 || !bytes ||
-          (uint64_t)row_bytes * (uint64_t)(region->height - 1) + (uint64_t)region->width * 4 >
+      int64_t bpp = texture.format >= 3 ? 1 : 4;
+      if (!texture_region(texture, region) || row_bytes < region->width * bpp ||
+          row_bytes > RZ_BUFFER_LIMIT || row_bytes % bpp || !bytes ||
+          (uint64_t)row_bytes * (uint64_t)(region->height - 1) + (uint64_t)region->width * bpp >
               length)
         return fail(RZ_ARGUMENT, @"invalid texture region, row stride or upload bytes");
       [texture.texture replaceRegion:metal_region(region)
@@ -4105,7 +4115,7 @@ int32_t rinzu_macos_texture_read(void *raw, const struct MacScissor *region) {
         return fail(RZ_BUSY, @"texture is leased by a command");
       if (!texture_region(texture, region))
         return fail(RZ_ARGUMENT, @"invalid texture read region");
-      NSUInteger stride = (NSUInteger)region->width * 4;
+      NSUInteger stride = (NSUInteger)region->width * (texture.format >= 3 ? 1 : 4);
       NSMutableData *bytes = [NSMutableData dataWithLength:stride * (NSUInteger)region->height];
       if (!bytes)
         _Exit(70);
@@ -4113,6 +4123,35 @@ int32_t rinzu_macos_texture_read(void *raw, const struct MacScissor *region) {
                     bytesPerRow:stride
                      fromRegion:metal_region(region)
                     mipmapLevel:0];
+      texture.readback = bytes;
+      texture->snapshot = (rinzu_native_byte_array_t){(uint8_t *)bytes.bytes, bytes.length};
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+int32_t rinzu_macos_texture_read_channel(void *raw, const struct MacScissor *region,
+                                         int64_t channel) {
+  @autoreleasepool {
+    @try {
+      RZMacTexture *texture = (RZMacTexture *)lookup(raw, RZ_TEXTURE);
+      if (!texture)
+        return missing();
+      int64_t bpp = texture.format >= 3 ? 1 : 4;
+      if (channel < 0 || channel >= bpp)
+        return fail(RZ_ARGUMENT, @"invalid stored texture channel");
+      int32_t status = rinzu_macos_texture_read(raw, region);
+      if (status || bpp == 1)
+        return status;
+      NSMutableData *bytes =
+          [NSMutableData dataWithLength:(NSUInteger)(region->width * region->height)];
+      if (!bytes)
+        _Exit(70);
+      const uint8_t *source = texture.readback.bytes;
+      uint8_t *destination = bytes.mutableBytes;
+      for (NSUInteger i = 0; i < bytes.length; ++i)
+        destination[i] = source[i * bpp + channel];
       texture.readback = bytes;
       texture->snapshot = (rinzu_native_byte_array_t){(uint8_t *)bytes.bytes, bytes.length};
       return 0;
@@ -4522,6 +4561,22 @@ int64_t rinzu_macos_font_create(void *raw, const uint8_t *bytes, size_t length, 
 void *rinzu_macos_font(int64_t identity) {
   @autoreleasepool {
     return by_id(identity, RZ_FONT);
+  }
+}
+int32_t rinzu_macos_font_metrics(void *raw, struct MacFontMetrics *output) {
+  @autoreleasepool {
+    RZMacFont *font = (RZMacFont *)lookup(raw, RZ_FONT);
+    if (!font)
+      return missing();
+    if (!output)
+      return fail(RZ_ARGUMENT, @"missing font metrics output");
+    *output = (struct MacFontMetrics){CTFontGetAscent(font->font),
+                                      CTFontGetDescent(font->font),
+                                      CTFontGetLeading(font->font),
+                                      CTFontGetUnderlinePosition(font->font),
+                                      CTFontGetUnderlineThickness(font->font),
+                                      CTFontGetUnitsPerEm(font->font)};
+    return 0;
   }
 }
 int32_t rinzu_macos_font_destroy(void *raw) {

@@ -222,7 +222,8 @@ class Device {
         return checked(Int(rawDeviceDestroy(self.handle)), "macos.device.destroy");
     }
 
-    /// Single-level RGBA8 / BGRA8 unorm texture. Usage is a sum of distinct flags.
+    /// Single-level RGBA8, BGRA8, R8 or Alpha8 unorm storage. Usage combines distinct flags.
+    /// Alpha8 samples coverage as (a,a,a,a); it supports sampled/storage usage, not render targets.
     fn texture2D(self: Device, width: Int, height: Int, format: Int, usage: Int) -> Texture {
         return Texture(
             handle: rawTexture(checked(rawTextureCreate(self.handle, width, height, format, usage), "macos.texture2D"))
@@ -351,6 +352,20 @@ class Font {
                 )
             )
         );
+    }
+
+    /// Unrounded CoreText face metrics in logical font points.
+    fn metrics(self: Font) -> FontMetrics {
+        let output = FontMetrics(
+            ascent: 0.0,
+            descent: 0.0,
+            leading: 0.0,
+            underlinePosition: 0.0,
+            underlineThickness: 0.0,
+            unitsPerEm: 0
+        );
+        let status = checked(Int(rawFontMetrics(self.handle, output)), "macos.font.metrics");
+        return output;
     }
 
     fn destroy(self: Font) -> Int {
@@ -729,6 +744,12 @@ class Texture {
         return rawTextureBytes(self.handle);
     }
 
+    /// One stored byte channel (0..3 for RGBA/BGRA, 0 for R8/Alpha8), tightly packed.
+    fn readChannel(self: Texture, region: Scissor, channel: Int) -> ByteArray {
+        let status = checked(Int(rawTextureReadChannel(self.handle, region, channel)), "macos.texture.readChannel");
+        return rawTextureBytes(self.handle);
+    }
+
     fn destroy(self: Texture) -> Int {
         return checked(Int(rawTextureDestroy(self.handle)), "macos.texture.destroy");
     }
@@ -1054,6 +1075,15 @@ native {
         visible: CBool,
         animating: CBool,
         stopped: CBool
+    }
+
+    record FontMetrics {
+        ascent: Float,
+        descent: Float,
+        leading: Float,
+        underlinePosition: Float,
+        underlineThickness: Float,
+        unitsPerEm: Int
     }
 
     record TextMetrics {
@@ -1490,6 +1520,8 @@ native {
 
     fn rawFont(id: Int) -> FontHandle symbol "rinzu_macos_font";
 
+    fn rawFontMetrics(font: FontHandle, output: FontMetrics) -> CInt symbol "rinzu_macos_font_metrics";
+
     fn rawFontDestroy(font: FontHandle) -> CInt symbol "rinzu_macos_font_destroy";
 
     fn rawTextCreate(font: FontHandle, text: ByteArray, length: CSize, width: Float, alignment: Int)
@@ -1519,6 +1551,9 @@ native {
         -> CInt symbol "rinzu_macos_texture_write";
 
     fn rawTextureRead(texture: TextureHandle, region: Scissor) -> CInt symbol "rinzu_macos_texture_read";
+
+    fn rawTextureReadChannel(texture: TextureHandle, region: Scissor, channel: Int)
+        -> CInt symbol "rinzu_macos_texture_read_channel";
 
     fn rawTextureBytes(texture: TextureHandle) -> ByteArray symbol "rinzu_macos_texture_bytes";
 
@@ -3135,6 +3170,12 @@ let pixelRGBA8 = 1;
 
 let pixelBGRA8 = 2;
 
+/// Single stored R8Unorm channel, sampled as (r, 0, 0, 1).
+let pixelR8 = 3;
+
+/// R8Unorm coverage, sampled as (a, a, a, a) for premultiplied composition.
+let pixelAlpha8 = 4;
+
 let textureSampled = 1;
 
 let textureRenderTarget = 2;
@@ -3166,6 +3207,8 @@ export Transform2D;
 export Scissor;
 export pixelRGBA8;
 export pixelBGRA8;
+export pixelR8;
+export pixelAlpha8;
 export textureSampled;
 export textureRenderTarget;
 export textureStorage;
@@ -3538,6 +3581,7 @@ let textRight = 2;
 export Font;
 export TextLayout;
 export TextMetrics;
+export FontMetrics;
 export Text2D;
 export textLeft;
 export textCenter;

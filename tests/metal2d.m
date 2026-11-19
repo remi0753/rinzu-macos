@@ -51,7 +51,47 @@ static void *wrong_thread(void *raw) {
   }
   return NULL;
 }
+static void mask_transfer(void *device) {
+  const uint8_t padded[] = {0, 64, 99, 128, 255};
+  struct MacScissor all = {0, 0, 2, 2};
+  struct MacTextureInfo info;
+  for (int format = 3; format <= 4; ++format) {
+    void *mask = texture(device, 2, 2, format, 1);
+    assert(rinzu_macos_texture_info(mask, &info) == 0 && info.bytes == 4 && info.format == format);
+    assert(rinzu_macos_texture_write(mask, &all, 3, padded, sizeof(padded)) == 0);
+    assert(rinzu_macos_texture_read(mask, &all) == 0);
+    const rinzu_native_byte_array_t *bytes = rinzu_macos_texture_bytes(mask);
+    const uint8_t expected[] = {0, 64, 128, 255};
+    assert(bytes->length == 4 && !memcmp(bytes->data, expected, 4));
+    assert(rinzu_macos_texture_read_channel(mask, &all, 0) == 0);
+    assert(rinzu_macos_texture_read_channel(mask, &all, 1) == RZ_ARGUMENT);
+    assert(rinzu_macos_texture_read_channel(mask, &all, INT64_MAX) == RZ_ARGUMENT);
+    assert(rinzu_macos_texture_write(mask, &all, 1, padded, sizeof(padded)) == RZ_ARGUMENT);
+    RZMacTexture *object = (RZMacTexture *)lookup(mask, RZ_TEXTURE);
+    assert(object.texture.pixelFormat == MTLPixelFormatR8Unorm);
+    if (format == 4) {
+      MTLTextureSwizzleChannels s = object.texture.swizzle;
+      assert(s.red == MTLTextureSwizzleRed && s.green == MTLTextureSwizzleRed &&
+             s.blue == MTLTextureSwizzleRed && s.alpha == MTLTextureSwizzleRed);
+      assert(rinzu_macos_texture_create(device, 1, 1, 4, 2) == RZ_ARGUMENT);
+    }
+    assert(rinzu_macos_texture_destroy(mask) == 0);
+  }
+  void *rgba = texture(device, 2, 2, 1, 1);
+  const uint8_t pixels[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+  assert(rinzu_macos_texture_write(rgba, &all, 8, pixels, 16) == 0);
+  for (int channel = 0; channel < 4; ++channel) {
+    assert(rinzu_macos_texture_read_channel(rgba, &all, channel) == 0);
+    const rinzu_native_byte_array_t *bytes = rinzu_macos_texture_bytes(rgba);
+    assert(bytes->length == 4);
+    for (int i = 0; i < 4; ++i)
+      assert(bytes->data[i] == pixels[i * 4 + channel]);
+  }
+  assert(rinzu_macos_texture_destroy(rgba) == 0);
+  puts("PASS:metal2d-r8:alpha8:channel:stride:bounds");
+}
 static void transfer(void *session, void *device) {
+  mask_transfer(device);
   assert(rinzu_macos_texture_create(device, 8193, 1, 1, 1) == RZ_ARGUMENT);
   assert(rinzu_macos_texture_create(device, INT64_MAX, INT64_MAX, 1, 1) == RZ_ARGUMENT);
   assert(rinzu_macos_texture_create(device, 1, 1, INT64_MAX, 1) == RZ_ARGUMENT);
@@ -243,6 +283,16 @@ static void rendering(void *session, void *device) {
   assert(rinzu_macos_command_abandon(cmd) == 0);
   assert(rinzu_macos_texture_destroy(source) == 0);
   assert(rinzu_macos_sampler_destroy(sampler) == 0);
+  void *r8 = texture(device, 1, 1, 3, 2), *r8pipeline = pipeline(lib, 3, 0);
+  struct MacColor coverage = {0.5, 0, 0, 1};
+  assert(rinzu_macos_command_render_texture(cmd, r8, &coverage) == 0);
+  assert(rinzu_macos_command_pipeline(cmd, r8pipeline) == 0);
+  assert(rinzu_macos_command_commit(cmd) == 0);
+  wait_gpu(cmd);
+  struct MacScissor r8Pixel = {0, 0, 1, 1};
+  assert(rinzu_macos_texture_read(r8, &r8Pixel) == 0);
+  const rinzu_native_byte_array_t *stored = rinzu_macos_texture_bytes(r8);
+  assert(stored->length == 1 && stored->data[0] == 128);
   puts("PASS:metal2d-render:typed-quad:blend:viewport:scissor:feedback:leases:abandon");
 }
 static void compute(void *device) {

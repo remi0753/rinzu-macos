@@ -65,6 +65,25 @@ Batch2D preserves draw order while batching compatible texture/filter/clip state
 
 Low-level batch coordinates use drawable pixels; the high-level canvas uses points and backing scale. A FrameClock schedules Main RunLoop deadlines; it does not promise display-link synchronization or exact frame rates.
 
+## One-channel images and font metrics
+
+`pixelR8` stores one byte per pixel and samples the standard Metal red channel.
+`pixelAlpha8` also uses R8Unorm storage and samples coverage as `(a,a,a,a)`.
+The alpha format works with ordinary premultiplied `Batch2D.imageRegion` tinting;
+it supports sampled/storage usage, while custom R8 render targets use `pixelR8`.
+`Texture.info().bytes` and native texture statistics count one byte per R8/Alpha8
+pixel and four bytes per RGBA8/BGRA8 pixel. Upload stride and readback use that
+stored channel count; an R8 row need not have four-byte alignment.
+
+`Texture.readChannel(region, channel)` returns one tightly packed stored byte
+channel as owned bytes. Indices follow storage order: RGBA and BGRA each allow
+0 through 3, while R8 and Alpha8 allow only 0. Reads and uploads require no GPU
+lease. Sampling swizzles do not change stored bytes or channel indices.
+
+`Font.metrics()` returns unrounded CoreText ascent, descent, leading, underline
+position and thickness in logical font points, plus the face's units per em.
+Applications choose their own layout grid, shaping policy and cache identity.
+
 ## Resource access and application bundles
 
 Create `macos-app.json` in an application package:
