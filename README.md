@@ -4,12 +4,12 @@ AppKit, CoreText, and Metal SDK for Rinzu on Apple Silicon. It provides native w
 
 ## Install
 
-Use a macOS arm64 Rinzu toolchain with native SDK archive support. Run GUI applications from a desktop session. [v0.1.3 release](https://github.com/remi0753/rinzu-macos/releases/tag/v0.1.3)
+Use a macOS arm64 Rinzu toolchain with native SDK archive support. Run GUI applications from a desktop session. [v0.1.4 release](https://github.com/remi0753/rinzu-macos/releases/tag/v0.1.4)
 
 From your application directory, register the module and refresh the native build lock.
 
 ```sh
-rinzu modules add rinzu.macos https://github.com/remi0753/rinzu-macos/releases/download/v0.1.3/rinzu-macos-0.1.3.tar.gz
+rinzu modules add rinzu.macos https://github.com/remi0753/rinzu-macos/releases/download/v0.1.4/rinzu-macos-0.1.4.tar.gz
 rinzu lock .
 ```
 
@@ -29,7 +29,10 @@ The low-level run handler has type fn(RunContext,Event)->Unit. RunContext is a l
 
 ## Controls and events
 
-The SDK includes labels, buttons, text fields/views, menus, checkboxes, layout helpers, accessibility, tooltips, themes, focus/scroll state, and owned window events. Keep application save/close policies in managed handlers. Programmatic state updates do not automatically reproduce user events.
+The SDK includes labels, buttons, text fields/views, menus, checkboxes, layout helpers, accessibility, tooltips, themes, focus/scroll state, and owned window events. `windowOccluded` in `Window.state()` and
+`eventWindowState.flags` reports AppKit occlusion separately from window visibility.
+Occlusion-only transitions emit a state event, so applications can stop their own
+work without polling. Keep application save/close policies in managed handlers. Programmatic state updates do not automatically reproduce user events.
 
 Native views and Metal surfaces report raw key-down and key-up events. `UiEvent.text` owns the event's `NSEvent.characters` as UTF-8, including control characters and NUL. `keyCode` and `modifiers` retain the native values; `flags & keyRepeat` identifies repeats. The existing event queue limits apply to these snapshots. Applications interpret key meaning. Input-method composition is provided by native text controls.
 
@@ -63,6 +66,7 @@ Local candidates can be checked before publishing with `test_macos_distribution.
 
 | SDK tag  | Dependency                        | Rinzu                                     | Target      |
 | -------- | --------------------------------- | ----------------------------------------- | ----------- |
+| `v0.1.4` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.1.3` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.1.2` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.1.1` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |

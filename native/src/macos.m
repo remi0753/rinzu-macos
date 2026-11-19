@@ -439,7 +439,8 @@ static int32_t window_flags(RZMacWindow *window) {
   NSWindow *native = window.window;
   return (native.visible ? 1 : 0) | (native.keyWindow ? 2 : 0) | (native.mainWindow ? 4 : 0) |
          (native.miniaturized ? 8 : 0) | (native.zoomed ? 16 : 0) |
-         ((native.styleMask & NSWindowStyleMaskFullScreen) ? 32 : 0);
+         ((native.styleMask & NSWindowStyleMaskFullScreen) ? 32 : 0) |
+         ((native.occlusionState & NSWindowOcclusionStateVisible) ? 0 : 64);
 }
 static void window_state(RZMacWindow *window) {
   if (!window || window.closed)

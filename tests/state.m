@@ -78,6 +78,29 @@ int main(void) {
                                    assert(rinzu_macos_window_state(window) & 1);
                                    assert(rinzu_macos_window_visibility(window, 1) == 0);
                                    assert(!(rinzu_macos_window_state(window) & 1));
+                                   // A covered window remains visible; the new bit
+                                   // follows AppKit rather than the visible flag.
+                                   RZMacWindow *nativeWindow =
+                                       (RZMacWindow *)lookup(window, RZ_WINDOW);
+                                   assert(!!(rinzu_macos_window_state(window) & 64) ==
+                                          !(nativeWindow.window.occlusionState &
+                                            NSWindowOcclusionStateVisible));
+                                   // Exercise an occlusion-only transition through
+                                   // the real notification delegate/dedup path.
+                                   [owner clearEvents];
+                                   nativeWindow.stateKnown = YES;
+                                   nativeWindow.lastState = window_flags(nativeWindow) ^ 64;
+                                   NSNotification *occlusion = [NSNotification
+                                       notificationWithName:
+                                           NSWindowDidChangeOcclusionStateNotification
+                                                     object:nativeWindow.window];
+                                   [nativeWindow windowDidChangeOcclusionState:occlusion];
+                                   assert(owner->count == 1);
+                                   struct MacEvent changed = owner->events[owner->head];
+                                   assert(changed.kind == RZ_WINDOW_STATE &&
+                                          changed.flags == window_flags(nativeWindow));
+                                   [nativeWindow windowDidChangeOcclusionState:occlusion];
+                                   assert(owner->count == 1);
                                    BOOL hidden = NO;
                                    for (unsigned index = 0; index < owner->count; ++index) {
                                      struct MacEvent event =

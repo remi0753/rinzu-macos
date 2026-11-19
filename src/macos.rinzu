@@ -3091,6 +3091,9 @@ let windowZoomed = 16;
 
 let windowFullScreen = 32;
 
+/// Window has no visible pixels according to AppKit, including occlusion by other windows.
+let windowOccluded = 64;
+
 let scrollPrecise = 1;
 
 let scrollViewport = 2;
@@ -3102,6 +3105,7 @@ export windowMain;
 export windowMinimized;
 export windowZoomed;
 export windowFullScreen;
+export windowOccluded;
 export scrollPrecise;
 export scrollViewport;
 
