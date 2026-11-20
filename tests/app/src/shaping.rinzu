@@ -1,0 +1,65 @@
+import rinzu.macos as macos;
+import rinzu.list;
+import rinzu.number;
+import rinzu.stdio;
+import rinzu.testing;
+
+fn exercise(session: macos.Session) throws(Error) {
+    let catalog = session.fontCatalog();
+    rinzu.testing.assertTrue(rinzu.list.length(catalog.faces) > 10, "owned font catalog");
+    let font = session.font("Menlo-Regular", 13.0, false);
+    try {
+        let italic = font.withTraits(3);
+        let info = italic.info();
+        let retired = italic.destroy();
+        rinzu.testing.assertTrue(
+            rinzu.number.bitAnd(info.traits, 3) == 3 && info.postscriptName != "",
+            "derived font metadata survives its handle"
+        );
+        let texts = ["office ffi", "日本語", "👩🏽‍💻", "🇯🇵", "é", "سلام", "שָׁלוֹם"];
+        let lengths = [10, 3, 7, 4, 2, 4, 7];
+        var index = 0;
+        for text in texts {
+            let line = font.shape(text, true);
+            let shape = line.shaping();
+            let fragment = line.fragment(0, shape.utf16Length);
+            let lineRetired = line.destroy();
+            try {
+                switch rinzu.list.get(lengths, index) {
+                    case Option.Some(length): {
+                        rinzu.testing.assertEqual<Int>(shape.utf16Length, length, "UTF-16 source mapping");
+                    }
+                    case Option.None: {
+                        throw error(1, "missing corpus length");
+                    }
+                }
+                rinzu.testing.assertTrue(
+                    rinzu.list.length(shape.runs) > 0,
+                    "owned run snapshot after layout destruction"
+                );
+                let metrics = fragment.metrics();
+                rinzu.testing.assertTrue(
+                    metrics.baseline == 0.0 && metrics.rasterWidth > 0.0,
+                    "independent shaped fragment"
+                );
+                var rtl = false;
+                for run in shape.runs {
+                    if run.rtl {
+                        rtl = true;
+                    }
+                }
+                rinzu.testing.assertTrue(rtl == (index >= 5), "RTL status is exposed without imposing client ordering");
+            }
+            finally {
+                let fragmentRetired = fragment.destroy();
+            }
+            index = index + 1;
+        }
+    }
+    finally {
+        let fontRetired = font.destroy();
+    }
+    rinzu.stdio.writeLine("SOURCE:shaping-ok:7:owned:styles:utf16");
+}
+
+export exercise;

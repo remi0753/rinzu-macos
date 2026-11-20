@@ -243,6 +243,16 @@ void *rinzu_macos_sampler(int64_t id);
 int32_t rinzu_macos_sampler_destroy(void *sampler);
 int32_t rinzu_macos_rotation2d(double radians, struct MacTransform2D *output);
 int32_t rinzu_macos_surface_size(void *view, struct MacRect *output);
+int32_t rinzu_macos_font_catalog(void *session);
+const rinzu_native_byte_array_t *rinzu_macos_font_catalog_bytes(void *session);
+int32_t rinzu_macos_font_info_snapshot(void *font);
+const rinzu_native_byte_array_t *rinzu_macos_font_info_bytes(void *font);
+int64_t rinzu_macos_font_traits(void *font, int64_t traits);
+int64_t rinzu_macos_font_variation(void *font, int64_t identifier, double value);
+int64_t rinzu_macos_text_shape(void *font, const uint8_t *text, size_t length, _Bool ligatures);
+int32_t rinzu_macos_text_shape_snapshot(void *text);
+const rinzu_native_byte_array_t *rinzu_macos_text_shape_bytes(void *text);
+int64_t rinzu_macos_text_fragment(void *text, int64_t start, int64_t end);
 int64_t rinzu_macos_font_create(void *session, const uint8_t *name, size_t length, double size,
                                 _Bool bold);
 void *rinzu_macos_font(int64_t id);

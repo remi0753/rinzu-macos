@@ -286,9 +286,11 @@ def main():
                     "data": ["model", "tree"],
                     "resources": [""],
                     "text": ["measure"],
+                    "shaping": ["shape"],
                 }
                 if gpu:
                     probes["text"].append("raster")
+                    probes["shaping"].append("raster")
                     probes["metal2d"] = [
                         "transfer",
                         "images",
@@ -337,6 +339,27 @@ def main():
                                 [sanitized, "ui-metal"],
                                 timeout=45,
                             )
+                    shaped = scratch / "shaping-sanitized"
+                    build_probe(
+                        "shaping-sanitizer-build",
+                        "shaping",
+                        shaped,
+                        [
+                            "-O1",
+                            "-g",
+                            "-fsanitize=address,undefined",
+                            "-fno-omit-frame-pointer",
+                        ],
+                    )
+                    run(
+                        "shaping-sanitizer-shape", [shaped, "shape"], contains=["PASS:"]
+                    )
+                    if gpu:
+                        run(
+                            "shaping-sanitizer-raster",
+                            [shaped, "raster"],
+                            contains=["PASS:"],
+                        )
                 if args.tsan:
                     threaded = scratch / "native-tsan"
                     build_probe(
@@ -376,6 +399,8 @@ def main():
                     markers = ["SOURCE:closed"]
                     if mode in ("core", "gpu", "close"):
                         markers.append(f"SOURCE:{mode}-ok")
+                    if mode == "core":
+                        markers.append("SOURCE:shaping-ok:7:owned:styles:utf16")
                     if mode == "callback":
                         markers.append("SOURCE:callback-ok:2:42")
                     runs = []

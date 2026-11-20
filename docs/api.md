@@ -4,11 +4,11 @@ Generated from checked public exports and captured source comments.
 
 Language: `rinzu-0.5` · target: `aarch64-apple-darwin` · semantics: `rinzu-language-0.5-r85`.
 
-[Machine-readable API v4 snapshot](../../../../../../private/tmp/rinzu-mask-opt-dghbdflm/sdk-after.json).
+[Machine-readable API v4 snapshot](api-after.json).
 
 ## rinzu.macos.Batch2D
 
-class · [source](../src/macos.rinzu#L3272).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3340).
 
 ```rinzu
 class Batch2D
@@ -19,7 +19,7 @@ Reset only after the command using its vertex buffer has physically settled.
 
 ### field vertices
 
-[source](../src/macos.rinzu#L3273).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3341).
 
 ```rinzu
 const vertices: Buffer
@@ -27,7 +27,7 @@ const vertices: Buffer
 
 ### field rgba
 
-[source](../src/macos.rinzu#L3274).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3342).
 
 ```rinzu
 const rgba: RenderPipeline
@@ -35,7 +35,7 @@ const rgba: RenderPipeline
 
 ### field bgra
 
-[source](../src/macos.rinzu#L3275).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3343).
 
 ```rinzu
 const bgra: RenderPipeline
@@ -43,7 +43,7 @@ const bgra: RenderPipeline
 
 ### field nearest
 
-[source](../src/macos.rinzu#L3276).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3344).
 
 ```rinzu
 const nearest: Sampler
@@ -51,7 +51,7 @@ const nearest: Sampler
 
 ### field linear
 
-[source](../src/macos.rinzu#L3277).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3345).
 
 ```rinzu
 const linear: Sampler
@@ -59,7 +59,7 @@ const linear: Sampler
 
 ### field white
 
-[source](../src/macos.rinzu#L3278).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3346).
 
 ```rinzu
 const white: Texture
@@ -67,7 +67,7 @@ const white: Texture
 
 ### field command
 
-[source](../src/macos.rinzu#L3279).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3347).
 
 ```rinzu
 const command: Command
@@ -75,7 +75,7 @@ const command: Command
 
 ### field capacity
 
-[source](../src/macos.rinzu#L3280).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3348).
 
 ```rinzu
 const capacity: Int
@@ -83,7 +83,7 @@ const capacity: Int
 
 ### field width
 
-[source](../src/macos.rinzu#L3281).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3349).
 
 ```rinzu
 width: Int
@@ -91,7 +91,7 @@ width: Int
 
 ### field height
 
-[source](../src/macos.rinzu#L3282).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3350).
 
 ```rinzu
 height: Int
@@ -99,7 +99,7 @@ height: Int
 
 ### field count
 
-[source](../src/macos.rinzu#L3283).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3351).
 
 ```rinzu
 count: Int
@@ -107,7 +107,7 @@ count: Int
 
 ### field draws
 
-[source](../src/macos.rinzu#L3284).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3352).
 
 ```rinzu
 draws: List<BatchDraw2D>
@@ -115,7 +115,7 @@ draws: List<BatchDraw2D>
 
 ### field transform
 
-[source](../src/macos.rinzu#L3285).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3353).
 
 ```rinzu
 transform: Transform2D
@@ -123,7 +123,7 @@ transform: Transform2D
 
 ### field clip
 
-[source](../src/macos.rinzu#L3286).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3354).
 
 ```rinzu
 clip: Scissor
@@ -131,7 +131,7 @@ clip: Scissor
 
 ### field filter
 
-[source](../src/macos.rinzu#L3287).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3355).
 
 ```rinzu
 filter: Int
@@ -139,7 +139,7 @@ filter: Int
 
 ### field closed
 
-[source](../src/macos.rinzu#L3288).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3356).
 
 ```rinzu
 closed: Bool
@@ -147,7 +147,7 @@ closed: Bool
 
 ### field rendering
 
-[source](../src/macos.rinzu#L3289).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3357).
 
 ```rinzu
 rendering: Bool
@@ -159,7 +159,7 @@ Checked type: `fn(Batch2D)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3540).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3608).
 
 ```rinzu
 fn destroy(self: Batch2D)
@@ -171,7 +171,7 @@ Checked type: `fn(Batch2D)->Int`.
 
 Error contract: `nothrow` (inferred).
 
-method · [source](../src/macos.rinzu#L3431).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3499).
 
 ```rinzu
 fn drawCallCount(self: Batch2D) -> Int
@@ -183,7 +183,7 @@ Checked type: `fn(Batch2D,Command,Int)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3436).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3504).
 
 ```rinzu
 fn encode(self: Batch2D, command: Command, format: Int) -> Int
@@ -197,7 +197,7 @@ Checked type: `fn(Batch2D,Rect,Color)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3348).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3416).
 
 ```rinzu
 fn fillRect(self: Batch2D, destination: Rect, color: Color)
@@ -209,7 +209,7 @@ Checked type: `fn(Batch2D,Texture,Rect,Color)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3366).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3434).
 
 ```rinzu
 fn image(self: Batch2D, texture: Texture, destination: Rect, tint: Color)
@@ -221,7 +221,7 @@ Checked type: `fn(Batch2D,Texture,Rect,Rect,Color)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3371).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3439).
 
 ```rinzu
 fn imageRegion(self: Batch2D, texture: Texture, destination: Rect, uv: Rect, tint: Color)
@@ -235,7 +235,7 @@ Checked type: `async(Batch2D,View,Color)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3473).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3541).
 
 ```rinzu
 async fn render(self: Batch2D, surface: View, clear: Color) -> Int
@@ -249,7 +249,7 @@ Checked type: `async(Batch2D,Texture,Color)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3506).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3574).
 
 ```rinzu
 async fn renderTexture(self: Batch2D, texture: Texture, clear: Color) -> Int
@@ -261,7 +261,7 @@ Checked type: `fn(Batch2D,Int,Int)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3291).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3359).
 
 ```rinzu
 fn reset(self: Batch2D, width: Int, height: Int)
@@ -273,7 +273,7 @@ Checked type: `fn(Batch2D,Scissor)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3319).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3387).
 
 ```rinzu
 fn setClip(self: Batch2D, clip: Scissor)
@@ -285,7 +285,7 @@ Checked type: `fn(Batch2D,Int)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3337).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3405).
 
 ```rinzu
 fn setFilter(self: Batch2D, filter: Int)
@@ -297,7 +297,7 @@ Checked type: `fn(Batch2D,Transform2D)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3311).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3379).
 
 ```rinzu
 fn setTransform(self: Batch2D, transform: Transform2D)
@@ -309,7 +309,7 @@ Checked type: `fn(Batch2D,Text2D,Float,Float,Color)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3353).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3421).
 
 ```rinzu
 fn text(self: Batch2D, text: Text2D, x: Float, y: Float, tint: Color)
@@ -319,7 +319,7 @@ Coordinates use the current batch transform. TextMetrics uses font points.
 
 ## rinzu.macos.BatchDraw2D
 
-class · [source](../src/macos.rinzu#L3260).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3328).
 
 ```rinzu
 class BatchDraw2D
@@ -329,7 +329,7 @@ A contiguous draw span. Constructed by Batch2D; do not mutate batch storage.
 
 ### field texture
 
-[source](../src/macos.rinzu#L3261).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3329).
 
 ```rinzu
 const texture: Texture
@@ -337,7 +337,7 @@ const texture: Texture
 
 ### field textureId
 
-[source](../src/macos.rinzu#L3262).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3330).
 
 ```rinzu
 const textureId: Int
@@ -345,7 +345,7 @@ const textureId: Int
 
 ### field sampler
 
-[source](../src/macos.rinzu#L3263).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3331).
 
 ```rinzu
 const sampler: Sampler
@@ -353,7 +353,7 @@ const sampler: Sampler
 
 ### field filter
 
-[source](../src/macos.rinzu#L3264).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3332).
 
 ```rinzu
 const filter: Int
@@ -361,7 +361,7 @@ const filter: Int
 
 ### field clip
 
-[source](../src/macos.rinzu#L3265).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3333).
 
 ```rinzu
 const clip: Scissor
@@ -369,7 +369,7 @@ const clip: Scissor
 
 ### field first
 
-[source](../src/macos.rinzu#L3266).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3334).
 
 ```rinzu
 const first: Int
@@ -377,7 +377,7 @@ const first: Int
 
 ### field count
 
-[source](../src/macos.rinzu#L3267).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3335).
 
 ```rinzu
 count: Int
@@ -385,7 +385,7 @@ count: Int
 
 ## rinzu.macos.Buffer
 
-class · [source](../src/macos.rinzu#L12).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L13).
 
 ```rinzu
 class Buffer
@@ -393,7 +393,7 @@ class Buffer
 
 ### field handle
 
-[source](../src/macos.rinzu#L13).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L14).
 
 ```rinzu
 const handle: BufferHandle
@@ -405,7 +405,7 @@ Checked type: `fn(Buffer)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L27).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L28).
 
 ```rinzu
 fn destroy(self: Buffer) -> Int
@@ -417,7 +417,7 @@ Checked type: `fn(Buffer,Int,Int)->ByteArray`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L22).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L23).
 
 ```rinzu
 fn read(self: Buffer, offset: Int, length: Int) -> ByteArray
@@ -429,7 +429,7 @@ Checked type: `fn(Buffer,Int,ByteArray)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L15).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L16).
 
 ```rinzu
 fn write(self: Buffer, offset: Int, bytes: ByteArray) -> Int
@@ -441,7 +441,7 @@ Checked type: `fn(Buffer,Int,Quad2D)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L35).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L36).
 
 ```rinzu
 fn writeQuad2D(self: Buffer, index: Int, quad: Quad2D) -> Int
@@ -453,7 +453,7 @@ Checked type: `fn(Buffer,Int,Vertex2D)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L31).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L32).
 
 ```rinzu
 fn writeVertex2D(self: Buffer, index: Int, vertex: Vertex2D) -> Int
@@ -463,7 +463,7 @@ fn writeVertex2D(self: Buffer, index: Int, vertex: Vertex2D) -> Int
 
 Checked type: `BufferHandle`.
 
-opaque · [source](../src/macos.rinzu#L1014).
+opaque · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1061).
 
 ```rinzu
 opaque BufferHandle;
@@ -471,7 +471,7 @@ opaque BufferHandle;
 
 ## rinzu.macos.Button
 
-class · [source](../src/macos.rinzu#L2631).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2699).
 
 ```rinzu
 class Button
@@ -479,7 +479,7 @@ class Button
 
 ### field view
 
-[source](../src/macos.rinzu#L2632).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2700).
 
 ```rinzu
 const view: View
@@ -491,7 +491,7 @@ Checked type: `fn(Button)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2638).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2706).
 
 ```rinzu
 fn destroy(self: Button) -> Int
@@ -503,7 +503,7 @@ Checked type: `fn(Button)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2634).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2702).
 
 ```rinzu
 fn identity(self: Button) -> Int
@@ -515,7 +515,7 @@ Checked type: `fn(Button,Bool)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2642).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2710).
 
 ```rinzu
 fn setEnabled(self: Button, enabled: Bool) -> Int
@@ -527,7 +527,7 @@ Checked type: `fn(Button,String)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2650).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2718).
 
 ```rinzu
 fn setText(self: Button, value: String) -> Int
@@ -539,7 +539,7 @@ Checked type: `fn(Button)->String`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2646).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2714).
 
 ```rinzu
 fn text(self: Button) -> String
@@ -547,7 +547,7 @@ fn text(self: Button) -> String
 
 ## rinzu.macos.Canvas2D
 
-class · [source](../src/macos.rinzu#L3623).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3691).
 
 ```rinzu
 class Canvas2D
@@ -555,7 +555,7 @@ class Canvas2D
 
 ### field view
 
-[source](../src/macos.rinzu#L3624).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3692).
 
 ```rinzu
 const view: View
@@ -563,7 +563,7 @@ const view: View
 
 ### field clock
 
-[source](../src/macos.rinzu#L3625).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3693).
 
 ```rinzu
 const clock: FrameClock
@@ -571,7 +571,7 @@ const clock: FrameClock
 
 ### field batch
 
-[source](../src/macos.rinzu#L3626).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3694).
 
 ```rinzu
 const batch: Batch2D
@@ -579,7 +579,7 @@ const batch: Batch2D
 
 ### field clear
 
-[source](../src/macos.rinzu#L3627).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3695).
 
 ```rinzu
 clear: Color
@@ -587,7 +587,7 @@ clear: Color
 
 ### field frames
 
-[source](../src/macos.rinzu#L3628).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3696).
 
 ```rinzu
 frames: Int
@@ -595,7 +595,7 @@ frames: Int
 
 ### field drawing
 
-[source](../src/macos.rinzu#L3629).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3697).
 
 ```rinzu
 drawing: Bool
@@ -603,7 +603,7 @@ drawing: Bool
 
 ### field stopped
 
-[source](../src/macos.rinzu#L3630).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3698).
 
 ```rinzu
 stopped: Bool
@@ -611,7 +611,7 @@ stopped: Bool
 
 ### field disposed
 
-[source](../src/macos.rinzu#L3631).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3699).
 
 ```rinzu
 disposed: Bool
@@ -623,7 +623,7 @@ Checked type: `fn(Canvas2D)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3633).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3701).
 
 ```rinzu
 fn invalidate(self: Canvas2D) -> Int
@@ -635,7 +635,7 @@ Checked type: `fn(Canvas2D,Bool)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3640).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3708).
 
 ```rinzu
 fn setAnimating(self: Canvas2D, enabled: Bool) -> Int
@@ -647,7 +647,7 @@ Checked type: `fn(Canvas2D,Color)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3647).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3715).
 
 ```rinzu
 fn setClear(self: Canvas2D, color: Color)
@@ -659,7 +659,7 @@ Checked type: `fn(Canvas2D)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3652).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3720).
 
 ```rinzu
 fn stop(self: Canvas2D)
@@ -667,7 +667,7 @@ fn stop(self: Canvas2D)
 
 ## rinzu.macos.Checkbox
 
-class · [source](../src/macos.rinzu#L2657).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2725).
 
 ```rinzu
 class Checkbox
@@ -675,7 +675,7 @@ class Checkbox
 
 ### field view
 
-[source](../src/macos.rinzu#L2658).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2726).
 
 ```rinzu
 const view: View
@@ -687,7 +687,7 @@ Checked type: `fn(Checkbox)->Bool`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2680).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2748).
 
 ```rinzu
 fn checked(self: Checkbox) -> Bool
@@ -699,7 +699,7 @@ Checked type: `fn(Checkbox)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2664).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2732).
 
 ```rinzu
 fn destroy(self: Checkbox) -> Int
@@ -711,7 +711,7 @@ Checked type: `fn(Checkbox)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2660).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2728).
 
 ```rinzu
 fn identity(self: Checkbox) -> Int
@@ -723,7 +723,7 @@ Checked type: `fn(Checkbox,Bool)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2685).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2753).
 
 ```rinzu
 fn setChecked(self: Checkbox, value: Bool) -> Int
@@ -735,7 +735,7 @@ Checked type: `fn(Checkbox,Bool)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2668).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2736).
 
 ```rinzu
 fn setEnabled(self: Checkbox, enabled: Bool) -> Int
@@ -747,7 +747,7 @@ Checked type: `fn(Checkbox,String)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2676).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2744).
 
 ```rinzu
 fn setText(self: Checkbox, value: String) -> Int
@@ -759,7 +759,7 @@ Checked type: `fn(Checkbox)->String`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2672).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2740).
 
 ```rinzu
 fn text(self: Checkbox) -> String
@@ -769,7 +769,7 @@ fn text(self: Checkbox) -> String
 
 Checked type: `Color`.
 
-native-record · [source](../src/macos.rinzu#L1045).
+native-record · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1092).
 
 ```rinzu
 record Color
@@ -777,7 +777,7 @@ record Color
 
 ### field red
 
-[source](../src/macos.rinzu#L1046).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1093).
 
 ```rinzu
 red: Float
@@ -785,7 +785,7 @@ red: Float
 
 ### field green
 
-[source](../src/macos.rinzu#L1047).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1094).
 
 ```rinzu
 green: Float
@@ -793,7 +793,7 @@ green: Float
 
 ### field blue
 
-[source](../src/macos.rinzu#L1048).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1095).
 
 ```rinzu
 blue: Float
@@ -801,7 +801,7 @@ blue: Float
 
 ### field alpha
 
-[source](../src/macos.rinzu#L1049).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1096).
 
 ```rinzu
 alpha: Float
@@ -809,7 +809,7 @@ alpha: Float
 
 ## rinzu.macos.Command
 
-class · [source](../src/macos.rinzu#L60).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L61).
 
 ```rinzu
 class Command
@@ -817,7 +817,7 @@ class Command
 
 ### field handle
 
-[source](../src/macos.rinzu#L61).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L62).
 
 ```rinzu
 const handle: CommandHandle
@@ -829,7 +829,7 @@ Checked type: `fn(Command)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L117).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L118).
 
 ```rinzu
 fn abandon(self: Command) -> Int
@@ -841,7 +841,7 @@ Checked type: `fn(Command,ComputePipeline)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L63).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L64).
 
 ```rinzu
 fn beginCompute(self: Command, pipeline: ComputePipeline) -> Int
@@ -853,7 +853,7 @@ Checked type: `fn(Command,View,Color)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L67).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L68).
 
 ```rinzu
 fn beginRender(self: Command, view: View, clear: Color) -> Int
@@ -865,7 +865,7 @@ Checked type: `fn(Command,View,Color,Int,Int)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L73).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L74).
 
 ```rinzu
 fn beginRenderMatching(self: Command, view: View, clear: Color, width: Int, height: Int) -> Int
@@ -880,7 +880,7 @@ Checked type: `fn(Command,Texture,Color)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L129).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L130).
 
 ```rinzu
 fn beginRenderTexture(self: Command, texture: Texture, clear: Color) -> Int
@@ -892,7 +892,7 @@ Checked type: `fn(Command)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L113).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L114).
 
 ```rinzu
 fn commit(self: Command) -> Int
@@ -904,7 +904,7 @@ Checked type: `fn(Command)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L125).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L126).
 
 ```rinzu
 fn destroy(self: Command) -> Int
@@ -916,7 +916,7 @@ Checked type: `fn(Command,Int,Int,Int,Int,Int,Int)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L105).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L106).
 
 ```rinzu
 fn dispatch(self: Command, x: Int, y: Int, z: Int, tx: Int, ty: Int, tz: Int) -> Int
@@ -928,7 +928,7 @@ Checked type: `fn(Command,Int,Int)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L109).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L110).
 
 ```rinzu
 fn drawTriangles(self: Command, start: Int, count: Int) -> Int
@@ -940,7 +940,7 @@ Checked type: `fn(Command,Int,Buffer,Int)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L84).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L85).
 
 ```rinzu
 fn setComputeBuffer(self: Command, index: Int, buffer: Buffer, offset: Int) -> Int
@@ -952,7 +952,7 @@ Checked type: `fn(Command,Int,Sampler)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L157).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L158).
 
 ```rinzu
 fn setComputeSampler(self: Command, index: Int, sampler: Sampler) -> Int
@@ -964,7 +964,7 @@ Checked type: `fn(Command,Int,Texture)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L142).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L143).
 
 ```rinzu
 fn setComputeTexture(self: Command, index: Int, texture: Texture) -> Int
@@ -976,7 +976,7 @@ Checked type: `fn(Command,Int,Buffer,Int)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L98).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L99).
 
 ```rinzu
 fn setFragmentBuffer(self: Command, index: Int, buffer: Buffer, offset: Int) -> Int
@@ -988,7 +988,7 @@ Checked type: `fn(Command,Int,Sampler)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L165).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L166).
 
 ```rinzu
 fn setFragmentSampler(self: Command, index: Int, sampler: Sampler) -> Int
@@ -1000,7 +1000,7 @@ Checked type: `fn(Command,Int,Texture)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L150).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L151).
 
 ```rinzu
 fn setFragmentTexture(self: Command, index: Int, texture: Texture) -> Int
@@ -1012,7 +1012,7 @@ Checked type: `fn(Command,RenderPipeline)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L80).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L81).
 
 ```rinzu
 fn setRenderPipeline(self: Command, pipeline: RenderPipeline) -> Int
@@ -1024,7 +1024,7 @@ Checked type: `fn(Command,Scissor)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L138).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L139).
 
 ```rinzu
 fn setScissor(self: Command, scissor: Scissor) -> Int
@@ -1036,7 +1036,7 @@ Checked type: `fn(Command,Int,Buffer,Int)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L91).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L92).
 
 ```rinzu
 fn setVertexBuffer(self: Command, index: Int, buffer: Buffer, offset: Int) -> Int
@@ -1048,7 +1048,7 @@ Checked type: `fn(Command,Int,Sampler)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L161).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L162).
 
 ```rinzu
 fn setVertexSampler(self: Command, index: Int, sampler: Sampler) -> Int
@@ -1060,7 +1060,7 @@ Checked type: `fn(Command,Int,Texture)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L146).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L147).
 
 ```rinzu
 fn setVertexTexture(self: Command, index: Int, texture: Texture) -> Int
@@ -1072,7 +1072,7 @@ Checked type: `fn(Command,Rect)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L134).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L135).
 
 ```rinzu
 fn setViewport(self: Command, viewport: Rect) -> Int
@@ -1086,7 +1086,7 @@ Checked type: `async(Command)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L121).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L122).
 
 ```rinzu
 async fn wait(self: Command) -> Int
@@ -1096,7 +1096,7 @@ async fn wait(self: Command) -> Int
 
 Checked type: `CommandHandle`.
 
-opaque · [source](../src/macos.rinzu#L1032).
+opaque · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1079).
 
 ```rinzu
 opaque CommandHandle;
@@ -1104,7 +1104,7 @@ opaque CommandHandle;
 
 ## rinzu.macos.ComputePipeline
 
-class · [source](../src/macos.rinzu#L173).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L174).
 
 ```rinzu
 class ComputePipeline
@@ -1112,7 +1112,7 @@ class ComputePipeline
 
 ### field handle
 
-[source](../src/macos.rinzu#L174).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L175).
 
 ```rinzu
 const handle: ComputePipelineHandle
@@ -1124,7 +1124,7 @@ Checked type: `fn(ComputePipeline)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L176).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L177).
 
 ```rinzu
 fn destroy(self: ComputePipeline) -> Int
@@ -1134,7 +1134,7 @@ fn destroy(self: ComputePipeline) -> Int
 
 Checked type: `ComputePipelineHandle`.
 
-opaque · [source](../src/macos.rinzu#L1028).
+opaque · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1075).
 
 ```rinzu
 opaque ComputePipelineHandle;
@@ -1142,7 +1142,7 @@ opaque ComputePipelineHandle;
 
 ## rinzu.macos.DataColumn
 
-class · [source](../src/macos.rinzu#L3983).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4051).
 
 ```rinzu
 class DataColumn
@@ -1150,7 +1150,7 @@ class DataColumn
 
 ### field title
 
-[source](../src/macos.rinzu#L3984).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4052).
 
 ```rinzu
 const title: String
@@ -1158,7 +1158,7 @@ const title: String
 
 ### field width
 
-[source](../src/macos.rinzu#L3985).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4053).
 
 ```rinzu
 const width: Float
@@ -1166,7 +1166,7 @@ const width: Float
 
 ### field sortable
 
-[source](../src/macos.rinzu#L3986).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4054).
 
 ```rinzu
 const sortable: Bool
@@ -1174,7 +1174,7 @@ const sortable: Bool
 
 ## rinzu.macos.DataRow
 
-class · [source](../src/macos.rinzu#L3990).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4058).
 
 ```rinzu
 class DataRow
@@ -1184,7 +1184,7 @@ IDs are positive and unique. A tree parent must precede its children; zero is a 
 
 ### field id
 
-[source](../src/macos.rinzu#L3991).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4059).
 
 ```rinzu
 const id: Int
@@ -1192,7 +1192,7 @@ const id: Int
 
 ### field parent
 
-[source](../src/macos.rinzu#L3992).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4060).
 
 ```rinzu
 const parent: Int
@@ -1200,7 +1200,7 @@ const parent: Int
 
 ### field cells
 
-[source](../src/macos.rinzu#L3993).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4061).
 
 ```rinzu
 const cells: List<String>
@@ -1210,7 +1210,7 @@ const cells: List<String>
 
 Checked type: `DataState`.
 
-native-record · [source](../src/macos.rinzu#L3922).
+native-record · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3990).
 
 ```rinzu
 record DataState
@@ -1218,7 +1218,7 @@ record DataState
 
 ### field rows
 
-[source](../src/macos.rinzu#L3923).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3991).
 
 ```rinzu
 rows: Int
@@ -1226,7 +1226,7 @@ rows: Int
 
 ### field visibleRows
 
-[source](../src/macos.rinzu#L3924).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3992).
 
 ```rinzu
 visibleRows: Int
@@ -1234,7 +1234,7 @@ visibleRows: Int
 
 ### field cellViews
 
-[source](../src/macos.rinzu#L3925).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3993).
 
 ```rinzu
 cellViews: Int
@@ -1242,7 +1242,7 @@ cellViews: Int
 
 ### field bytes
 
-[source](../src/macos.rinzu#L3926).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3994).
 
 ```rinzu
 bytes: Int
@@ -1250,7 +1250,7 @@ bytes: Int
 
 ### field revision
 
-[source](../src/macos.rinzu#L3927).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3995).
 
 ```rinzu
 revision: Int
@@ -1258,7 +1258,7 @@ revision: Int
 
 ### field selectedId
 
-[source](../src/macos.rinzu#L3928).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3996).
 
 ```rinzu
 selectedId: Int
@@ -1266,7 +1266,7 @@ selectedId: Int
 
 ### field selectedRow
 
-[source](../src/macos.rinzu#L3929).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3997).
 
 ```rinzu
 selectedRow: Int
@@ -1274,7 +1274,7 @@ selectedRow: Int
 
 ### field firstVisible
 
-[source](../src/macos.rinzu#L3930).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3998).
 
 ```rinzu
 firstVisible: Int
@@ -1282,7 +1282,7 @@ firstVisible: Int
 
 ### field lastVisible
 
-[source](../src/macos.rinzu#L3931).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3999).
 
 ```rinzu
 lastVisible: Int
@@ -1290,7 +1290,7 @@ lastVisible: Int
 
 ### field pendingRows
 
-[source](../src/macos.rinzu#L3932).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4000).
 
 ```rinzu
 pendingRows: Int
@@ -1298,7 +1298,7 @@ pendingRows: Int
 
 ## rinzu.macos.DataView
 
-class · [source](../src/macos.rinzu#L3997).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4065).
 
 ```rinzu
 class DataView
@@ -1308,7 +1308,7 @@ Shared List/Table/Tree interface. Model and AppKit datasource contain native cop
 
 ### field view
 
-[source](../src/macos.rinzu#L3998).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4066).
 
 ```rinzu
 const view: View
@@ -1316,7 +1316,7 @@ const view: View
 
 ### field columns
 
-[source](../src/macos.rinzu#L3999).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4067).
 
 ```rinzu
 const columns: Int
@@ -1324,7 +1324,7 @@ const columns: Int
 
 ### field control
 
-[source](../src/macos.rinzu#L4000).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4068).
 
 ```rinzu
 const control: UiControl
@@ -1336,7 +1336,7 @@ Checked type: `fn(DataView,UiEvent)->Bool`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L4027).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4095).
 
 ```rinzu
 fn accepts(self: DataView, event: UiEvent) -> Bool
@@ -1348,7 +1348,7 @@ Checked type: `fn(DataView,Int,Int)->String`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L4055).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4123).
 
 ```rinzu
 fn cell(self: DataView, id: Int, column: Int) -> String
@@ -1360,7 +1360,7 @@ Checked type: `fn(DataView)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L4006).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4074).
 
 ```rinzu
 fn destroy(self: DataView) -> Int
@@ -1372,7 +1372,7 @@ Checked type: `async(DataView,Int,$rinzu_closure_530a103bc12515a3)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L4069).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4137).
 
 ```rinzu
 async fn generateRows(self: DataView, count: Int, make: fn (Int) -> DataRow)
@@ -1386,7 +1386,7 @@ Checked type: `fn(DataView)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L4002).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4070).
 
 ```rinzu
 fn identity(self: DataView) -> Int
@@ -1398,7 +1398,7 @@ Checked type: `fn(DataView,Int)->Bool`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L4047).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4115).
 
 ```rinzu
 fn isExpanded(self: DataView, id: Int) -> Bool
@@ -1410,7 +1410,7 @@ Checked type: `fn(DataView,Int)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L4039).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4107).
 
 ```rinzu
 fn scrollTo(self: DataView, id: Int) -> Int
@@ -1422,7 +1422,7 @@ Checked type: `fn(DataView,Int,Bool)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L4035).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4103).
 
 ```rinzu
 fn select(self: DataView, id: Int, reveal: Bool) -> Int
@@ -1434,7 +1434,7 @@ Checked type: `fn(DataView,Int,Bool)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L4043).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4111).
 
 ```rinzu
 fn setExpanded(self: DataView, id: Int, expanded: Bool) -> Int
@@ -1446,7 +1446,7 @@ Checked type: `async(DataView,List<DataRow>)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L4100).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4168).
 
 ```rinzu
 async fn setRows(self: DataView, rows: List<DataRow>)
@@ -1458,7 +1458,7 @@ Checked type: `fn(DataView,Int,Bool)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L4051).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4119).
 
 ```rinzu
 fn sort(self: DataView, column: Int, ascending: Bool) -> Int
@@ -1470,7 +1470,7 @@ Checked type: `fn(DataView)->DataState`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L4010).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4078).
 
 ```rinzu
 fn state(self: DataView) -> DataState
@@ -1478,7 +1478,7 @@ fn state(self: DataView) -> DataState
 
 ## rinzu.macos.Device
 
-class · [source](../src/macos.rinzu#L181).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L182).
 
 ```rinzu
 class Device
@@ -1486,7 +1486,7 @@ class Device
 
 ### field handle
 
-[source](../src/macos.rinzu#L182).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L183).
 
 ```rinzu
 const handle: DeviceHandle
@@ -1498,7 +1498,7 @@ Checked type: `fn(Device,Int)->Buffer`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L190).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L191).
 
 ```rinzu
 fn allocateBuffer(self: Device, length: Int) -> Buffer
@@ -1510,7 +1510,7 @@ Checked type: `fn(Device,Int)->Batch2D`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L255).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L256).
 
 ```rinzu
 fn batch2D(self: Device, capacity: Int) -> Batch2D
@@ -1522,7 +1522,7 @@ Checked type: `fn(Device,ByteArray)->Buffer`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L184).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L185).
 
 ```rinzu
 fn buffer(self: Device, bytes: ByteArray) -> Buffer
@@ -1534,7 +1534,7 @@ Checked type: `fn(Device)->Command`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L217).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L218).
 
 ```rinzu
 fn command(self: Device) -> Command
@@ -1548,7 +1548,7 @@ Checked type: `fn(Device)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L221).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L222).
 
 ```rinzu
 fn destroy(self: Device) -> Int
@@ -1560,7 +1560,7 @@ Checked type: `fn(Device,ByteArray)->Texture`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L235).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L236).
 
 ```rinzu
 fn imageTexture(self: Device, encoded: ByteArray) -> Texture
@@ -1575,7 +1575,7 @@ Checked type: `fn(Device,String)->Library`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L194).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L195).
 
 ```rinzu
 fn library(self: Device, source: String) -> Library
@@ -1587,7 +1587,7 @@ Checked type: `async(Device,String)->Texture`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L305).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L306).
 
 ```rinzu
 async fn loadImageTexture(self: Device, path: String) -> Texture
@@ -1602,7 +1602,7 @@ Checked type: `fn(Device,String)->Library`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L203).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L204).
 
 ```rinzu
 fn loadLibrary(self: Device, path: String) -> Library
@@ -1614,7 +1614,7 @@ Checked type: `fn(Device,TextLayout,Float)->Texture`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L310).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L311).
 
 ```rinzu
 fn rasterText(self: Device, layout: TextLayout, scale: Float) -> Texture
@@ -1626,7 +1626,7 @@ Checked type: `fn(Device,Int,Int)->Sampler`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L243).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L244).
 
 ```rinzu
 fn sampler(self: Device, filter: Int, address: Int) -> Sampler
@@ -1638,7 +1638,7 @@ Checked type: `fn(Device,Rect)->View`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L212).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L213).
 
 ```rinzu
 fn surface(self: Device, rect: Rect) -> View
@@ -1650,7 +1650,7 @@ Checked type: `fn(Device,Font,String,Float,Int,Float)->Text2D`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L316).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L317).
 
 ```rinzu
 fn text2D(self: Device, font: Font, text: String, width: Float, alignment: Int, scale: Float) -> Text2D
@@ -1662,7 +1662,7 @@ Checked type: `fn(Device,Int,Int,Int,Int)->Texture`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L227).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L228).
 
 ```rinzu
 fn texture2D(self: Device, width: Int, height: Int, format: Int, usage: Int) -> Texture
@@ -1677,7 +1677,7 @@ Checked type: `fn(Device,Int)->Buffer`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L248).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L249).
 
 ```rinzu
 fn vertexBuffer2D(self: Device, capacity: Int) -> Buffer
@@ -1689,7 +1689,7 @@ Allocate packed float32 x,y,u,v,r,g,b,a vertices (32 bytes each).
 
 Checked type: `DeviceHandle`.
 
-opaque · [source](../src/macos.rinzu#L1012).
+opaque · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1059).
 
 ```rinzu
 opaque DeviceHandle;
@@ -1697,7 +1697,7 @@ opaque DeviceHandle;
 
 ## rinzu.macos.Document
 
-class · [source](../src/document.rinzu#L117).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L117).
 
 ```rinzu
 class Document
@@ -1708,7 +1708,7 @@ Public mutations finish synchronously under cancellation masking.
 
 ### field undo
 
-[source](../src/document.rinzu#L118).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L118).
 
 ```rinzu
 const undo: DocumentHistory
@@ -1716,7 +1716,7 @@ const undo: DocumentHistory
 
 ### field redo
 
-[source](../src/document.rinzu#L119).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L119).
 
 ```rinzu
 const redo: DocumentHistory
@@ -1724,7 +1724,7 @@ const redo: DocumentHistory
 
 ### field text
 
-[source](../src/document.rinzu#L120).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L120).
 
 ```rinzu
 text: String
@@ -1732,7 +1732,7 @@ text: String
 
 ### field start
 
-[source](../src/document.rinzu#L121).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L121).
 
 ```rinzu
 start: Int
@@ -1740,7 +1740,7 @@ start: Int
 
 ### field end
 
-[source](../src/document.rinzu#L122).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L122).
 
 ```rinzu
 end: Int
@@ -1748,7 +1748,7 @@ end: Int
 
 ### field version
 
-[source](../src/document.rinzu#L123).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L123).
 
 ```rinzu
 version: Int
@@ -1756,7 +1756,7 @@ version: Int
 
 ### field savedVersion
 
-[source](../src/document.rinzu#L124).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L124).
 
 ```rinzu
 savedVersion: Int
@@ -1764,7 +1764,7 @@ savedVersion: Int
 
 ### field accepting
 
-[source](../src/document.rinzu#L125).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L125).
 
 ```rinzu
 accepting: Bool
@@ -1772,7 +1772,7 @@ accepting: Bool
 
 ### field edits
 
-[source](../src/document.rinzu#L126).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L126).
 
 ```rinzu
 edits: Int
@@ -1784,7 +1784,7 @@ Checked type: `fn(document::Document,document::DocumentSnapshot)->Bool`.
 
 Error contract: `nothrow` (inferred).
 
-method · [source](../src/document.rinzu#L288).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L288).
 
 ```rinzu
 fn accepts(self: Document, snapshot: DocumentSnapshot) -> Bool
@@ -1796,7 +1796,7 @@ Checked type: `fn(String,Bool)->document::Document`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/document.rinzu#L128).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L128).
 
 ```rinzu
 fn create(text: String, saved: Bool) -> Document
@@ -1808,7 +1808,7 @@ Checked type: `fn(document::Document)->Bool`.
 
 Error contract: `nothrow` (inferred).
 
-method · [source](../src/document.rinzu#L178).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L178).
 
 ```rinzu
 fn dirty(self: Document) -> Bool
@@ -1820,7 +1820,7 @@ Checked type: `fn(document::Document,String,Int,Int)->Bool`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/document.rinzu#L197).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L197).
 
 ```rinzu
 fn edit(self: Document, text: String, start: Int, end: Int) -> Bool
@@ -1832,7 +1832,7 @@ Checked type: `fn(document::Document,document::DocumentSnapshot)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/document.rinzu#L281).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L281).
 
 ```rinzu
 fn markSaved(self: Document, snapshot: DocumentSnapshot)
@@ -1844,7 +1844,7 @@ Checked type: `fn(document::Document)->Bool`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/document.rinzu#L253).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L253).
 
 ```rinzu
 fn redoEdit(self: Document) -> Bool
@@ -1856,7 +1856,7 @@ Checked type: `fn(document::Document,String,Bool)->Bool`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/document.rinzu#L156).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L156).
 
 ```rinzu
 fn reset(self: Document, text: String, saved: Bool) -> Bool
@@ -1870,7 +1870,7 @@ Checked type: `fn(document::Document,Int,Int)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/document.rinzu#L182).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L182).
 
 ```rinzu
 fn select(self: Document, start: Int, end: Int)
@@ -1882,7 +1882,7 @@ Checked type: `fn(document::Document)->document::DocumentSnapshot`.
 
 Error contract: `nothrow` (inferred).
 
-method · [source](../src/document.rinzu#L151).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L151).
 
 ```rinzu
 fn snapshot(self: Document) -> DocumentSnapshot
@@ -1894,7 +1894,7 @@ Checked type: `fn(document::Document)->Bool`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/document.rinzu#L225).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L225).
 
 ```rinzu
 fn undoEdit(self: Document) -> Bool
@@ -1906,7 +1906,7 @@ Checked type: `fn(String,Bool,Int,Int)->document::Document`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/document.rinzu#L132).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L132).
 
 ```rinzu
 fn withHistory(text: String, saved: Bool, maximumEntries: Int, maximumBytes: Int) -> Document
@@ -1914,7 +1914,7 @@ fn withHistory(text: String, saved: Bool, maximumEntries: Int, maximumBytes: Int
 
 ## rinzu.macos.DocumentBinding
 
-class · [source](../src/macos.rinzu#L2908).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2976).
 
 ```rinzu
 class DocumentBinding
@@ -1924,7 +1924,7 @@ A Source document bound to an existing TextView. The Window owns the native View
 
 ### field session
 
-[source](../src/macos.rinzu#L2909).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2977).
 
 ```rinzu
 const session: Session
@@ -1932,7 +1932,7 @@ const session: Session
 
 ### field input
 
-[source](../src/macos.rinzu#L2910).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2978).
 
 ```rinzu
 const input: TextView
@@ -1940,7 +1940,7 @@ const input: TextView
 
 ### field document
 
-[source](../src/macos.rinzu#L2911).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2979).
 
 ```rinzu
 const document: documents.Document
@@ -1948,7 +1948,7 @@ const document: documents.Document
 
 ### field barrier
 
-[source](../src/macos.rinzu#L2912).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2980).
 
 ```rinzu
 barrier: Int
@@ -1960,7 +1960,7 @@ Checked type: `fn(DocumentBinding)->Bool`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2925).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2993).
 
 ```rinzu
 fn capture(self: DocumentBinding) -> Bool
@@ -1972,7 +1972,7 @@ Checked type: `fn(Session,TextView,document::Document)->DocumentBinding`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2914).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2982).
 
 ```rinzu
 fn create(session: Session, input: TextView, document: documents.Document) -> DocumentBinding
@@ -1984,7 +1984,7 @@ Checked type: `fn(DocumentBinding,String)->Bool`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2937).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3005).
 
 ```rinzu
 fn load(self: DocumentBinding, text: String) -> Bool
@@ -1998,7 +1998,7 @@ Checked type: `fn(DocumentBinding,UiEvent)->Bool`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2963).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3031).
 
 ```rinzu
 fn receive(self: DocumentBinding, event: UiEvent) -> Bool
@@ -2010,7 +2010,7 @@ Checked type: `fn(DocumentBinding)->Bool`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3034).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3102).
 
 ```rinzu
 fn redoEdit(self: DocumentBinding) -> Bool
@@ -2022,7 +2022,7 @@ Checked type: `fn(DocumentBinding,String,Int,Int)->Bool`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2983).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3051).
 
 ```rinzu
 fn replace(self: DocumentBinding, text: String, start: Int, end: Int) -> Bool
@@ -2034,7 +2034,7 @@ Checked type: `fn(DocumentBinding,Bool)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3059).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3127).
 
 ```rinzu
 fn setAccepting(self: DocumentBinding, accepting: Bool) -> Int
@@ -2046,7 +2046,7 @@ Checked type: `fn(DocumentBinding)->Bool`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3009).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3077).
 
 ```rinzu
 fn undoEdit(self: DocumentBinding) -> Bool
@@ -2054,7 +2054,7 @@ fn undoEdit(self: DocumentBinding) -> Bool
 
 ## rinzu.macos.DocumentHistory
 
-class · [source](../src/document.rinzu#L13).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L13).
 
 ```rinzu
 class DocumentHistory
@@ -2062,7 +2062,7 @@ class DocumentHistory
 
 ### field maximumEntries
 
-[source](../src/document.rinzu#L14).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L14).
 
 ```rinzu
 const maximumEntries: Int
@@ -2070,7 +2070,7 @@ const maximumEntries: Int
 
 ### field maximumBytes
 
-[source](../src/document.rinzu#L15).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L15).
 
 ```rinzu
 const maximumBytes: Int
@@ -2078,7 +2078,7 @@ const maximumBytes: Int
 
 ### field entries
 
-[source](../src/document.rinzu#L16).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L16).
 
 ```rinzu
 entries: List<DocumentSnapshot>
@@ -2086,7 +2086,7 @@ entries: List<DocumentSnapshot>
 
 ### field bytes
 
-[source](../src/document.rinzu#L17).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L17).
 
 ```rinzu
 bytes: Int
@@ -2098,7 +2098,7 @@ Checked type: `fn(document::DocumentHistory)->Unit`.
 
 Error contract: `nothrow` (inferred).
 
-method · [source](../src/document.rinzu#L26).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L26).
 
 ```rinzu
 fn clear(self: DocumentHistory)
@@ -2110,7 +2110,7 @@ Checked type: `fn(Int,Int)->document::DocumentHistory`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/document.rinzu#L19).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L19).
 
 ```rinzu
 fn create(maximumEntries: Int, maximumBytes: Int) -> DocumentHistory
@@ -2122,7 +2122,7 @@ Checked type: `fn(document::DocumentHistory)->Int`.
 
 Error contract: `nothrow` (inferred).
 
-method · [source](../src/document.rinzu#L38).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L38).
 
 ```rinzu
 fn length(self: DocumentHistory) -> Int
@@ -2134,7 +2134,7 @@ Checked type: `fn(document::DocumentHistory)->Option<document::DocumentSnapshot>
 
 Error contract: `nothrow` (inferred).
 
-method · [source](../src/document.rinzu#L42).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L42).
 
 ```rinzu
 fn peek(self: DocumentHistory) -> Option<DocumentSnapshot>
@@ -2146,7 +2146,7 @@ Checked type: `fn(document::DocumentHistory)->Option<document::DocumentSnapshot>
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/document.rinzu#L49).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L49).
 
 ```rinzu
 fn pop(self: DocumentHistory) -> Option<DocumentSnapshot>
@@ -2158,7 +2158,7 @@ Checked type: `fn(document::DocumentHistory,document::DocumentSnapshot)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/document.rinzu#L78).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L78).
 
 ```rinzu
 fn push(self: DocumentHistory, snapshot: DocumentSnapshot)
@@ -2166,7 +2166,7 @@ fn push(self: DocumentHistory, snapshot: DocumentSnapshot)
 
 ## rinzu.macos.DocumentSnapshot
 
-class · [source](../src/document.rinzu#L6).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L6).
 
 ```rinzu
 class DocumentSnapshot
@@ -2176,7 +2176,7 @@ Immutable, transferable input for saving and background analysis.
 
 ### field text
 
-[source](../src/document.rinzu#L7).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L7).
 
 ```rinzu
 const text: String
@@ -2184,7 +2184,7 @@ const text: String
 
 ### field start
 
-[source](../src/document.rinzu#L8).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L8).
 
 ```rinzu
 const start: Int
@@ -2192,7 +2192,7 @@ const start: Int
 
 ### field end
 
-[source](../src/document.rinzu#L9).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L9).
 
 ```rinzu
 const end: Int
@@ -2200,7 +2200,7 @@ const end: Int
 
 ### field version
 
-[source](../src/document.rinzu#L10).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document.rinzu#L10).
 
 ```rinzu
 const version: Int
@@ -2210,7 +2210,7 @@ const version: Int
 
 Checked type: `Event`.
 
-native-record · [source](../src/macos.rinzu#L1151).
+native-record · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1198).
 
 ```rinzu
 record Event
@@ -2218,7 +2218,7 @@ record Event
 
 ### field kind
 
-[source](../src/macos.rinzu#L1152).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1199).
 
 ```rinzu
 kind: Int
@@ -2226,7 +2226,7 @@ kind: Int
 
 ### field windowId
 
-[source](../src/macos.rinzu#L1153).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1200).
 
 ```rinzu
 windowId: Int
@@ -2234,7 +2234,7 @@ windowId: Int
 
 ### field viewId
 
-[source](../src/macos.rinzu#L1154).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1201).
 
 ```rinzu
 viewId: Int
@@ -2242,7 +2242,7 @@ viewId: Int
 
 ### field sequence
 
-[source](../src/macos.rinzu#L1155).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1202).
 
 ```rinzu
 sequence: Int
@@ -2250,7 +2250,7 @@ sequence: Int
 
 ### field x
 
-[source](../src/macos.rinzu#L1156).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1203).
 
 ```rinzu
 x: Float
@@ -2258,7 +2258,7 @@ x: Float
 
 ### field y
 
-[source](../src/macos.rinzu#L1157).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1204).
 
 ```rinzu
 y: Float
@@ -2266,7 +2266,7 @@ y: Float
 
 ### field width
 
-[source](../src/macos.rinzu#L1158).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1205).
 
 ```rinzu
 width: Float
@@ -2274,7 +2274,7 @@ width: Float
 
 ### field height
 
-[source](../src/macos.rinzu#L1159).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1206).
 
 ```rinzu
 height: Float
@@ -2282,7 +2282,7 @@ height: Float
 
 ### field scale
 
-[source](../src/macos.rinzu#L1160).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1207).
 
 ```rinzu
 scale: Float
@@ -2290,7 +2290,7 @@ scale: Float
 
 ### field keyCode
 
-[source](../src/macos.rinzu#L1161).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1208).
 
 ```rinzu
 keyCode: Int
@@ -2298,7 +2298,7 @@ keyCode: Int
 
 ### field modifiers
 
-[source](../src/macos.rinzu#L1162).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1209).
 
 ```rinzu
 modifiers: Int
@@ -2306,7 +2306,7 @@ modifiers: Int
 
 ### field action
 
-[source](../src/macos.rinzu#L1163).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1210).
 
 ```rinzu
 action: Int
@@ -2314,7 +2314,7 @@ action: Int
 
 ### field selectionStart
 
-[source](../src/macos.rinzu#L1164).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1211).
 
 ```rinzu
 selectionStart: Int
@@ -2322,7 +2322,7 @@ selectionStart: Int
 
 ### field selectionEnd
 
-[source](../src/macos.rinzu#L1165).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1212).
 
 ```rinzu
 selectionEnd: Int
@@ -2330,7 +2330,7 @@ selectionEnd: Int
 
 ### field flags
 
-[source](../src/macos.rinzu#L1166).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1213).
 
 ```rinzu
 flags: Int
@@ -2338,7 +2338,7 @@ flags: Int
 
 ### field value
 
-[source](../src/macos.rinzu#L1167).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1214).
 
 ```rinzu
 value: Float
@@ -2346,7 +2346,7 @@ value: Float
 
 ### field deltaX
 
-[source](../src/macos.rinzu#L1168).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1215).
 
 ```rinzu
 deltaX: Float
@@ -2354,7 +2354,7 @@ deltaX: Float
 
 ### field deltaY
 
-[source](../src/macos.rinzu#L1169).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1216).
 
 ```rinzu
 deltaY: Float
@@ -2362,7 +2362,7 @@ deltaY: Float
 
 ## rinzu.macos.Font
 
-class · [source](../src/macos.rinzu#L341).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L342).
 
 ```rinzu
 class Font
@@ -2370,7 +2370,7 @@ class Font
 
 ### field handle
 
-[source](../src/macos.rinzu#L342).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L343).
 
 ```rinzu
 const handle: FontHandle
@@ -2382,11 +2382,25 @@ Checked type: `fn(Font)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L371).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L399).
 
 ```rinzu
 fn destroy(self: Font) -> Int
 ```
+
+## rinzu.macos.Font.info
+
+Checked type: `fn(Font) throws(Error)->{axes:List<{identifier:Int,initial:Float,maximum:Float,minimum:Float,name:String,value:Float}>,family:String,matrix:{a:Float,b:Float,c:Float,d:Float,tx:Float,ty:Float},postscriptName:String,size:Float,traits:Int,version:Int}`.
+
+Error contract: `throws(Error)` (declared).
+
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L346).
+
+```rinzu
+fn info(self: Font) throws(Error) -> textValues.FontInfo
+```
+
+Actual selected face, matrix and active variation values. Traits: bold=1, italic=2, mono=4, color=8.
 
 ## rinzu.macos.Font.layout
 
@@ -2394,7 +2408,7 @@ Checked type: `fn(Font,String,Float,Int)->TextLayout`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L345).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L373).
 
 ```rinzu
 fn layout(self: Font, text: String, width: Float, alignment: Int) -> TextLayout
@@ -2408,7 +2422,7 @@ Checked type: `fn(Font)->FontMetrics`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L358).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L386).
 
 ```rinzu
 fn metrics(self: Font) -> FontMetrics
@@ -2416,21 +2430,142 @@ fn metrics(self: Font) -> FontMetrics
 
 Unrounded CoreText face metrics in logical font points.
 
+## rinzu.macos.Font.shape
+
+Checked type: `fn(Font,String,Bool) throws(Error)->TextLayout`.
+
+Error contract: `throws(Error)` (declared).
+
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L363).
+
+```rinzu
+fn shape(self: Font, text: String, ligatures: Bool) throws(Error) -> TextLayout
+```
+
+Shape one unwrapped CoreText line (UTF-8 <=64 KiB, advance <=8192 points).
+Runs preserve CoreText visual order; cluster indices are UTF-16, not grapheme or cell indices.
+
+## rinzu.macos.Font.withTraits
+
+Checked type: `fn(Font,Int) throws(Error)->Font`.
+
+Error contract: `throws(Error)` (declared).
+
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L352).
+
+```rinzu
+fn withTraits(self: Font, traits: Int) throws(Error) -> Font
+```
+
+Resolve real bold/italic traits (0..3), failing if CoreText cannot supply them.
+
+## rinzu.macos.Font.withVariation
+
+Checked type: `fn(Font,Int,Float) throws(Error)->Font`.
+
+Error contract: `throws(Error)` (declared).
+
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L357).
+
+```rinzu
+fn withVariation(self: Font, identifier: Int, value: Float) throws(Error) -> Font
+```
+
+Derive a face with one supported axis value. The original face is unchanged.
+
+## rinzu.macos.FontAxis
+
+Checked type: `{identifier:Int,initial:Float,maximum:Float,minimum:Float,name:String,value:Float}`.
+
+type-alias · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/text.rinzu#L17).
+
+```rinzu
+type FontAxis = {
+    identifier: Int,
+    minimum: Float,
+    maximum: Float,
+    initial: Float,
+    value: Float,
+    name: String
+};
+```
+
+## rinzu.macos.FontCatalog
+
+Checked type: `{faces:List<{family:String,postscriptName:String,traits:Int}>,version:Int}`.
+
+type-alias · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/text.rinzu#L42).
+
+```rinzu
+type FontCatalog = { version: Int, faces: List<FontFace> };
+```
+
+## rinzu.macos.FontFace
+
+Checked type: `{family:String,postscriptName:String,traits:Int}`.
+
+type-alias · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/text.rinzu#L36).
+
+```rinzu
+type FontFace = {
+    postscriptName: String,
+    family: String,
+    traits: Int
+};
+```
+
 ## rinzu.macos.FontHandle
 
 Checked type: `FontHandle`.
 
-opaque · [source](../src/macos.rinzu#L1020).
+opaque · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1067).
 
 ```rinzu
 opaque FontHandle;
 ```
 
+## rinzu.macos.FontInfo
+
+Checked type: `{axes:List<{identifier:Int,initial:Float,maximum:Float,minimum:Float,name:String,value:Float}>,family:String,matrix:{a:Float,b:Float,c:Float,d:Float,tx:Float,ty:Float},postscriptName:String,size:Float,traits:Int,version:Int}`.
+
+type-alias · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/text.rinzu#L26).
+
+```rinzu
+type FontInfo = {
+    version: Int,
+    postscriptName: String,
+    family: String,
+    size: Float,
+    traits: Int,
+    matrix: FontMatrix,
+    axes: List<FontAxis>
+};
+```
+
+## rinzu.macos.FontMatrix
+
+Checked type: `{a:Float,b:Float,c:Float,d:Float,tx:Float,ty:Float}`.
+
+type-alias · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/text.rinzu#L8).
+
+```rinzu
+type FontMatrix = {
+    a: Float,
+    b: Float,
+    c: Float,
+    d: Float,
+    tx: Float,
+    ty: Float
+};
+```
+
+Immutable, owned CoreText snapshots. Indices use UTF-16 code units, ranges are half-open.
+
 ## rinzu.macos.FontMetrics
 
 Checked type: `FontMetrics`.
 
-native-record · [source](../src/macos.rinzu#L1080).
+native-record · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1127).
 
 ```rinzu
 record FontMetrics
@@ -2438,7 +2573,7 @@ record FontMetrics
 
 ### field ascent
 
-[source](../src/macos.rinzu#L1081).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1128).
 
 ```rinzu
 ascent: Float
@@ -2446,7 +2581,7 @@ ascent: Float
 
 ### field descent
 
-[source](../src/macos.rinzu#L1082).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1129).
 
 ```rinzu
 descent: Float
@@ -2454,7 +2589,7 @@ descent: Float
 
 ### field leading
 
-[source](../src/macos.rinzu#L1083).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1130).
 
 ```rinzu
 leading: Float
@@ -2462,7 +2597,7 @@ leading: Float
 
 ### field underlinePosition
 
-[source](../src/macos.rinzu#L1084).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1131).
 
 ```rinzu
 underlinePosition: Float
@@ -2470,7 +2605,7 @@ underlinePosition: Float
 
 ### field underlineThickness
 
-[source](../src/macos.rinzu#L1085).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1132).
 
 ```rinzu
 underlineThickness: Float
@@ -2478,7 +2613,7 @@ underlineThickness: Float
 
 ### field unitsPerEm
 
-[source](../src/macos.rinzu#L1086).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1133).
 
 ```rinzu
 unitsPerEm: Int
@@ -2486,7 +2621,7 @@ unitsPerEm: Int
 
 ## rinzu.macos.Frame2D
 
-class · [source](../src/macos.rinzu#L3608).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3676).
 
 ```rinzu
 class Frame2D
@@ -2496,7 +2631,7 @@ A frame begins in AppKit points / top-left; usePixels restores Batch2D pixel uni
 
 ### field info
 
-[source](../src/macos.rinzu#L3609).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3677).
 
 ```rinzu
 const info: FrameInfo
@@ -2504,7 +2639,7 @@ const info: FrameInfo
 
 ### field batch
 
-[source](../src/macos.rinzu#L3610).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3678).
 
 ```rinzu
 const batch: Batch2D
@@ -2512,7 +2647,7 @@ const batch: Batch2D
 
 ### field width
 
-[source](../src/macos.rinzu#L3611).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3679).
 
 ```rinzu
 const width: Float
@@ -2520,7 +2655,7 @@ const width: Float
 
 ### field height
 
-[source](../src/macos.rinzu#L3612).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3680).
 
 ```rinzu
 const height: Float
@@ -2532,7 +2667,7 @@ Checked type: `fn(Frame2D)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3614).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3682).
 
 ```rinzu
 fn usePixels(self: Frame2D)
@@ -2544,7 +2679,7 @@ Checked type: `fn(Frame2D)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3618).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3686).
 
 ```rinzu
 fn usePoints(self: Frame2D)
@@ -2552,7 +2687,7 @@ fn usePoints(self: Frame2D)
 
 ## rinzu.macos.FrameClock
 
-class · [source](../src/macos.rinzu#L376).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L404).
 
 ```rinzu
 class FrameClock
@@ -2560,7 +2695,7 @@ class FrameClock
 
 ### field handle
 
-[source](../src/macos.rinzu#L377).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L405).
 
 ```rinzu
 const handle: FrameClockHandle
@@ -2572,7 +2707,7 @@ Checked type: `fn(FrameClock)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L399).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L427).
 
 ```rinzu
 fn destroy(self: FrameClock) -> Int
@@ -2584,7 +2719,7 @@ Checked type: `fn(FrameClock)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L379).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L407).
 
 ```rinzu
 fn invalidate(self: FrameClock) -> Int
@@ -2596,7 +2731,7 @@ Checked type: `async(FrameClock)->Option<FrameInfo>`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L419).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L447).
 
 ```rinzu
 async fn next(self: FrameClock) -> Option<FrameInfo>
@@ -2610,7 +2745,7 @@ Checked type: `fn(FrameClock)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L391).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L419).
 
 ```rinzu
 fn presented(self: FrameClock) -> Int
@@ -2622,7 +2757,7 @@ Checked type: `fn(FrameClock)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L387).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L415).
 
 ```rinzu
 fn retry(self: FrameClock) -> Int
@@ -2634,7 +2769,7 @@ Checked type: `fn(FrameClock,Bool)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L383).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L411).
 
 ```rinzu
 fn setAnimating(self: FrameClock, enabled: Bool) -> Int
@@ -2646,7 +2781,7 @@ Checked type: `fn(FrameClock)->FrameStatistics`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L403).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L431).
 
 ```rinzu
 fn statistics(self: FrameClock) -> FrameStatistics
@@ -2658,7 +2793,7 @@ Checked type: `fn(FrameClock)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L395).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L423).
 
 ```rinzu
 fn stop(self: FrameClock) -> Int
@@ -2668,7 +2803,7 @@ fn stop(self: FrameClock) -> Int
 
 Checked type: `FrameClockHandle`.
 
-opaque · [source](../src/macos.rinzu#L1024).
+opaque · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1071).
 
 ```rinzu
 opaque FrameClockHandle;
@@ -2678,7 +2813,7 @@ opaque FrameClockHandle;
 
 Checked type: `FrameInfo`.
 
-native-record · [source](../src/macos.rinzu#L1060).
+native-record · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1107).
 
 ```rinzu
 record FrameInfo
@@ -2686,7 +2821,7 @@ record FrameInfo
 
 ### field sequence
 
-[source](../src/macos.rinzu#L1061).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1108).
 
 ```rinzu
 sequence: Int
@@ -2694,7 +2829,7 @@ sequence: Int
 
 ### field width
 
-[source](../src/macos.rinzu#L1062).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1109).
 
 ```rinzu
 width: Int
@@ -2702,7 +2837,7 @@ width: Int
 
 ### field height
 
-[source](../src/macos.rinzu#L1063).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1110).
 
 ```rinzu
 height: Int
@@ -2710,7 +2845,7 @@ height: Int
 
 ### field scale
 
-[source](../src/macos.rinzu#L1064).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1111).
 
 ```rinzu
 scale: Float
@@ -2718,7 +2853,7 @@ scale: Float
 
 ### field time
 
-[source](../src/macos.rinzu#L1065).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1112).
 
 ```rinzu
 time: Float
@@ -2726,7 +2861,7 @@ time: Float
 
 ### field delta
 
-[source](../src/macos.rinzu#L1066).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1113).
 
 ```rinzu
 delta: Float
@@ -2736,7 +2871,7 @@ delta: Float
 
 Checked type: `FrameStatistics`.
 
-native-record · [source](../src/macos.rinzu#L1069).
+native-record · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1116).
 
 ```rinzu
 record FrameStatistics
@@ -2744,7 +2879,7 @@ record FrameStatistics
 
 ### field requests
 
-[source](../src/macos.rinzu#L1070).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1117).
 
 ```rinzu
 requests: Int
@@ -2752,7 +2887,7 @@ requests: Int
 
 ### field coalesced
 
-[source](../src/macos.rinzu#L1071).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1118).
 
 ```rinzu
 coalesced: Int
@@ -2760,7 +2895,7 @@ coalesced: Int
 
 ### field ticks
 
-[source](../src/macos.rinzu#L1072).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1119).
 
 ```rinzu
 ticks: Int
@@ -2768,7 +2903,7 @@ ticks: Int
 
 ### field retries
 
-[source](../src/macos.rinzu#L1073).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1120).
 
 ```rinzu
 retries: Int
@@ -2776,7 +2911,7 @@ retries: Int
 
 ### field pending
 
-[source](../src/macos.rinzu#L1074).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1121).
 
 ```rinzu
 pending: CBool
@@ -2784,7 +2919,7 @@ pending: CBool
 
 ### field visible
 
-[source](../src/macos.rinzu#L1075).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1122).
 
 ```rinzu
 visible: CBool
@@ -2792,7 +2927,7 @@ visible: CBool
 
 ### field animating
 
-[source](../src/macos.rinzu#L1076).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1123).
 
 ```rinzu
 animating: CBool
@@ -2800,7 +2935,7 @@ animating: CBool
 
 ### field stopped
 
-[source](../src/macos.rinzu#L1077).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1124).
 
 ```rinzu
 stopped: CBool
@@ -2808,7 +2943,7 @@ stopped: CBool
 
 ## rinzu.macos.Label
 
-class · [source](../src/macos.rinzu#L2605).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2673).
 
 ```rinzu
 class Label
@@ -2816,7 +2951,7 @@ class Label
 
 ### field view
 
-[source](../src/macos.rinzu#L2606).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2674).
 
 ```rinzu
 const view: View
@@ -2828,7 +2963,7 @@ Checked type: `fn(Label)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2612).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2680).
 
 ```rinzu
 fn destroy(self: Label) -> Int
@@ -2840,7 +2975,7 @@ Checked type: `fn(Label)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2608).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2676).
 
 ```rinzu
 fn identity(self: Label) -> Int
@@ -2852,7 +2987,7 @@ Checked type: `fn(Label,Bool)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2616).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2684).
 
 ```rinzu
 fn setEnabled(self: Label, enabled: Bool) -> Int
@@ -2864,7 +2999,7 @@ Checked type: `fn(Label,String)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2624).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2692).
 
 ```rinzu
 fn setText(self: Label, value: String) -> Int
@@ -2876,7 +3011,7 @@ Checked type: `fn(Label)->String`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2620).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2688).
 
 ```rinzu
 fn text(self: Label) -> String
@@ -2884,7 +3019,7 @@ fn text(self: Label) -> String
 
 ## rinzu.macos.LayoutItem
 
-class · [source](../src/macos.rinzu#L3811).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3879).
 
 ```rinzu
 class LayoutItem
@@ -2894,7 +3029,7 @@ Fixed extent plus a nonnegative proportional share of remaining space.
 
 ### field view
 
-[source](../src/macos.rinzu#L3812).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3880).
 
 ```rinzu
 const view: View
@@ -2902,7 +3037,7 @@ const view: View
 
 ### field fixed
 
-[source](../src/macos.rinzu#L3813).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3881).
 
 ```rinzu
 const fixed: Float
@@ -2910,7 +3045,7 @@ const fixed: Float
 
 ### field grow
 
-[source](../src/macos.rinzu#L3814).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3882).
 
 ```rinzu
 const grow: Float
@@ -2918,7 +3053,7 @@ const grow: Float
 
 ## rinzu.macos.Library
 
-class · [source](../src/macos.rinzu#L449).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L477).
 
 ```rinzu
 class Library
@@ -2926,7 +3061,7 @@ class Library
 
 ### field handle
 
-[source](../src/macos.rinzu#L450).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L478).
 
 ```rinzu
 const handle: LibraryHandle
@@ -2938,7 +3073,7 @@ Checked type: `fn(Library,String)->ComputePipeline`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L452).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L480).
 
 ```rinzu
 fn computePipeline(self: Library, name: String) -> ComputePipeline
@@ -2950,7 +3085,7 @@ Checked type: `fn(Library)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L480).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L508).
 
 ```rinzu
 fn destroy(self: Library) -> Int
@@ -2962,7 +3097,7 @@ Checked type: `fn(Library,String,String)->RenderPipeline`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L461).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L489).
 
 ```rinzu
 fn renderPipeline(self: Library, vertex: String, fragment: String) -> RenderPipeline
@@ -2974,7 +3109,7 @@ Checked type: `fn(Library,String,String,Int,Int)->RenderPipeline`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L484).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L512).
 
 ```rinzu
 fn renderPipelineWithOptions(self: Library, vertex: String, fragment: String, format: Int, blend: Int)
@@ -2985,7 +3120,7 @@ fn renderPipelineWithOptions(self: Library, vertex: String, fragment: String, fo
 
 Checked type: `LibraryHandle`.
 
-opaque · [source](../src/macos.rinzu#L1026).
+opaque · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1073).
 
 ```rinzu
 opaque LibraryHandle;
@@ -2993,7 +3128,7 @@ opaque LibraryHandle;
 
 ## rinzu.macos.Menu
 
-class · [source](../src/macos.rinzu#L499).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L527).
 
 ```rinzu
 class Menu
@@ -3001,7 +3136,7 @@ class Menu
 
 ### field handle
 
-[source](../src/macos.rinzu#L500).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L528).
 
 ```rinzu
 const handle: MenuHandle
@@ -3013,7 +3148,7 @@ Checked type: `fn(Menu,String,Int,String,Int)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L502).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L530).
 
 ```rinzu
 fn addAction(self: Menu, title: String, action: Int, key: String, modifiers: Int) -> Int
@@ -3025,7 +3160,7 @@ Checked type: `fn(Menu)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L546).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L574).
 
 ```rinzu
 fn addSeparator(self: Menu) -> Int
@@ -3037,7 +3172,7 @@ Checked type: `fn(Menu,String,Int,String,Int)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L522).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L550).
 
 ```rinzu
 fn addStandard(self: Menu, title: String, command: Int, key: String, modifiers: Int) -> Int
@@ -3049,7 +3184,7 @@ Checked type: `fn(Menu,Menu)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L542).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L570).
 
 ```rinzu
 fn addSubmenu(self: Menu, child: Menu) -> Int
@@ -3061,7 +3196,7 @@ Checked type: `fn(Menu)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L554).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L582).
 
 ```rinzu
 fn destroy(self: Menu) -> Int
@@ -3073,7 +3208,7 @@ Checked type: `fn(Menu,Int,Bool,Bool)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L550).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L578).
 
 ```rinzu
 fn setState(self: Menu, action: Int, enabled: Bool, isChecked: Bool) -> Int
@@ -3083,7 +3218,7 @@ fn setState(self: Menu, action: Int, enabled: Bool, isChecked: Bool) -> Int
 
 Checked type: `MenuHandle`.
 
-opaque · [source](../src/macos.rinzu#L1034).
+opaque · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1081).
 
 ```rinzu
 opaque MenuHandle;
@@ -3091,7 +3226,7 @@ opaque MenuHandle;
 
 ## rinzu.macos.Quad2D
 
-class · [source](../src/macos.rinzu#L3166).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3234).
 
 ```rinzu
 class Quad2D
@@ -3101,7 +3236,7 @@ Six vertices per quad; quad index (not a byte or vertex offset).
 
 ### field destination
 
-[source](../src/macos.rinzu#L3167).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3235).
 
 ```rinzu
 const destination: Rect
@@ -3109,7 +3244,7 @@ const destination: Rect
 
 ### field uv
 
-[source](../src/macos.rinzu#L3168).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3236).
 
 ```rinzu
 const uv: Rect
@@ -3117,7 +3252,7 @@ const uv: Rect
 
 ### field tint
 
-[source](../src/macos.rinzu#L3169).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3237).
 
 ```rinzu
 const tint: Color
@@ -3125,7 +3260,7 @@ const tint: Color
 
 ### field transform
 
-[source](../src/macos.rinzu#L3170).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3238).
 
 ```rinzu
 const transform: Transform2D
@@ -3135,7 +3270,7 @@ const transform: Transform2D
 
 Checked type: `Rect`.
 
-native-record · [source](../src/macos.rinzu#L1038).
+native-record · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1085).
 
 ```rinzu
 record Rect
@@ -3143,7 +3278,7 @@ record Rect
 
 ### field x
 
-[source](../src/macos.rinzu#L1039).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1086).
 
 ```rinzu
 x: Float
@@ -3151,7 +3286,7 @@ x: Float
 
 ### field y
 
-[source](../src/macos.rinzu#L1040).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1087).
 
 ```rinzu
 y: Float
@@ -3159,7 +3294,7 @@ y: Float
 
 ### field width
 
-[source](../src/macos.rinzu#L1041).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1088).
 
 ```rinzu
 width: Float
@@ -3167,7 +3302,7 @@ width: Float
 
 ### field height
 
-[source](../src/macos.rinzu#L1042).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1089).
 
 ```rinzu
 height: Float
@@ -3175,7 +3310,7 @@ height: Float
 
 ## rinzu.macos.RenderPipeline
 
-class · [source](../src/macos.rinzu#L559).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L587).
 
 ```rinzu
 class RenderPipeline
@@ -3183,7 +3318,7 @@ class RenderPipeline
 
 ### field handle
 
-[source](../src/macos.rinzu#L560).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L588).
 
 ```rinzu
 const handle: RenderPipelineHandle
@@ -3195,7 +3330,7 @@ Checked type: `fn(RenderPipeline)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L562).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L590).
 
 ```rinzu
 fn destroy(self: RenderPipeline) -> Int
@@ -3205,7 +3340,7 @@ fn destroy(self: RenderPipeline) -> Int
 
 Checked type: `RenderPipelineHandle`.
 
-opaque · [source](../src/macos.rinzu#L1030).
+opaque · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1077).
 
 ```rinzu
 opaque RenderPipelineHandle;
@@ -3215,7 +3350,7 @@ opaque RenderPipelineHandle;
 
 Checked type: `{session:Session}`.
 
-type-alias · [source](../src/macos.rinzu#L1003).
+type-alias · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1050).
 
 ```rinzu
 type RunContext = { session: Session };
@@ -3223,7 +3358,7 @@ type RunContext = { session: Session };
 
 ## rinzu.macos.Sampler
 
-class · [source](../src/macos.rinzu#L567).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L595).
 
 ```rinzu
 class Sampler
@@ -3231,7 +3366,7 @@ class Sampler
 
 ### field handle
 
-[source](../src/macos.rinzu#L568).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L596).
 
 ```rinzu
 const handle: SamplerHandle
@@ -3243,7 +3378,7 @@ Checked type: `fn(Sampler)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L570).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L598).
 
 ```rinzu
 fn destroy(self: Sampler) -> Int
@@ -3253,7 +3388,7 @@ fn destroy(self: Sampler) -> Int
 
 Checked type: `SamplerHandle`.
 
-opaque · [source](../src/macos.rinzu#L1018).
+opaque · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1065).
 
 ```rinzu
 opaque SamplerHandle;
@@ -3263,7 +3398,7 @@ opaque SamplerHandle;
 
 Checked type: `Scissor`.
 
-native-record · [source](../src/macos.rinzu#L1144).
+native-record · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1191).
 
 ```rinzu
 record Scissor
@@ -3271,7 +3406,7 @@ record Scissor
 
 ### field x
 
-[source](../src/macos.rinzu#L1145).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1192).
 
 ```rinzu
 x: Int
@@ -3279,7 +3414,7 @@ x: Int
 
 ### field y
 
-[source](../src/macos.rinzu#L1146).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1193).
 
 ```rinzu
 y: Int
@@ -3287,7 +3422,7 @@ y: Int
 
 ### field width
 
-[source](../src/macos.rinzu#L1147).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1194).
 
 ```rinzu
 width: Int
@@ -3295,7 +3430,7 @@ width: Int
 
 ### field height
 
-[source](../src/macos.rinzu#L1148).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1195).
 
 ```rinzu
 height: Int
@@ -3303,7 +3438,7 @@ height: Int
 
 ## rinzu.macos.ScrollView
 
-class · [source](../src/macos.rinzu#L2772).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2840).
 
 ```rinzu
 class ScrollView
@@ -3311,7 +3446,7 @@ class ScrollView
 
 ### field view
 
-[source](../src/macos.rinzu#L2773).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2841).
 
 ```rinzu
 const view: View
@@ -3323,7 +3458,7 @@ Checked type: `fn(ScrollView)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2779).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2847).
 
 ```rinzu
 fn destroy(self: ScrollView) -> Int
@@ -3335,7 +3470,7 @@ Checked type: `fn(ScrollView)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2775).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2843).
 
 ```rinzu
 fn identity(self: ScrollView) -> Int
@@ -3347,7 +3482,7 @@ Checked type: `fn(ScrollView,Float,Float)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2791).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2859).
 
 ```rinzu
 fn scrollTo(self: ScrollView, x: Float, y: Float) -> Int
@@ -3359,7 +3494,7 @@ Checked type: `fn(ScrollView,View)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2787).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2855).
 
 ```rinzu
 fn setContent(self: ScrollView, content: View) -> Int
@@ -3371,7 +3506,7 @@ Checked type: `fn(ScrollView,Bool)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2783).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2851).
 
 ```rinzu
 fn setEnabled(self: ScrollView, enabled: Bool) -> Int
@@ -3383,7 +3518,7 @@ Checked type: `fn(ScrollView)->Rect`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2795).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2863).
 
 ```rinzu
 fn visibleRect(self: ScrollView) -> Rect
@@ -3393,7 +3528,7 @@ fn visibleRect(self: ScrollView) -> Rect
 
 Checked type: `Selection`.
 
-native-record · [source](../src/macos.rinzu#L1202).
+native-record · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1249).
 
 ```rinzu
 record Selection
@@ -3401,7 +3536,7 @@ record Selection
 
 ### field start
 
-[source](../src/macos.rinzu#L1203).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1250).
 
 ```rinzu
 start: Int
@@ -3409,7 +3544,7 @@ start: Int
 
 ### field end
 
-[source](../src/macos.rinzu#L1204).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1251).
 
 ```rinzu
 end: Int
@@ -3417,7 +3552,7 @@ end: Int
 
 ## rinzu.macos.Session
 
-class · [source](../src/macos.rinzu#L575).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L603).
 
 ```rinzu
 class Session
@@ -3425,7 +3560,7 @@ class Session
 
 ### field handle
 
-[source](../src/macos.rinzu#L576).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L604).
 
 ```rinzu
 const handle: SessionHandle
@@ -3437,7 +3572,7 @@ Checked type: `fn(Session,String,Rect,Int)->Button`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L646).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L674).
 
 ```rinzu
 fn button(self: Session, title: String, frame: Rect, action: Int) -> Button
@@ -3449,7 +3584,7 @@ Checked type: `fn(Session,String,Rect,Int)->Checkbox`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L650).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L678).
 
 ```rinzu
 fn checkbox(self: Session, title: String, frame: Rect, action: Int) -> Checkbox
@@ -3461,7 +3596,7 @@ Checked type: `fn(Session)->String`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L671).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L699).
 
 ```rinzu
 fn clipboardText(self: Session) -> String
@@ -3473,7 +3608,7 @@ Checked type: `async(Session)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L638).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L666).
 
 ```rinzu
 async fn close(self: Session) -> Int
@@ -3485,7 +3620,7 @@ Checked type: `fn(Session)->Device`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L626).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L654).
 
 ```rinzu
 fn device(self: Session) -> Device
@@ -3497,7 +3632,7 @@ Checked type: `fn(Session)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L685).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L713).
 
 ```rinzu
 fn eventSequence(self: Session) -> Int
@@ -3511,11 +3646,25 @@ Checked type: `fn(Session,String,Float,Bool)->Font`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L689).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L723).
 
 ```rinzu
 fn font(self: Session, name: String, size: Float, bold: Bool) -> Font
 ```
+
+## rinzu.macos.Session.fontCatalog
+
+Checked type: `fn(Session) throws(Error)->{faces:List<{family:String,postscriptName:String,traits:Int}>,version:Int}`.
+
+Error contract: `throws(Error)` (declared).
+
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L718).
+
+```rinzu
+fn fontCatalog(self: Session) throws(Error) -> textValues.FontCatalog
+```
+
+Snapshot the installed font descriptors. Selection and cache policy belong to the caller.
 
 ## rinzu.macos.Session.isRunning
 
@@ -3523,7 +3672,7 @@ Checked type: `fn(Session)->Bool`.
 
 Error contract: `nothrow` (inferred).
 
-method · [source](../src/macos.rinzu#L601).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L629).
 
 ```rinzu
 fn isRunning(self: Session) -> Bool
@@ -3535,7 +3684,7 @@ Checked type: `fn(Session,String,Rect)->Label`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L642).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L670).
 
 ```rinzu
 fn label(self: Session, title: String, frame: Rect) -> Label
@@ -3547,7 +3696,7 @@ Checked type: `async(Session)->UiEvent`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L609).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L637).
 
 ```rinzu
 async fn nextEvent(self: Session) -> UiEvent
@@ -3559,7 +3708,7 @@ Checked type: `fn(Session,String)->String`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L588).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L616).
 
 ```rinzu
 fn resourcePath(self: Session, relative: String) -> String
@@ -3573,7 +3722,7 @@ Checked type: `fn(Session)->Option<String>`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L579).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L607).
 
 ```rinzu
 fn resourceRoot(self: Session) -> Option<String>
@@ -3587,7 +3736,7 @@ Checked type: `async(Session,fn($rinzu_record_f7c713f12e29ebb74f67222ddd835128,E
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L630).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L658).
 
 ```rinzu
 async fn run(self: Session, handler: fn (RunContext, Event) -> Unit) -> Int
@@ -3599,7 +3748,7 @@ Checked type: `fn(Session)->Future<Int>`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L605).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L633).
 
 ```rinzu
 fn runEvents(self: Session) -> Future<Int>
@@ -3611,7 +3760,7 @@ Checked type: `fn(Session,Rect)->ScrollView`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L662).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L690).
 
 ```rinzu
 fn scrollView(self: Session, frame: Rect) -> ScrollView
@@ -3623,7 +3772,7 @@ Checked type: `fn(Session,String)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L666).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L694).
 
 ```rinzu
 fn setClipboardText(self: Session, value: String) -> Int
@@ -3635,7 +3784,7 @@ Checked type: `fn(Session)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L634).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L662).
 
 ```rinzu
 fn stop(self: Session) -> Int
@@ -3647,7 +3796,7 @@ Checked type: `fn(Session,String,Rect,Int)->TextField`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L654).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L682).
 
 ```rinzu
 fn textField(self: Session, title: String, frame: Rect, action: Int) -> TextField
@@ -3659,7 +3808,7 @@ Checked type: `fn(Session,String,Rect)->TextView`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L658).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L686).
 
 ```rinzu
 fn textView(self: Session, title: String, frame: Rect) -> TextView
@@ -3671,7 +3820,7 @@ Checked type: `fn(Session,Rect)->View`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L622).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L650).
 
 ```rinzu
 fn view(self: Session, rect: Rect) -> View
@@ -3683,7 +3832,7 @@ Checked type: `fn(Session,String,Float,Float)->Window`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L613).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L641).
 
 ```rinzu
 fn window(self: Session, title: String, width: Float, height: Float) -> Window
@@ -3693,7 +3842,7 @@ fn window(self: Session, title: String, width: Float, height: Float) -> Window
 
 Checked type: `SessionHandle`.
 
-opaque · [source](../src/macos.rinzu#L1006).
+opaque · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1053).
 
 ```rinzu
 opaque SessionHandle;
@@ -3703,7 +3852,7 @@ opaque SessionHandle;
 
 Checked type: `Statistics`.
 
-native-record · [source](../src/macos.rinzu#L1172).
+native-record · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1219).
 
 ```rinzu
 record Statistics
@@ -3711,7 +3860,7 @@ record Statistics
 
 ### field sessions
 
-[source](../src/macos.rinzu#L1173).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1220).
 
 ```rinzu
 sessions: Int
@@ -3719,7 +3868,7 @@ sessions: Int
 
 ### field windows
 
-[source](../src/macos.rinzu#L1174).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1221).
 
 ```rinzu
 windows: Int
@@ -3727,7 +3876,7 @@ windows: Int
 
 ### field views
 
-[source](../src/macos.rinzu#L1175).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1222).
 
 ```rinzu
 views: Int
@@ -3735,7 +3884,7 @@ views: Int
 
 ### field devices
 
-[source](../src/macos.rinzu#L1176).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1223).
 
 ```rinzu
 devices: Int
@@ -3743,7 +3892,7 @@ devices: Int
 
 ### field buffers
 
-[source](../src/macos.rinzu#L1177).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1224).
 
 ```rinzu
 buffers: Int
@@ -3751,7 +3900,7 @@ buffers: Int
 
 ### field libraries
 
-[source](../src/macos.rinzu#L1178).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1225).
 
 ```rinzu
 libraries: Int
@@ -3759,7 +3908,7 @@ libraries: Int
 
 ### field pipelines
 
-[source](../src/macos.rinzu#L1179).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1226).
 
 ```rinzu
 pipelines: Int
@@ -3767,7 +3916,7 @@ pipelines: Int
 
 ### field commands
 
-[source](../src/macos.rinzu#L1180).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1227).
 
 ```rinzu
 commands: Int
@@ -3775,7 +3924,7 @@ commands: Int
 
 ### field bufferBytes
 
-[source](../src/macos.rinzu#L1181).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1228).
 
 ```rinzu
 bufferBytes: Int
@@ -3783,7 +3932,7 @@ bufferBytes: Int
 
 ### field retainedControls
 
-[source](../src/macos.rinzu#L1182).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1229).
 
 ```rinzu
 retainedControls: Int
@@ -3791,7 +3940,7 @@ retainedControls: Int
 
 ### field queuedEvents
 
-[source](../src/macos.rinzu#L1183).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1230).
 
 ```rinzu
 queuedEvents: Int
@@ -3799,7 +3948,7 @@ queuedEvents: Int
 
 ### field eventPayloadBytes
 
-[source](../src/macos.rinzu#L1184).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1231).
 
 ```rinzu
 eventPayloadBytes: Int
@@ -3807,7 +3956,7 @@ eventPayloadBytes: Int
 
 ### field snapshotBytes
 
-[source](../src/macos.rinzu#L1185).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1232).
 
 ```rinzu
 snapshotBytes: Int
@@ -3815,7 +3964,7 @@ snapshotBytes: Int
 
 ### field sheets
 
-[source](../src/macos.rinzu#L1186).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1233).
 
 ```rinzu
 sheets: Int
@@ -3823,7 +3972,7 @@ sheets: Int
 
 ### field sheetBytes
 
-[source](../src/macos.rinzu#L1187).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1234).
 
 ```rinzu
 sheetBytes: Int
@@ -3831,7 +3980,7 @@ sheetBytes: Int
 
 ### field textures
 
-[source](../src/macos.rinzu#L1188).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1235).
 
 ```rinzu
 textures: Int
@@ -3839,7 +3988,7 @@ textures: Int
 
 ### field samplers
 
-[source](../src/macos.rinzu#L1189).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1236).
 
 ```rinzu
 samplers: Int
@@ -3847,7 +3996,7 @@ samplers: Int
 
 ### field textureBytes
 
-[source](../src/macos.rinzu#L1190).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1237).
 
 ```rinzu
 textureBytes: Int
@@ -3855,7 +4004,7 @@ textureBytes: Int
 
 ### field fonts
 
-[source](../src/macos.rinzu#L1191).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1238).
 
 ```rinzu
 fonts: Int
@@ -3863,7 +4012,7 @@ fonts: Int
 
 ### field textLayouts
 
-[source](../src/macos.rinzu#L1192).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1239).
 
 ```rinzu
 textLayouts: Int
@@ -3871,7 +4020,7 @@ textLayouts: Int
 
 ### field textBytes
 
-[source](../src/macos.rinzu#L1193).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1240).
 
 ```rinzu
 textBytes: Int
@@ -3879,7 +4028,7 @@ textBytes: Int
 
 ### field frameClocks
 
-[source](../src/macos.rinzu#L1194).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1241).
 
 ```rinzu
 frameClocks: Int
@@ -3887,7 +4036,7 @@ frameClocks: Int
 
 ### field frameTimers
 
-[source](../src/macos.rinzu#L1195).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1242).
 
 ```rinzu
 frameTimers: Int
@@ -3895,7 +4044,7 @@ frameTimers: Int
 
 ### field frameWaiters
 
-[source](../src/macos.rinzu#L1196).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1243).
 
 ```rinzu
 frameWaiters: Int
@@ -3903,7 +4052,7 @@ frameWaiters: Int
 
 ### field dataRows
 
-[source](../src/macos.rinzu#L1197).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1244).
 
 ```rinzu
 dataRows: Int
@@ -3911,7 +4060,7 @@ dataRows: Int
 
 ### field dataBytes
 
-[source](../src/macos.rinzu#L1198).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1245).
 
 ```rinzu
 dataBytes: Int
@@ -3919,7 +4068,7 @@ dataBytes: Int
 
 ### field dataUpdates
 
-[source](../src/macos.rinzu#L1199).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1246).
 
 ```rinzu
 dataUpdates: Int
@@ -3927,7 +4076,7 @@ dataUpdates: Int
 
 ## rinzu.macos.Text2D
 
-class · [source](../src/macos.rinzu#L3565).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3633).
 
 ```rinzu
 class Text2D
@@ -3937,7 +4086,7 @@ Reusable text snapshot. Keep it across frames; reraster only after text/style ch
 
 ### field layout
 
-[source](../src/macos.rinzu#L3566).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3634).
 
 ```rinzu
 const layout: TextLayout
@@ -3945,7 +4094,7 @@ const layout: TextLayout
 
 ### field texture
 
-[source](../src/macos.rinzu#L3567).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3635).
 
 ```rinzu
 const texture: Texture
@@ -3953,7 +4102,7 @@ const texture: Texture
 
 ### field metrics
 
-[source](../src/macos.rinzu#L3568).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3636).
 
 ```rinzu
 const metrics: TextMetrics
@@ -3961,7 +4110,7 @@ const metrics: TextMetrics
 
 ### field scale
 
-[source](../src/macos.rinzu#L3569).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3637).
 
 ```rinzu
 const scale: Float
@@ -3969,7 +4118,7 @@ const scale: Float
 
 ### field width
 
-[source](../src/macos.rinzu#L3570).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3638).
 
 ```rinzu
 const width: Int
@@ -3977,7 +4126,7 @@ const width: Int
 
 ### field height
 
-[source](../src/macos.rinzu#L3571).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3639).
 
 ```rinzu
 const height: Int
@@ -3989,7 +4138,7 @@ Checked type: `fn(Text2D)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3573).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3641).
 
 ```rinzu
 fn destroy(self: Text2D)
@@ -3997,7 +4146,7 @@ fn destroy(self: Text2D)
 
 ## rinzu.macos.TextField
 
-class · [source](../src/macos.rinzu#L2696).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2764).
 
 ```rinzu
 class TextField
@@ -4005,7 +4154,7 @@ class TextField
 
 ### field view
 
-[source](../src/macos.rinzu#L2697).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2765).
 
 ```rinzu
 const view: View
@@ -4017,7 +4166,7 @@ Checked type: `fn(TextField)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2703).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2771).
 
 ```rinzu
 fn destroy(self: TextField) -> Int
@@ -4029,7 +4178,7 @@ Checked type: `fn(TextField)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2699).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2767).
 
 ```rinzu
 fn identity(self: TextField) -> Int
@@ -4041,7 +4190,7 @@ Checked type: `fn(TextField)->Bool`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2727).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2795).
 
 ```rinzu
 fn isComposing(self: TextField) -> Bool
@@ -4053,7 +4202,7 @@ Checked type: `fn(TextField,Int,Int)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2723).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2791).
 
 ```rinzu
 fn select(self: TextField, start: Int, end: Int) -> Int
@@ -4065,7 +4214,7 @@ Checked type: `fn(TextField)->Selection`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2719).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2787).
 
 ```rinzu
 fn selection(self: TextField) -> Selection
@@ -4077,7 +4226,7 @@ Checked type: `fn(TextField,Bool)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2707).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2775).
 
 ```rinzu
 fn setEnabled(self: TextField, enabled: Bool) -> Int
@@ -4089,7 +4238,7 @@ Checked type: `fn(TextField,String)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2715).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2783).
 
 ```rinzu
 fn setText(self: TextField, value: String) -> Int
@@ -4101,15 +4250,33 @@ Checked type: `fn(TextField)->String`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2711).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2779).
 
 ```rinzu
 fn text(self: TextField) -> String
 ```
 
+## rinzu.macos.TextGlyph
+
+Checked type: `{advanceX:Float,advanceY:Float,end:Int,identity:Int,start:Int,x:Float,y:Float}`.
+
+type-alias · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/text.rinzu#L44).
+
+```rinzu
+type TextGlyph = {
+    identity: Int,
+    start: Int,
+    end: Int,
+    x: Float,
+    y: Float,
+    advanceX: Float,
+    advanceY: Float
+};
+```
+
 ## rinzu.macos.TextLayout
 
-class · [source](../src/macos.rinzu#L699).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L733).
 
 ```rinzu
 class TextLayout
@@ -4117,7 +4284,7 @@ class TextLayout
 
 ### field handle
 
-[source](../src/macos.rinzu#L700).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L734).
 
 ```rinzu
 const handle: TextLayoutHandle
@@ -4129,11 +4296,27 @@ Checked type: `fn(TextLayout)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L720).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L767).
 
 ```rinzu
 fn destroy(self: TextLayout) -> Int
 ```
+
+## rinzu.macos.TextLayout.fragment
+
+Checked type: `fn(TextLayout,Int,Int) throws(Error)->TextLayout`.
+
+Error contract: `throws(Error)` (declared).
+
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L745).
+
+```rinzu
+fn fragment(self: TextLayout, start: Int, end: Int) throws(Error) -> TextLayout
+```
+
+Rasterizable selection retaining the original shaping and face fallback.
+Half-open UTF-16 boundaries cannot split a cluster. Coordinates are relative to the first
+selected glyph's X position and the baseline (metrics.baseline=0). The selection owns its line.
 
 ## rinzu.macos.TextLayout.metrics
 
@@ -4141,17 +4324,31 @@ Checked type: `fn(TextLayout)->TextMetrics`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L702).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L749).
 
 ```rinzu
 fn metrics(self: TextLayout) -> TextMetrics
 ```
 
+## rinzu.macos.TextLayout.shaping
+
+Checked type: `fn(TextLayout) throws(Error)->{advance:Float,runs:List<{end:Int,font:{axes:List<{identifier:Int,initial:Float,maximum:Float,minimum:Float,name:String,value:Float}>,family:String,matrix:{a:Float,b:Float,c:Float,d:Float,tx:Float,ty:Float},postscriptName:String,size:Float,traits:Int,version:Int},glyphs:List<{advanceX:Float,advanceY:Float,end:Int,identity:Int,start:Int,x:Float,y:Float}>,isFallback:Bool,matrix:{a:Float,b:Float,c:Float,d:Float,tx:Float,ty:Float},rtl:Bool,start:Int}>,utf16Length:Int,version:Int}`.
+
+Error contract: `throws(Error)` (declared).
+
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L737).
+
+```rinzu
+fn shaping(self: TextLayout) throws(Error) -> textValues.TextShape
+```
+
+An owned snapshot independent of this handle's lifetime; only available on shape() layouts.
+
 ## rinzu.macos.TextLayoutHandle
 
 Checked type: `TextLayoutHandle`.
 
-opaque · [source](../src/macos.rinzu#L1022).
+opaque · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1069).
 
 ```rinzu
 opaque TextLayoutHandle;
@@ -4161,7 +4358,7 @@ opaque TextLayoutHandle;
 
 Checked type: `TextMetrics`.
 
-native-record · [source](../src/macos.rinzu#L1089).
+native-record · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1136).
 
 ```rinzu
 record TextMetrics
@@ -4169,7 +4366,7 @@ record TextMetrics
 
 ### field width
 
-[source](../src/macos.rinzu#L1090).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1137).
 
 ```rinzu
 width: Float
@@ -4177,7 +4374,7 @@ width: Float
 
 ### field height
 
-[source](../src/macos.rinzu#L1091).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1138).
 
 ```rinzu
 height: Float
@@ -4185,7 +4382,7 @@ height: Float
 
 ### field baseline
 
-[source](../src/macos.rinzu#L1092).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1139).
 
 ```rinzu
 baseline: Float
@@ -4193,7 +4390,7 @@ baseline: Float
 
 ### field ascent
 
-[source](../src/macos.rinzu#L1093).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1140).
 
 ```rinzu
 ascent: Float
@@ -4201,7 +4398,7 @@ ascent: Float
 
 ### field descent
 
-[source](../src/macos.rinzu#L1094).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1141).
 
 ```rinzu
 descent: Float
@@ -4209,7 +4406,7 @@ descent: Float
 
 ### field leading
 
-[source](../src/macos.rinzu#L1095).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1142).
 
 ```rinzu
 leading: Float
@@ -4217,7 +4414,7 @@ leading: Float
 
 ### field left
 
-[source](../src/macos.rinzu#L1096).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1143).
 
 ```rinzu
 left: Float
@@ -4225,7 +4422,7 @@ left: Float
 
 ### field top
 
-[source](../src/macos.rinzu#L1097).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1144).
 
 ```rinzu
 top: Float
@@ -4233,7 +4430,7 @@ top: Float
 
 ### field rasterWidth
 
-[source](../src/macos.rinzu#L1098).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1145).
 
 ```rinzu
 rasterWidth: Float
@@ -4241,7 +4438,7 @@ rasterWidth: Float
 
 ### field rasterHeight
 
-[source](../src/macos.rinzu#L1099).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1146).
 
 ```rinzu
 rasterHeight: Float
@@ -4249,15 +4446,48 @@ rasterHeight: Float
 
 ### field lines
 
-[source](../src/macos.rinzu#L1100).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1147).
 
 ```rinzu
 lines: Int
 ```
 
+## rinzu.macos.TextRun
+
+Checked type: `{end:Int,font:{axes:List<{identifier:Int,initial:Float,maximum:Float,minimum:Float,name:String,value:Float}>,family:String,matrix:{a:Float,b:Float,c:Float,d:Float,tx:Float,ty:Float},postscriptName:String,size:Float,traits:Int,version:Int},glyphs:List<{advanceX:Float,advanceY:Float,end:Int,identity:Int,start:Int,x:Float,y:Float}>,isFallback:Bool,matrix:{a:Float,b:Float,c:Float,d:Float,tx:Float,ty:Float},rtl:Bool,start:Int}`.
+
+type-alias · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/text.rinzu#L54).
+
+```rinzu
+type TextRun = {
+    start: Int,
+    end: Int,
+    rtl: Bool,
+    isFallback: Bool,
+    font: FontInfo,
+    matrix: FontMatrix,
+    glyphs: List<TextGlyph>
+};
+```
+
+## rinzu.macos.TextShape
+
+Checked type: `{advance:Float,runs:List<{end:Int,font:{axes:List<{identifier:Int,initial:Float,maximum:Float,minimum:Float,name:String,value:Float}>,family:String,matrix:{a:Float,b:Float,c:Float,d:Float,tx:Float,ty:Float},postscriptName:String,size:Float,traits:Int,version:Int},glyphs:List<{advanceX:Float,advanceY:Float,end:Int,identity:Int,start:Int,x:Float,y:Float}>,isFallback:Bool,matrix:{a:Float,b:Float,c:Float,d:Float,tx:Float,ty:Float},rtl:Bool,start:Int}>,utf16Length:Int,version:Int}`.
+
+type-alias · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/text.rinzu#L64).
+
+```rinzu
+type TextShape = {
+    version: Int,
+    utf16Length: Int,
+    advance: Float,
+    runs: List<TextRun>
+};
+```
+
 ## rinzu.macos.TextView
 
-class · [source](../src/macos.rinzu#L2734).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2802).
 
 ```rinzu
 class TextView
@@ -4265,7 +4495,7 @@ class TextView
 
 ### field view
 
-[source](../src/macos.rinzu#L2735).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2803).
 
 ```rinzu
 const view: View
@@ -4277,7 +4507,7 @@ Checked type: `fn(TextView)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2741).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2809).
 
 ```rinzu
 fn destroy(self: TextView) -> Int
@@ -4289,7 +4519,7 @@ Checked type: `fn(TextView)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2737).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2805).
 
 ```rinzu
 fn identity(self: TextView) -> Int
@@ -4301,7 +4531,7 @@ Checked type: `fn(TextView)->Bool`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2765).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2833).
 
 ```rinzu
 fn isComposing(self: TextView) -> Bool
@@ -4313,7 +4543,7 @@ Checked type: `fn(TextView,Int,Int)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2761).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2829).
 
 ```rinzu
 fn select(self: TextView, start: Int, end: Int) -> Int
@@ -4325,7 +4555,7 @@ Checked type: `fn(TextView)->Selection`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2757).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2825).
 
 ```rinzu
 fn selection(self: TextView) -> Selection
@@ -4337,7 +4567,7 @@ Checked type: `fn(TextView,Bool)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2745).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2813).
 
 ```rinzu
 fn setEnabled(self: TextView, enabled: Bool) -> Int
@@ -4349,7 +4579,7 @@ Checked type: `fn(TextView,String)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2753).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2821).
 
 ```rinzu
 fn setText(self: TextView, value: String) -> Int
@@ -4361,7 +4591,7 @@ Checked type: `fn(TextView)->String`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2749).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2817).
 
 ```rinzu
 fn text(self: TextView) -> String
@@ -4369,7 +4599,7 @@ fn text(self: TextView) -> String
 
 ## rinzu.macos.Texture
 
-class · [source](../src/macos.rinzu#L725).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L772).
 
 ```rinzu
 class Texture
@@ -4377,7 +4607,7 @@ class Texture
 
 ### field handle
 
-[source](../src/macos.rinzu#L726).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L773).
 
 ```rinzu
 const handle: TextureHandle
@@ -4389,7 +4619,7 @@ Checked type: `fn(Texture)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L753).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L800).
 
 ```rinzu
 fn destroy(self: Texture) -> Int
@@ -4401,7 +4631,7 @@ Checked type: `fn(Texture)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L757).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L804).
 
 ```rinzu
 fn identity(self: Texture) -> Int
@@ -4413,7 +4643,7 @@ Checked type: `fn(Texture)->TextureInfo`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L728).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L775).
 
 ```rinzu
 fn info(self: Texture) -> TextureInfo
@@ -4425,7 +4655,7 @@ Checked type: `fn(Texture,Scissor)->ByteArray`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L742).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L789).
 
 ```rinzu
 fn read(self: Texture, region: Scissor) -> ByteArray
@@ -4439,7 +4669,7 @@ Checked type: `fn(Texture,Scissor,Int)->ByteArray`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L748).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L795).
 
 ```rinzu
 fn readChannel(self: Texture, region: Scissor, channel: Int) -> ByteArray
@@ -4453,7 +4683,7 @@ Checked type: `fn(Texture,Scissor,Int,ByteArray)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L734).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L781).
 
 ```rinzu
 fn write(self: Texture, region: Scissor, rowBytes: Int, bytes: ByteArray) -> Int
@@ -4463,7 +4693,7 @@ fn write(self: Texture, region: Scissor, rowBytes: Int, bytes: ByteArray) -> Int
 
 Checked type: `TextureHandle`.
 
-opaque · [source](../src/macos.rinzu#L1016).
+opaque · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1063).
 
 ```rinzu
 opaque TextureHandle;
@@ -4473,7 +4703,7 @@ opaque TextureHandle;
 
 Checked type: `TextureInfo`.
 
-native-record · [source](../src/macos.rinzu#L1052).
+native-record · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1099).
 
 ```rinzu
 record TextureInfo
@@ -4481,7 +4711,7 @@ record TextureInfo
 
 ### field width
 
-[source](../src/macos.rinzu#L1053).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1100).
 
 ```rinzu
 width: Int
@@ -4489,7 +4719,7 @@ width: Int
 
 ### field height
 
-[source](../src/macos.rinzu#L1054).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1101).
 
 ```rinzu
 height: Int
@@ -4497,7 +4727,7 @@ height: Int
 
 ### field format
 
-[source](../src/macos.rinzu#L1055).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1102).
 
 ```rinzu
 format: Int
@@ -4505,7 +4735,7 @@ format: Int
 
 ### field usage
 
-[source](../src/macos.rinzu#L1056).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1103).
 
 ```rinzu
 usage: Int
@@ -4513,7 +4743,7 @@ usage: Int
 
 ### field bytes
 
-[source](../src/macos.rinzu#L1057).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1104).
 
 ```rinzu
 bytes: Int
@@ -4523,7 +4753,7 @@ bytes: Int
 
 Checked type: `Transform2D`.
 
-native-record · [source](../src/macos.rinzu#L1114).
+native-record · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1161).
 
 ```rinzu
 record Transform2D
@@ -4531,7 +4761,7 @@ record Transform2D
 
 ### field a
 
-[source](../src/macos.rinzu#L1115).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1162).
 
 ```rinzu
 a: Float
@@ -4539,7 +4769,7 @@ a: Float
 
 ### field b
 
-[source](../src/macos.rinzu#L1116).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1163).
 
 ```rinzu
 b: Float
@@ -4547,7 +4777,7 @@ b: Float
 
 ### field c
 
-[source](../src/macos.rinzu#L1117).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1164).
 
 ```rinzu
 c: Float
@@ -4555,7 +4785,7 @@ c: Float
 
 ### field d
 
-[source](../src/macos.rinzu#L1118).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1165).
 
 ```rinzu
 d: Float
@@ -4563,7 +4793,7 @@ d: Float
 
 ### field tx
 
-[source](../src/macos.rinzu#L1119).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1166).
 
 ```rinzu
 tx: Float
@@ -4571,7 +4801,7 @@ tx: Float
 
 ### field ty
 
-[source](../src/macos.rinzu#L1120).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1167).
 
 ```rinzu
 ty: Float
@@ -4579,7 +4809,7 @@ ty: Float
 
 ## rinzu.macos.UiAction
 
-class · [source](../src/macos.rinzu#L3732).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3800).
 
 ```rinzu
 class UiAction
@@ -4589,7 +4819,7 @@ Source-only handler storage. A binding admits one active job at a time.
 
 ### field action
 
-[source](../src/macos.rinzu#L3733).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3801).
 
 ```rinzu
 const action: Int
@@ -4597,7 +4827,7 @@ const action: Int
 
 ### field handler
 
-[source](../src/macos.rinzu#L3734).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3802).
 
 ```rinzu
 const handler: fn (UiJob, UiEvent) -> Future<Unit>
@@ -4605,7 +4835,7 @@ const handler: fn (UiJob, UiEvent) -> Future<Unit>
 
 ### field busy
 
-[source](../src/macos.rinzu#L3735).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3803).
 
 ```rinzu
 busy: Bool
@@ -4613,7 +4843,7 @@ busy: Bool
 
 ## rinzu.macos.UiActions
 
-class · [source](../src/macos.rinzu#L3738).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3806).
 
 ```rinzu
 class UiActions
@@ -4621,7 +4851,7 @@ class UiActions
 
 ### field bindings
 
-[source](../src/macos.rinzu#L3739).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3807).
 
 ```rinzu
 bindings: List<UiAction>
@@ -4633,7 +4863,7 @@ Checked type: `fn(UiActions,UiScope,UiEvent)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3757).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3825).
 
 ```rinzu
 fn handle(self: UiActions, scope: UiScope, event: UiEvent)
@@ -4645,7 +4875,7 @@ Checked type: `fn(UiActions,Int,$rinzu_closure_735ce3cd6d5e35d7)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L3741).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3809).
 
 ```rinzu
 fn on(self: UiActions, action: Int, handler: fn (UiJob, UiEvent) -> Future<Unit>)
@@ -4653,7 +4883,7 @@ fn on(self: UiActions, action: Int, handler: fn (UiJob, UiEvent) -> Future<Unit>
 
 ## rinzu.macos.UiApplication
 
-class · [source](../src/macos.rinzu#L2453).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2521).
 
 ```rinzu
 class UiApplication
@@ -4663,7 +4893,7 @@ Application body context. Each Window keeps its own UiScope.
 
 ### field session
 
-[source](../src/macos.rinzu#L2454).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2522).
 
 ```rinzu
 const session: Session
@@ -4671,7 +4901,7 @@ const session: Session
 
 ### field primary
 
-[source](../src/macos.rinzu#L2455).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2523).
 
 ```rinzu
 const primary: UiScope
@@ -4679,7 +4909,7 @@ const primary: UiScope
 
 ## rinzu.macos.UiControl
 
-class · [source](../src/macos.rinzu#L1990).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2058).
 
 ```rinzu
 class UiControl
@@ -4689,7 +4919,7 @@ Shared stop state contains no task handles.
 
 ### field stopping
 
-[source](../src/macos.rinzu#L1991).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2059).
 
 ```rinzu
 stopping: Bool
@@ -4697,7 +4927,7 @@ stopping: Bool
 
 ### field closed
 
-[source](../src/macos.rinzu#L1992).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2060).
 
 ```rinzu
 closed: Bool
@@ -4705,7 +4935,7 @@ closed: Bool
 
 ## rinzu.macos.UiEvent
 
-class · [source](../src/macos.rinzu#L1718).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1786).
 
 ```rinzu
 class UiEvent
@@ -4715,7 +4945,7 @@ An owned event. Text remains valid after the native queue is acknowledged.
 
 ### field kind
 
-[source](../src/macos.rinzu#L1719).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1787).
 
 ```rinzu
 const kind: Int
@@ -4723,7 +4953,7 @@ const kind: Int
 
 ### field windowId
 
-[source](../src/macos.rinzu#L1720).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1788).
 
 ```rinzu
 const windowId: Int
@@ -4731,7 +4961,7 @@ const windowId: Int
 
 ### field viewId
 
-[source](../src/macos.rinzu#L1721).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1789).
 
 ```rinzu
 const viewId: Int
@@ -4739,7 +4969,7 @@ const viewId: Int
 
 ### field sequence
 
-[source](../src/macos.rinzu#L1722).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1790).
 
 ```rinzu
 const sequence: Int
@@ -4747,7 +4977,7 @@ const sequence: Int
 
 ### field x
 
-[source](../src/macos.rinzu#L1723).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1791).
 
 ```rinzu
 const x: Float
@@ -4755,7 +4985,7 @@ const x: Float
 
 ### field y
 
-[source](../src/macos.rinzu#L1724).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1792).
 
 ```rinzu
 const y: Float
@@ -4763,7 +4993,7 @@ const y: Float
 
 ### field width
 
-[source](../src/macos.rinzu#L1725).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1793).
 
 ```rinzu
 const width: Float
@@ -4771,7 +5001,7 @@ const width: Float
 
 ### field height
 
-[source](../src/macos.rinzu#L1726).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1794).
 
 ```rinzu
 const height: Float
@@ -4779,7 +5009,7 @@ const height: Float
 
 ### field scale
 
-[source](../src/macos.rinzu#L1727).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1795).
 
 ```rinzu
 const scale: Float
@@ -4787,7 +5017,7 @@ const scale: Float
 
 ### field keyCode
 
-[source](../src/macos.rinzu#L1728).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1796).
 
 ```rinzu
 const keyCode: Int
@@ -4795,7 +5025,7 @@ const keyCode: Int
 
 ### field modifiers
 
-[source](../src/macos.rinzu#L1729).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1797).
 
 ```rinzu
 const modifiers: Int
@@ -4803,7 +5033,7 @@ const modifiers: Int
 
 ### field action
 
-[source](../src/macos.rinzu#L1730).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1798).
 
 ```rinzu
 const action: Int
@@ -4811,7 +5041,7 @@ const action: Int
 
 ### field selectionStart
 
-[source](../src/macos.rinzu#L1731).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1799).
 
 ```rinzu
 const selectionStart: Int
@@ -4819,7 +5049,7 @@ const selectionStart: Int
 
 ### field selectionEnd
 
-[source](../src/macos.rinzu#L1732).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1800).
 
 ```rinzu
 const selectionEnd: Int
@@ -4827,7 +5057,7 @@ const selectionEnd: Int
 
 ### field flags
 
-[source](../src/macos.rinzu#L1733).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1801).
 
 ```rinzu
 const flags: Int
@@ -4835,7 +5065,7 @@ const flags: Int
 
 ### field value
 
-[source](../src/macos.rinzu#L1734).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1802).
 
 ```rinzu
 const value: Float
@@ -4843,7 +5073,7 @@ const value: Float
 
 ### field deltaX
 
-[source](../src/macos.rinzu#L1735).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1803).
 
 ```rinzu
 const deltaX: Float
@@ -4851,7 +5081,7 @@ const deltaX: Float
 
 ### field deltaY
 
-[source](../src/macos.rinzu#L1736).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1804).
 
 ```rinzu
 const deltaY: Float
@@ -4859,7 +5089,7 @@ const deltaY: Float
 
 ### field text
 
-[source](../src/macos.rinzu#L1737).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1805).
 
 ```rinzu
 const text: String
@@ -4867,7 +5097,7 @@ const text: String
 
 ## rinzu.macos.UiJob
 
-class · [source](../src/macos.rinzu#L1996).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2064).
 
 ```rinzu
 class UiJob
@@ -4877,7 +5107,7 @@ A job receives native UI capabilities and stop state, without the job registry.
 
 ### field session
 
-[source](../src/macos.rinzu#L1997).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2065).
 
 ```rinzu
 const session: Session
@@ -4885,7 +5115,7 @@ const session: Session
 
 ### field window
 
-[source](../src/macos.rinzu#L1998).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2066).
 
 ```rinzu
 const window: Window
@@ -4893,7 +5123,7 @@ const window: Window
 
 ### field windowId
 
-[source](../src/macos.rinzu#L1999).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2067).
 
 ```rinzu
 const windowId: Int
@@ -4901,7 +5131,7 @@ const windowId: Int
 
 ### field control
 
-[source](../src/macos.rinzu#L2000).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2068).
 
 ```rinzu
 const control: UiControl
@@ -4913,7 +5143,7 @@ Checked type: `fn(UiJob)->Bool`.
 
 Error contract: `nothrow` (inferred).
 
-method · [source](../src/macos.rinzu#L2002).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2070).
 
 ```rinzu
 fn isStopping(self: UiJob) -> Bool
@@ -4925,7 +5155,7 @@ Checked type: `fn(UiJob)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2006).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2074).
 
 ```rinzu
 fn requestStop(self: UiJob)
@@ -4937,7 +5167,7 @@ Checked type: `fn(UiJob)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2011).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2079).
 
 ```rinzu
 fn wake(self: UiJob) -> Int
@@ -4945,7 +5175,7 @@ fn wake(self: UiJob) -> Int
 
 ## rinzu.macos.UiScope
 
-class · [source](../src/macos.rinzu#L2020).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2088).
 
 ```rinzu
 class UiScope
@@ -4955,7 +5185,7 @@ Main-owned Window resources and Source jobs. Jobs receive a UiJob context.
 
 ### field session
 
-[source](../src/macos.rinzu#L2021).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2089).
 
 ```rinzu
 const session: Session
@@ -4963,7 +5193,7 @@ const session: Session
 
 ### field window
 
-[source](../src/macos.rinzu#L2022).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2090).
 
 ```rinzu
 const window: Window
@@ -4971,7 +5201,7 @@ const window: Window
 
 ### field windowId
 
-[source](../src/macos.rinzu#L2023).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2091).
 
 ```rinzu
 const windowId: Int
@@ -4979,7 +5209,7 @@ const windowId: Int
 
 ### field tasks
 
-[source](../src/macos.rinzu#L2024).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2092).
 
 ```rinzu
 tasks: List<UiTask>
@@ -4987,7 +5217,7 @@ tasks: List<UiTask>
 
 ### field canvases
 
-[source](../src/macos.rinzu#L2025).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2093).
 
 ```rinzu
 canvases: List<Canvas2D>
@@ -4995,7 +5225,7 @@ canvases: List<Canvas2D>
 
 ### field errors
 
-[source](../src/macos.rinzu#L2026).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2094).
 
 ```rinzu
 errors: List<Error>
@@ -5003,7 +5233,7 @@ errors: List<Error>
 
 ### field reportedErrors
 
-[source](../src/macos.rinzu#L2027).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2095).
 
 ```rinzu
 reportedErrors: Int
@@ -5011,7 +5241,7 @@ reportedErrors: Int
 
 ### field control
 
-[source](../src/macos.rinzu#L2028).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2096).
 
 ```rinzu
 const control: UiControl
@@ -5023,7 +5253,7 @@ Checked type: `fn(UiScope,String,Rect,Int)->Button`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2228).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2296).
 
 ```rinzu
 fn button(self: UiScope, title: String, frame: Rect, action: Int) -> Button
@@ -5035,7 +5265,7 @@ Checked type: `fn(UiScope,Device,Rect,Int,Int,Color,$rinzu_closure_efe2dcc12b934
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2127).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2195).
 
 ```rinzu
 fn canvas2D(
@@ -5057,7 +5287,7 @@ Checked type: `fn(UiScope,String,Rect,Int)->Checkbox`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2232).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2300).
 
 ```rinzu
 fn checkbox(self: UiScope, title: String, frame: Rect, action: Int) -> Checkbox
@@ -5069,7 +5299,7 @@ Checked type: `async(UiScope)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2087).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2155).
 
 ```rinzu
 async fn close(self: UiScope) -> Int
@@ -5081,7 +5311,7 @@ Checked type: `async(UiScope,$rinzu_closure_6d2f0d3cfa7112a6)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2075).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2143).
 
 ```rinzu
 async fn dispatch(self: UiScope, handler: fn (UiScope, UiEvent) -> Future<Unit>)
@@ -5095,7 +5325,7 @@ Checked type: `async(UiScope,UiActions)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2216).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2284).
 
 ```rinzu
 async fn dispatchActions(self: UiScope, actions: UiActions)
@@ -5107,7 +5337,7 @@ Checked type: `fn(UiScope)->Bool`.
 
 Error contract: `nothrow` (inferred).
 
-method · [source](../src/macos.rinzu#L2051).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2119).
 
 ```rinzu
 fn isStopping(self: UiScope) -> Bool
@@ -5119,7 +5349,7 @@ Checked type: `async(UiScope)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2069).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2137).
 
 ```rinzu
 async fn join(self: UiScope) -> Int
@@ -5133,7 +5363,7 @@ Checked type: `fn(UiScope,String,Rect)->Label`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2224).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2292).
 
 ```rinzu
 fn label(self: UiScope, title: String, frame: Rect) -> Label
@@ -5145,7 +5375,7 @@ Checked type: `fn(UiScope,Rect,Int)->DataView`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2114).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2182).
 
 ```rinzu
 fn listView(self: UiScope, frame: Rect, action: Int) -> DataView
@@ -5157,7 +5387,7 @@ Checked type: `fn(UiScope,String)->Menu`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2248).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2316).
 
 ```rinzu
 fn menu(self: UiScope, title: String) -> Menu
@@ -5169,7 +5399,7 @@ Checked type: `fn(UiScope)->Unit`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2055).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2123).
 
 ```rinzu
 fn requestStop(self: UiScope)
@@ -5181,7 +5411,7 @@ Checked type: `fn(UiScope,Rect)->ScrollView`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2244).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2312).
 
 ```rinzu
 fn scrollView(self: UiScope, frame: Rect) -> ScrollView
@@ -5193,7 +5423,7 @@ Checked type: `fn(UiScope,$rinzu_closure_2671e076e7dc3bc9)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2030).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2098).
 
 ```rinzu
 fn start(self: UiScope, work: fn (UiJob) -> Future<Unit>) -> Int
@@ -5205,7 +5435,7 @@ Checked type: `fn(UiScope,Device,Rect)->View`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2108).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2176).
 
 ```rinzu
 fn surface(self: UiScope, device: Device, frame: Rect) -> View
@@ -5217,7 +5447,7 @@ Checked type: `fn(UiScope,List<DataColumn>,Rect,Int)->DataView`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2118).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2186).
 
 ```rinzu
 fn tableView(self: UiScope, columns: List<DataColumn>, frame: Rect, action: Int) -> DataView
@@ -5229,7 +5459,7 @@ Checked type: `fn(UiScope,String,Rect,Int)->TextField`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2236).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2304).
 
 ```rinzu
 fn textField(self: UiScope, title: String, frame: Rect, action: Int) -> TextField
@@ -5241,7 +5471,7 @@ Checked type: `fn(UiScope,String,Rect)->TextView`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2240).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2308).
 
 ```rinzu
 fn textView(self: UiScope, title: String, frame: Rect) -> TextView
@@ -5253,7 +5483,7 @@ Checked type: `fn(UiScope,List<DataColumn>,Rect,Int)->DataView`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2122).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2190).
 
 ```rinzu
 fn treeView(self: UiScope, columns: List<DataColumn>, frame: Rect, action: Int) -> DataView
@@ -5265,7 +5495,7 @@ Checked type: `fn(UiScope)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L2061).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2129).
 
 ```rinzu
 fn wake(self: UiScope) -> Int
@@ -5275,7 +5505,7 @@ Wake the single dispatcher after Source state changes outside an input handler.
 
 ## rinzu.macos.UiTask
 
-class · [source](../src/macos.rinzu#L1983).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2051).
 
 ```rinzu
 class UiTask
@@ -5285,7 +5515,7 @@ A cooperative job registered with a UI scope. Prefer UiScope.start.
 
 ### field pending
 
-[source](../src/macos.rinzu#L1984).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2052).
 
 ```rinzu
 pending: Option<Future<Unit>>
@@ -5293,7 +5523,7 @@ pending: Option<Future<Unit>>
 
 ### field done
 
-[source](../src/macos.rinzu#L1985).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2053).
 
 ```rinzu
 done: Bool
@@ -5301,7 +5531,7 @@ done: Bool
 
 ### field started
 
-[source](../src/macos.rinzu#L1986).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2054).
 
 ```rinzu
 started: Bool
@@ -5311,7 +5541,7 @@ started: Bool
 
 Checked type: `Vertex2D`.
 
-native-record · [source](../src/macos.rinzu#L1103).
+native-record · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1150).
 
 ```rinzu
 record Vertex2D
@@ -5319,7 +5549,7 @@ record Vertex2D
 
 ### field x
 
-[source](../src/macos.rinzu#L1104).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1151).
 
 ```rinzu
 x: Float
@@ -5327,7 +5557,7 @@ x: Float
 
 ### field y
 
-[source](../src/macos.rinzu#L1105).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1152).
 
 ```rinzu
 y: Float
@@ -5335,7 +5565,7 @@ y: Float
 
 ### field u
 
-[source](../src/macos.rinzu#L1106).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1153).
 
 ```rinzu
 u: Float
@@ -5343,7 +5573,7 @@ u: Float
 
 ### field v
 
-[source](../src/macos.rinzu#L1107).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1154).
 
 ```rinzu
 v: Float
@@ -5351,7 +5581,7 @@ v: Float
 
 ### field red
 
-[source](../src/macos.rinzu#L1108).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1155).
 
 ```rinzu
 red: Float
@@ -5359,7 +5589,7 @@ red: Float
 
 ### field green
 
-[source](../src/macos.rinzu#L1109).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1156).
 
 ```rinzu
 green: Float
@@ -5367,7 +5597,7 @@ green: Float
 
 ### field blue
 
-[source](../src/macos.rinzu#L1110).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1157).
 
 ```rinzu
 blue: Float
@@ -5375,7 +5605,7 @@ blue: Float
 
 ### field alpha
 
-[source](../src/macos.rinzu#L1111).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1158).
 
 ```rinzu
 alpha: Float
@@ -5383,7 +5613,7 @@ alpha: Float
 
 ## rinzu.macos.View
 
-class · [source](../src/macos.rinzu#L762).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L809).
 
 ```rinzu
 class View
@@ -5391,7 +5621,7 @@ class View
 
 ### field handle
 
-[source](../src/macos.rinzu#L763).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L810).
 
 ```rinzu
 const handle: ViewHandle
@@ -5403,7 +5633,7 @@ Checked type: `fn(View,View)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L804).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L851).
 
 ```rinzu
 fn addSubview(self: View, child: View) -> Int
@@ -5415,7 +5645,7 @@ Checked type: `fn(View)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L812).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L859).
 
 ```rinzu
 fn destroy(self: View) -> Int
@@ -5427,7 +5657,7 @@ Checked type: `fn(View)->Rect`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L860).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L907).
 
 ```rinzu
 fn drawableSize(self: View) -> Rect
@@ -5439,7 +5669,7 @@ Checked type: `fn(View,View,Float)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L848).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L895).
 
 ```rinzu
 fn fill(self: View, parent: View, inset: Float) -> Int
@@ -5453,7 +5683,7 @@ Checked type: `fn(View)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L828).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L875).
 
 ```rinzu
 fn focus(self: View) -> Int
@@ -5465,7 +5695,7 @@ Checked type: `fn(View)->Rect`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L794).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L841).
 
 ```rinzu
 fn frame(self: View) -> Rect
@@ -5477,7 +5707,7 @@ Checked type: `fn(View,Int)->FrameClock`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L866).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L913).
 
 ```rinzu
 fn frameClock(self: View, fps: Int) -> FrameClock
@@ -5489,7 +5719,7 @@ Checked type: `fn(View)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L790).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L837).
 
 ```rinzu
 fn identity(self: View) -> Int
@@ -5501,7 +5731,7 @@ Checked type: `fn(View)->Bool`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L832).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L879).
 
 ```rinzu
 fn isEnabled(self: View) -> Bool
@@ -5513,7 +5743,7 @@ Checked type: `fn(View)->Bool`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L837).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L884).
 
 ```rinzu
 fn isHidden(self: View) -> Bool
@@ -5525,7 +5755,7 @@ Checked type: `fn(View)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L808).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L855).
 
 ```rinzu
 fn removeFromSuperview(self: View) -> Int
@@ -5537,7 +5767,7 @@ Checked type: `fn(View)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L816).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L863).
 
 ```rinzu
 fn requestDraw(self: View) -> Int
@@ -5549,7 +5779,7 @@ Checked type: `fn(View,String,String,String)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L765).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L812).
 
 ```rinzu
 fn setAccessibility(self: View, label: String, help: String, identifier: String) -> Int
@@ -5561,7 +5791,7 @@ Checked type: `fn(View,Int)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L843).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L890).
 
 ```rinzu
 fn setAutoresizing(self: View, mask: Int) -> Int
@@ -5575,7 +5805,7 @@ Checked type: `fn(View,Bool)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L820).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L867).
 
 ```rinzu
 fn setEnabled(self: View, enabled: Bool) -> Int
@@ -5587,7 +5817,7 @@ Checked type: `fn(View,Rect)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L800).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L847).
 
 ```rinzu
 fn setFrame(self: View, rect: Rect) -> Int
@@ -5599,7 +5829,7 @@ Checked type: `fn(View,Bool)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L824).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L871).
 
 ```rinzu
 fn setHidden(self: View, hidden: Bool) -> Int
@@ -5611,7 +5841,7 @@ Checked type: `fn(View,String)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L785).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L832).
 
 ```rinzu
 fn setTooltip(self: View, text: String) -> Int
@@ -5621,7 +5851,7 @@ fn setTooltip(self: View, text: String) -> Int
 
 Checked type: `ViewHandle`.
 
-opaque · [source](../src/macos.rinzu#L1010).
+opaque · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1057).
 
 ```rinzu
 opaque ViewHandle;
@@ -5629,7 +5859,7 @@ opaque ViewHandle;
 
 ## rinzu.macos.Window
 
-class · [source](../src/macos.rinzu#L871).
+class · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L918).
 
 ```rinzu
 class Window
@@ -5637,7 +5867,7 @@ class Window
 
 ### field handle
 
-[source](../src/macos.rinzu#L872).
+[source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L919).
 
 ```rinzu
 const handle: WindowHandle
@@ -5649,7 +5879,7 @@ Checked type: `async(Window,String,String,String,String,String)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L925).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L972).
 
 ```rinzu
 async fn alert(self: Window, title: String, message: String, first: String, second: String, third: String) -> Int
@@ -5663,7 +5893,7 @@ Checked type: `fn(Window,Int)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L910).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L957).
 
 ```rinzu
 fn command(self: Window, command: Int) -> Int
@@ -5675,7 +5905,7 @@ Checked type: `fn(Window)->View`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L891).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L938).
 
 ```rinzu
 fn contentView(self: Window) -> View
@@ -5687,7 +5917,7 @@ Checked type: `fn(Window)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L895).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L942).
 
 ```rinzu
 fn destroy(self: Window) -> Int
@@ -5699,7 +5929,7 @@ Checked type: `fn(Window)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L970).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1017).
 
 ```rinzu
 fn dismissSheet(self: Window) -> Int
@@ -5713,7 +5943,7 @@ Checked type: `fn(Window)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L998).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1045).
 
 ```rinzu
 fn effectiveTheme(self: Window) -> Int
@@ -5725,7 +5955,7 @@ Checked type: `fn(Window)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L978).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1025).
 
 ```rinzu
 fn hide(self: Window) -> Int
@@ -5737,7 +5967,7 @@ Checked type: `fn(Window)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L874).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L921).
 
 ```rinzu
 fn identity(self: Window) -> Int
@@ -5749,7 +5979,7 @@ Checked type: `fn(Window,String)->Menu`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L899).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L946).
 
 ```rinzu
 fn menu(self: Window, title: String) -> Menu
@@ -5761,7 +5991,7 @@ Checked type: `fn(Window)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L982).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1029).
 
 ```rinzu
 fn minimize(self: Window) -> Int
@@ -5773,7 +6003,7 @@ Checked type: `fn(Window,String,String)->Future<Option<String>>`.
 
 Error contract: `nothrow` (inferred).
 
-method · [source](../src/macos.rinzu#L915).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L962).
 
 ```rinzu
 fn openFile(self: Window, title: String, directory: String) -> Future<Option<String>>
@@ -5787,7 +6017,7 @@ Checked type: `fn(Window)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L986).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1033).
 
 ```rinzu
 fn restore(self: Window) -> Int
@@ -5799,7 +6029,7 @@ Checked type: `fn(Window,String,String,String)->Future<Option<String>>`.
 
 Error contract: `nothrow` (inferred).
 
-method · [source](../src/macos.rinzu#L920).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L967).
 
 ```rinzu
 fn saveFile(self: Window, title: String, directory: String, name: String) -> Future<Option<String>>
@@ -5813,7 +6043,7 @@ Checked type: `fn(Window,Float,Float)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L887).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L934).
 
 ```rinzu
 fn setContentSize(self: Window, width: Float, height: Float) -> Int
@@ -5825,7 +6055,7 @@ Checked type: `fn(Window,Menu)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L906).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L953).
 
 ```rinzu
 fn setMenu(self: Window, menu: Menu) -> Int
@@ -5837,7 +6067,7 @@ Checked type: `fn(Window,Float,Float)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L990).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1037).
 
 ```rinzu
 fn setMinimumContentSize(self: Window, width: Float, height: Float) -> Int
@@ -5849,7 +6079,7 @@ Checked type: `fn(Window,Int)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L994).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1041).
 
 ```rinzu
 fn setTheme(self: Window, theme: Int) -> Int
@@ -5861,7 +6091,7 @@ Checked type: `fn(Window,String)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L882).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L929).
 
 ```rinzu
 fn setTitle(self: Window, title: String) -> Int
@@ -5873,7 +6103,7 @@ Checked type: `fn(Window)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L878).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L925).
 
 ```rinzu
 fn show(self: Window) -> Int
@@ -5885,7 +6115,7 @@ Checked type: `fn(Window)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-method · [source](../src/macos.rinzu#L974).
+method · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1021).
 
 ```rinzu
 fn state(self: Window) -> Int
@@ -5895,7 +6125,7 @@ fn state(self: Window) -> Int
 
 Checked type: `WindowHandle`.
 
-opaque · [source](../src/macos.rinzu#L1008).
+opaque · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1055).
 
 ```rinzu
 opaque WindowHandle;
@@ -5905,7 +6135,7 @@ opaque WindowHandle;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L2828).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2896).
 
 ```rinzu
 let actionRedo = -2;
@@ -5915,7 +6145,7 @@ let actionRedo = -2;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L2826).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2894).
 
 ```rinzu
 let actionUndo = -1;
@@ -5927,7 +6157,7 @@ Checked type: `fn()->UiActions`.
 
 Error contract: `nothrow` (inferred).
 
-function · [source](../src/macos.rinzu#L3806).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3874).
 
 ```rinzu
 fn actions() -> UiActions
@@ -5937,7 +6167,7 @@ fn actions() -> UiActions
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3193).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3261).
 
 ```rinzu
 let addressClamp = 0;
@@ -5947,7 +6177,7 @@ let addressClamp = 0;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3197).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3265).
 
 ```rinzu
 let addressMirror = 2;
@@ -5957,7 +6187,7 @@ let addressMirror = 2;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3195).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3263).
 
 ```rinzu
 let addressRepeat = 1;
@@ -5969,7 +6199,7 @@ Checked type: `async(String,Float,Float,fn(UiApplication)->Future<Unit>)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L2520).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2588).
 
 ```rinzu
 async fn application(title: String, width: Float, height: Float, body: fn (UiApplication) -> Future<Unit>) -> Int
@@ -5983,7 +6213,7 @@ Checked type: `async(String,Float,Float,fn(UiApplication)->Future<Unit>)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L2525).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2593).
 
 ```rinzu
 async fn applicationWithSignals(title: String, width: Float, height: Float, body: fn (UiApplication) -> Future<Unit>)
@@ -5996,7 +6226,7 @@ Opt into cooperative process signals, including rinzu dev cooperative restart.
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3199).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3267).
 
 ```rinzu
 let blendOpaque = 0;
@@ -6006,7 +6236,7 @@ let blendOpaque = 0;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3201).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3269).
 
 ```rinzu
 let blendPremultiplied = 1;
@@ -6016,7 +6246,7 @@ let blendPremultiplied = 1;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3203).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3271).
 
 ```rinzu
 let blendStraight = 2;
@@ -6028,7 +6258,7 @@ Checked type: `async(Session)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L1908).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1976).
 
 ```rinzu
 async fn close(session: Session) -> Int
@@ -6042,7 +6272,7 @@ Checked type: `async()->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L1931).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1999).
 
 ```rinzu
 async fn closeOwnerSessions() -> Int
@@ -6056,7 +6286,7 @@ Checked type: `fn(View,List<View>,Float,Float)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L2877).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2945).
 
 ```rinzu
 fn column(parent: View, children: List<View>, padding: Float, gap: Float) -> Int
@@ -6066,7 +6296,7 @@ fn column(parent: View, children: List<View>, padding: Float, gap: Float) -> Int
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L2814).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2882).
 
 ```rinzu
 let commandCopy = 2;
@@ -6076,7 +6306,7 @@ let commandCopy = 2;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L2812).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2880).
 
 ```rinzu
 let commandCut = 1;
@@ -6086,7 +6316,7 @@ let commandCut = 1;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L2816).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2884).
 
 ```rinzu
 let commandPaste = 3;
@@ -6096,7 +6326,7 @@ let commandPaste = 3;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L2824).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2892).
 
 ```rinzu
 let commandQuit = 7;
@@ -6106,7 +6336,7 @@ let commandQuit = 7;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L2822).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2890).
 
 ```rinzu
 let commandRedo = 6;
@@ -6116,7 +6346,7 @@ let commandRedo = 6;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L2818).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2886).
 
 ```rinzu
 let commandSelectAll = 4;
@@ -6126,7 +6356,7 @@ let commandSelectAll = 4;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L2820).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2888).
 
 ```rinzu
 let commandUndo = 5;
@@ -6138,7 +6368,7 @@ Checked type: `fn(Transform2D,Transform2D)->Transform2D`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L3248).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3316).
 
 ```rinzu
 fn compose2D(first: Transform2D, next: Transform2D) -> Transform2D
@@ -6150,7 +6380,7 @@ Apply first, then next: next \* first.
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L4205).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4273).
 
 ```rinzu
 let dataActivated = 2;
@@ -6160,7 +6390,7 @@ let dataActivated = 2;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L4209).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4277).
 
 ```rinzu
 let dataCollapsed = 4;
@@ -6170,7 +6400,7 @@ let dataCollapsed = 4;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L4207).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4275).
 
 ```rinzu
 let dataExpanded = 3;
@@ -6180,7 +6410,7 @@ let dataExpanded = 3;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L4203).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4271).
 
 ```rinzu
 let dataSelected = 1;
@@ -6190,7 +6420,7 @@ let dataSelected = 1;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L4211).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4279).
 
 ```rinzu
 let dataSorted = 5;
@@ -6202,7 +6432,7 @@ Checked type: `fn()->String`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L1741).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1809).
 
 ```rinzu
 fn diagnostic() -> String
@@ -6214,7 +6444,7 @@ Copy the latest Main-thread native diagnostic. Errors include this text.
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1703).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1771).
 
 ```rinzu
 let eventAction = 12;
@@ -6224,7 +6454,7 @@ let eventAction = 12;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1680).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1748).
 
 ```rinzu
 let eventCloseRequested = 2;
@@ -6234,7 +6464,7 @@ let eventCloseRequested = 2;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L4201).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4269).
 
 ```rinzu
 let eventData = 20;
@@ -6244,7 +6474,7 @@ let eventData = 20;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1684).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1752).
 
 ```rinzu
 let eventDraw = 4;
@@ -6254,7 +6484,7 @@ let eventDraw = 4;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1711).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1779).
 
 ```rinzu
 let eventFocus = 16;
@@ -6264,7 +6494,7 @@ let eventFocus = 16;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L2543).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2611).
 
 ```rinzu
 let eventInputLimit = 19;
@@ -6274,7 +6504,7 @@ let eventInputLimit = 19;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1688).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1756).
 
 ```rinzu
 let eventKeyDown = 6;
@@ -6284,7 +6514,7 @@ let eventKeyDown = 6;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1690).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1758).
 
 ```rinzu
 let eventKeyUp = 7;
@@ -6294,7 +6524,7 @@ let eventKeyUp = 7;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1695).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1763).
 
 ```rinzu
 let eventMouseDown = 8;
@@ -6304,7 +6534,7 @@ let eventMouseDown = 8;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1699).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1767).
 
 ```rinzu
 let eventMouseMoved = 10;
@@ -6314,7 +6544,7 @@ let eventMouseMoved = 10;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1697).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1765).
 
 ```rinzu
 let eventMouseUp = 9;
@@ -6324,7 +6554,7 @@ let eventMouseUp = 9;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1686).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1754).
 
 ```rinzu
 let eventQuitRequested = 5;
@@ -6334,7 +6564,7 @@ let eventQuitRequested = 5;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1682).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1750).
 
 ```rinzu
 let eventResized = 3;
@@ -6344,7 +6574,7 @@ let eventResized = 3;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1709).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1777).
 
 ```rinzu
 let eventScroll = 15;
@@ -6354,7 +6584,7 @@ let eventScroll = 15;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1707).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1775).
 
 ```rinzu
 let eventSelectionChanged = 14;
@@ -6364,7 +6594,7 @@ let eventSelectionChanged = 14;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1678).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1746).
 
 ```rinzu
 let eventStarted = 1;
@@ -6374,7 +6604,7 @@ let eventStarted = 1;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1701).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1769).
 
 ```rinzu
 let eventStopped = 11;
@@ -6384,7 +6614,7 @@ let eventStopped = 11;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1715).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1783).
 
 ```rinzu
 let eventTaskFinished = 18;
@@ -6394,7 +6624,7 @@ let eventTaskFinished = 18;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1705).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1773).
 
 ```rinzu
 let eventTextChanged = 13;
@@ -6404,7 +6634,7 @@ let eventTextChanged = 13;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1713).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1781).
 
 ```rinzu
 let eventWindowState = 17;
@@ -6414,7 +6644,7 @@ let eventWindowState = 17;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3191).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3259).
 
 ```rinzu
 let filterLinear = 1;
@@ -6424,7 +6654,7 @@ let filterLinear = 1;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3189).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3257).
 
 ```rinzu
 let filterNearest = 0;
@@ -6436,7 +6666,7 @@ Checked type: `fn()->Transform2D`.
 
 Error contract: `nothrow` (inferred).
 
-function · [source](../src/macos.rinzu#L3228).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3296).
 
 ```rinzu
 fn identity2D() -> Transform2D
@@ -6446,7 +6676,7 @@ fn identity2D() -> Transform2D
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L1693).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1761).
 
 ```rinzu
 let keyRepeat = 1;
@@ -6458,7 +6688,7 @@ UiEvent.flags bit for a repeated raw key event on a native view or surface.
 
 Checked type: `native()->Bool`.
 
-native-function · [source](../src/macos.rinzu#L1454).
+native-function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1501).
 
 ```rinzu
 fn metalAvailable() -> CBool symbol "rinzu_macos_metal_available";
@@ -6468,7 +6698,7 @@ fn metalAvailable() -> CBool symbol "rinzu_macos_metal_available";
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L2810).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2878).
 
 ```rinzu
 let modifierCommand = 1048576;
@@ -6478,7 +6708,7 @@ let modifierCommand = 1048576;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L2806).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2874).
 
 ```rinzu
 let modifierControl = 262144;
@@ -6488,7 +6718,7 @@ let modifierControl = 262144;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L2808).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2876).
 
 ```rinzu
 let modifierOption = 524288;
@@ -6498,7 +6728,7 @@ let modifierOption = 524288;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L2804).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2872).
 
 ```rinzu
 let modifierShift = 131072;
@@ -6510,7 +6740,7 @@ Checked type: `async(Session)->UiEvent`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L1809).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1877).
 
 ```rinzu
 async fn nextEvent(session: Session) -> UiEvent
@@ -6524,7 +6754,7 @@ Checked type: `fn()->Session`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L1753).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1821).
 
 ```rinzu
 fn open() -> Session
@@ -6536,7 +6766,7 @@ Open one Main-owned application resource scope. Close explicitly.
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3181).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3249).
 
 ```rinzu
 let pixelAlpha8 = 4;
@@ -6548,7 +6778,7 @@ R8Unorm coverage, sampled as (a, a, a, a) for premultiplied composition.
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3175).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3243).
 
 ```rinzu
 let pixelBGRA8 = 2;
@@ -6558,7 +6788,7 @@ let pixelBGRA8 = 2;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3178).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3246).
 
 ```rinzu
 let pixelR8 = 3;
@@ -6570,7 +6800,7 @@ Single stored R8Unorm channel, sampled as (r, 0, 0, 1).
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3173).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3241).
 
 ```rinzu
 let pixelRGBA8 = 1;
@@ -6582,7 +6812,7 @@ Checked type: `async(String)->String`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/document_files.rinzu#L8).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document_files.rinzu#L8).
 
 ```rinzu
 async fn readDocument(path: String) -> String
@@ -6596,7 +6826,7 @@ Checked type: `fn(Float)->Transform2D`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L3241).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3309).
 
 ```rinzu
 fn rotation2D(radians: Float) -> Transform2D
@@ -6610,7 +6840,7 @@ Checked type: `fn(View,List<View>,Float,Float)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L2881).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2949).
 
 ```rinzu
 fn row(parent: View, children: List<View>, padding: Float, gap: Float) -> Int
@@ -6622,7 +6852,7 @@ Checked type: `async(Session,fn($rinzu_record_f7c713f12e29ebb74f67222ddd835128,E
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L1793).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1861).
 
 ```rinzu
 async fn run(session: Session, handler: fn (RunContext, Event) -> Unit) -> Int
@@ -6636,7 +6866,7 @@ Checked type: `fn(Session)->Future<Int>`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L1803).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1871).
 
 ```rinzu
 fn runEvents(session: Session) -> Future<Int>
@@ -6648,7 +6878,7 @@ Checked type: `async(String,String)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/document_files.rinzu#L34).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/document_files.rinzu#L34).
 
 ```rinzu
 async fn saveDocument(path: String, text: String) -> Int
@@ -6663,7 +6893,7 @@ Checked type: `fn(Float,Float)->Transform2D`.
 
 Error contract: `nothrow` (inferred).
 
-function · [source](../src/macos.rinzu#L3236).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3304).
 
 ```rinzu
 fn scale2D(x: Float, y: Float) -> Transform2D
@@ -6673,7 +6903,7 @@ fn scale2D(x: Float, y: Float) -> Transform2D
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3097).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3165).
 
 ```rinzu
 let scrollPrecise = 1;
@@ -6683,7 +6913,7 @@ let scrollPrecise = 1;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3099).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3167).
 
 ```rinzu
 let scrollViewport = 2;
@@ -6695,7 +6925,7 @@ Checked type: `fn()->Statistics`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L1758).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1826).
 
 ```rinzu
 fn statistics() -> Statistics
@@ -6709,7 +6939,7 @@ Checked type: `fn(Session)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L1880).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1948).
 
 ```rinzu
 fn stop(session: Session) -> Int
@@ -6719,7 +6949,7 @@ fn stop(session: Session) -> Int
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3581).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3649).
 
 ```rinzu
 let textCenter = 1;
@@ -6729,7 +6959,7 @@ let textCenter = 1;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3080).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3148).
 
 ```rinzu
 let textComposing = 1;
@@ -6741,7 +6971,7 @@ Text snapshots with this flag are provisional IME input, outside document histor
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3579).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3647).
 
 ```rinzu
 let textLeft = 0;
@@ -6751,7 +6981,7 @@ let textLeft = 0;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3583).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3651).
 
 ```rinzu
 let textRight = 2;
@@ -6761,7 +6991,7 @@ let textRight = 2;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3185).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3253).
 
 ```rinzu
 let textureRenderTarget = 2;
@@ -6771,7 +7001,7 @@ let textureRenderTarget = 2;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3183).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3251).
 
 ```rinzu
 let textureSampled = 1;
@@ -6781,7 +7011,7 @@ let textureSampled = 1;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3187).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3255).
 
 ```rinzu
 let textureStorage = 4;
@@ -6791,7 +7021,7 @@ let textureStorage = 4;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L4217).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4285).
 
 ```rinzu
 let themeDark = 2;
@@ -6801,7 +7031,7 @@ let themeDark = 2;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L4215).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4283).
 
 ```rinzu
 let themeLight = 1;
@@ -6811,7 +7041,7 @@ let themeLight = 1;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L4213).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L4281).
 
 ```rinzu
 let themeSystem = 0;
@@ -6823,7 +7053,7 @@ Checked type: `fn(Float,Float)->Transform2D`.
 
 Error contract: `nothrow` (inferred).
 
-function · [source](../src/macos.rinzu#L3232).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3300).
 
 ```rinzu
 fn translation2D(x: Float, y: Float) -> Transform2D
@@ -6835,7 +7065,7 @@ Checked type: `async(Command)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L1903).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L1971).
 
 ```rinzu
 async fn wait(command: Command) -> Int
@@ -6849,7 +7079,7 @@ Checked type: `fn(View,List<LayoutItem>,Float,Float)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L3880).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3948).
 
 ```rinzu
 fn weightedColumn(parent: View, items: List<LayoutItem>, padding: Float, gap: Float) -> Int
@@ -6861,7 +7091,7 @@ Checked type: `fn(View,List<LayoutItem>,Float,Float)->Int`.
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L3876).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3944).
 
 ```rinzu
 fn weightedRow(parent: View, items: List<LayoutItem>, padding: Float, gap: Float) -> Int
@@ -6871,7 +7101,7 @@ fn weightedRow(parent: View, items: List<LayoutItem>, padding: Float, gap: Float
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3092).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3160).
 
 ```rinzu
 let windowFullScreen = 32;
@@ -6881,7 +7111,7 @@ let windowFullScreen = 32;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3084).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3152).
 
 ```rinzu
 let windowKey = 2;
@@ -6891,7 +7121,7 @@ let windowKey = 2;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3086).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3154).
 
 ```rinzu
 let windowMain = 4;
@@ -6901,7 +7131,7 @@ let windowMain = 4;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3088).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3156).
 
 ```rinzu
 let windowMinimized = 8;
@@ -6911,7 +7141,7 @@ let windowMinimized = 8;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3095).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3163).
 
 ```rinzu
 let windowOccluded = 64;
@@ -6923,7 +7153,7 @@ Window has no visible pixels according to AppKit, including occlusion by other w
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3082).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3150).
 
 ```rinzu
 let windowVisible = 1;
@@ -6933,7 +7163,7 @@ let windowVisible = 1;
 
 Checked type: `Int`.
 
-constant · [source](../src/macos.rinzu#L3090).
+constant · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L3158).
 
 ```rinzu
 let windowZoomed = 16;
@@ -6945,7 +7175,7 @@ Checked type: `async(Session,String,Float,Float,fn(UiScope)->Future<Unit>)->Int`
 
 Error contract: `throws(Error)` (inferred).
 
-function · [source](../src/macos.rinzu#L2379).
+function · [source](../../../Users/remi/lang/rinzuModules/rinzu-macos/src/macos.rinzu#L2447).
 
 ```rinzu
 async fn withWindow(session: Session, title: String, width: Float, height: Float, body: fn (UiScope) -> Future<Unit>)

@@ -1,0 +1,169 @@
+import rinzu.bytes;
+import rinzu.error;
+import rinzu.json;
+import rinzu.list;
+import rinzu.string;
+
+/// Immutable, owned CoreText snapshots. Indices use UTF-16 code units, ranges are half-open.
+type FontMatrix = {
+    a: Float,
+    b: Float,
+    c: Float,
+    d: Float,
+    tx: Float,
+    ty: Float
+};
+
+type FontAxis = {
+    identifier: Int,
+    minimum: Float,
+    maximum: Float,
+    initial: Float,
+    value: Float,
+    name: String
+};
+
+type FontInfo = {
+    version: Int,
+    postscriptName: String,
+    family: String,
+    size: Float,
+    traits: Int,
+    matrix: FontMatrix,
+    axes: List<FontAxis>
+};
+
+type FontFace = {
+    postscriptName: String,
+    family: String,
+    traits: Int
+};
+
+type FontCatalog = { version: Int, faces: List<FontFace> };
+
+type TextGlyph = {
+    identity: Int,
+    start: Int,
+    end: Int,
+    x: Float,
+    y: Float,
+    advanceX: Float,
+    advanceY: Float
+};
+
+type TextRun = {
+    start: Int,
+    end: Int,
+    rtl: Bool,
+    isFallback: Bool,
+    font: FontInfo,
+    matrix: FontMatrix,
+    glyphs: List<TextGlyph>
+};
+
+type TextShape = {
+    version: Int,
+    utf16Length: Int,
+    advance: Float,
+    runs: List<TextRun>
+};
+
+fn bounded(bytes: ByteArray) throws(Error) {
+    if rinzu.bytes.byteLength(bytes) > 16777216 {
+        throw error(-7804, "macos.text.snapshotLimit");
+    }
+}
+
+fn validName(name: String) -> Bool {
+    return name != "" && rinzu.string.utf8ByteLength(name) <= 1024;
+}
+
+fn validateFont(info: FontInfo) throws(Error) {
+    if info.version != 1
+        || !validName(info.postscriptName)
+        || !validName(info.family)
+        || !(info.size >= 1.0 && info.size <= 512.0)
+        || info.traits < 0
+        || info.traits > 15
+        || rinzu.list.length(info.axes) > 64 {
+        throw error(-7804, "macos.font.snapshot");
+    }
+    for axis in info.axes {
+        if axis.identifier < 0
+            || axis.identifier > 4294967295
+            || !(
+                axis.minimum <= axis.initial
+                    && axis.initial <= axis.maximum
+                    && axis.minimum <= axis.value
+                    && axis.value <= axis.maximum
+            ) {
+            throw error(-7804, "macos.font.axis");
+        }
+    }
+}
+
+fn fontInfo(bytes: ByteArray) throws(Error) -> FontInfo {
+    bounded(bytes);
+    let value = rinzu.json.parseWithTy<FontInfo>(bytes);
+    validateFont(value);
+    return value;
+}
+
+fn fontCatalog(bytes: ByteArray) throws(Error) -> FontCatalog {
+    bounded(bytes);
+    let value = rinzu.json.parseWithTy<FontCatalog>(bytes);
+    if value.version != 1 || rinzu.list.length(value.faces) > 16384 {
+        throw error(-7804, "macos.font.catalog");
+    }
+    for face in value.faces {
+        if !validName(face.postscriptName) || !validName(face.family) || face.traits < 0 || face.traits > 15 {
+            throw error(-7804, "macos.font.descriptor");
+        }
+    }
+    return value;
+}
+
+fn textShape(bytes: ByteArray) throws(Error) -> TextShape {
+    bounded(bytes);
+    let value = rinzu.json.parseWithTy<TextShape>(bytes);
+    if value.version != 1
+        || value.utf16Length < 0
+        || value.utf16Length > 65536
+        || !(value.advance >= 0.0 && value.advance <= 8192.0)
+        || rinzu.list.length(value.runs) > 4096 {
+        throw error(-7804, "macos.text.shape");
+    }
+    var count = 0;
+    for run in value.runs {
+        validateFont(run.font);
+        if run.start < 0 || run.end < run.start || run.end > value.utf16Length {
+            throw error(-7804, "macos.text.runRange");
+        }
+        count = count + rinzu.list.length(run.glyphs);
+        if count > 65536 {
+            throw error(-7804, "macos.text.glyphLimit");
+        }
+        for glyph in run.glyphs {
+            if glyph.identity < 0
+                || glyph.identity > 65535
+                || glyph.start < run.start
+                || glyph.end <= glyph.start
+                || glyph.end > run.end {
+                throw error(-7804, "macos.text.clusterRange");
+            }
+        }
+    }
+    return value;
+}
+
+export FontMatrix;
+export FontAxis;
+export FontInfo;
+export FontFace;
+export FontCatalog;
+export TextGlyph;
+export TextRun;
+export TextShape;
+export fontInfo;
+export fontCatalog;
+export textShape;

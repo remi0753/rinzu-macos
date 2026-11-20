@@ -1,4 +1,5 @@
 import rinzu.list;
+import "./text.rinzu" as textValues;
 import rinzu.timer;
 import "./document.rinzu" as documents;
 import "./document_files.rinzu" as documentFiles;
@@ -340,6 +341,33 @@ fragment float4 fragment2d(Raster v [[stage_in]], texture2d<float> image [[textu
 
 class Font {
     const handle: FontHandle
+
+    /// Actual selected face, matrix and active variation values. Traits: bold=1, italic=2, mono=4, color=8.
+    fn info(self: Font) throws(Error) -> textValues.FontInfo {
+        let status = checked(Int(rawFontInfoSnapshot(self.handle)), "macos.font.info");
+        return textValues.fontInfo(rawFontInfoBytes(self.handle));
+    }
+
+    /// Resolve real bold/italic traits (0..3), failing if CoreText cannot supply them.
+    fn withTraits(self: Font, traits: Int) throws(Error) -> Font {
+        return Font(handle: rawFont(checked(rawFontTraits(self.handle, traits), "macos.font.traits")));
+    }
+
+    /// Derive a face with one supported axis value. The original face is unchanged.
+    fn withVariation(self: Font, identifier: Int, value: Float) throws(Error) -> Font {
+        return Font(handle: rawFont(checked(rawFontVariation(self.handle, identifier, value), "macos.font.variation")));
+    }
+
+    /// Shape one unwrapped CoreText line (UTF-8 <=64 KiB, advance <=8192 points).
+    /// Runs preserve CoreText visual order; cluster indices are UTF-16, not grapheme or cell indices.
+    fn shape(self: Font, text: String, ligatures: Bool) throws(Error) -> TextLayout {
+        let bytes = textApi.encodeUtf8(text);
+        return TextLayout(
+            handle: rawText(
+                checked(rawTextShape(self.handle, bytes, bytesApi.byteLength(bytes), ligatures), "macos.text.shape")
+            )
+        );
+    }
 
     /// UTF8 <=64 KiB. Width zero is natural; positive width wraps. Alignment 0/1/2.
     fn layout(self: Font, text: String, width: Float, alignment: Int) -> TextLayout {
@@ -686,6 +714,12 @@ class Session {
         return checked(rawEventSequence(self.handle), "macos.event.sequence");
     }
 
+    /// Snapshot the installed font descriptors. Selection and cache policy belong to the caller.
+    fn fontCatalog(self: Session) throws(Error) -> textValues.FontCatalog {
+        let status = checked(Int(rawFontCatalog(self.handle)), "macos.font.catalog");
+        return textValues.fontCatalog(rawFontCatalogBytes(self.handle));
+    }
+
     fn font(self: Session, name: String, size: Float, bold: Bool) -> Font {
         let bytes = textApi.encodeUtf8(name);
         return Font(
@@ -698,6 +732,19 @@ class Session {
 
 class TextLayout {
     const handle: TextLayoutHandle
+
+    /// An owned snapshot independent of this handle's lifetime; only available on shape() layouts.
+    fn shaping(self: TextLayout) throws(Error) -> textValues.TextShape {
+        let status = checked(Int(rawTextShapeSnapshot(self.handle)), "macos.text.shaping");
+        return textValues.textShape(rawTextShapeBytes(self.handle));
+    }
+
+    /// Rasterizable selection retaining the original shaping and face fallback.
+    /// Half-open UTF-16 boundaries cannot split a cluster. Coordinates are relative to the first
+    /// selected glyph's X position and the baseline (metrics.baseline=0). The selection owns its line.
+    fn fragment(self: TextLayout, start: Int, end: Int) throws(Error) -> TextLayout {
+        return TextLayout(handle: rawText(checked(rawTextFragment(self.handle, start, end), "macos.text.fragment")));
+    }
 
     fn metrics(self: TextLayout) -> TextMetrics {
         let output = TextMetrics(
@@ -1514,6 +1561,27 @@ native {
     fn rawFrameDestroy(clock: FrameClockHandle) -> CInt symbol "rinzu_macos_frame_destroy";
 
     fn rawFrameStopWindow(window: WindowHandle) -> CInt symbol "rinzu_macos_frame_stop_window";
+
+    fn rawFontCatalog(session: SessionHandle) -> CInt symbol "rinzu_macos_font_catalog";
+
+    fn rawFontCatalogBytes(session: SessionHandle) -> ByteArray symbol "rinzu_macos_font_catalog_bytes";
+
+    fn rawFontInfoSnapshot(font: FontHandle) -> CInt symbol "rinzu_macos_font_info_snapshot";
+
+    fn rawFontInfoBytes(font: FontHandle) -> ByteArray symbol "rinzu_macos_font_info_bytes";
+
+    fn rawFontTraits(font: FontHandle, traits: Int) -> Int symbol "rinzu_macos_font_traits";
+
+    fn rawFontVariation(font: FontHandle, identifier: Int, value: Float) -> Int symbol "rinzu_macos_font_variation";
+
+    fn rawTextShape(font: FontHandle, text: ByteArray, length: CSize, ligatures: CBool)
+        -> Int symbol "rinzu_macos_text_shape";
+
+    fn rawTextShapeSnapshot(text: TextLayoutHandle) -> CInt symbol "rinzu_macos_text_shape_snapshot";
+
+    fn rawTextShapeBytes(text: TextLayoutHandle) -> ByteArray symbol "rinzu_macos_text_shape_bytes";
+
+    fn rawTextFragment(text: TextLayoutHandle, start: Int, end: Int) -> Int symbol "rinzu_macos_text_fragment";
 
     fn rawFontCreate(session: SessionHandle, name: ByteArray, length: CSize, size: Float, bold: CBool)
         -> Int symbol "rinzu_macos_font_create";
@@ -4246,3 +4314,11 @@ export ViewHandle;
 export WindowHandle;
 export RunContext;
 export compose2D;
+export textValues.FontMatrix;
+export textValues.FontAxis;
+export textValues.FontInfo;
+export textValues.FontFace;
+export textValues.FontCatalog;
+export textValues.TextGlyph;
+export textValues.TextRun;
+export textValues.TextShape;

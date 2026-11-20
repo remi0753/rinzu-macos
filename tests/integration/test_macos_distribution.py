@@ -18,12 +18,12 @@ from sdk_test_support import (
 )
 
 SDK = "rinzu.macos"
-VERSION = "0.1.4"
+VERSION = "0.1.5"
 ARCHIVE = (
     "https://github.com/remi0753/rinzu-macos/releases/download/"
     f"v{VERSION}/rinzu-macos-{VERSION}.tar.gz"
 )
-SHA256 = "2ab4e5bf073e61491f104ecdb363d5ac1eb6ab41efe264fe28b2d1c1adb67f60"
+SHA256 = "51842ca63b2087c52b5ce8bb949308dafbc3dda0ba5538f0588f52ebe702ac2b"
 
 
 def run(label, command, cwd, env, *, expected=0, marker=None):

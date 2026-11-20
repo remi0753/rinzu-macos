@@ -4,12 +4,12 @@ AppKit, CoreText, and Metal SDK for Rinzu on Apple Silicon. It provides native w
 
 ## Install
 
-Use a macOS arm64 Rinzu toolchain with native SDK archive support. Run GUI applications from a desktop session. [v0.1.4 release](https://github.com/remi0753/rinzu-macos/releases/tag/v0.1.4)
+Use a macOS arm64 Rinzu toolchain with native SDK archive support. Run GUI applications from a desktop session. [v0.1.5 release](https://github.com/remi0753/rinzu-macos/releases/tag/v0.1.5)
 
 From your application directory, register the module and refresh the native build lock.
 
 ```sh
-rinzu modules add rinzu.macos https://github.com/remi0753/rinzu-macos/releases/download/v0.1.4/rinzu-macos-0.1.4.tar.gz
+rinzu modules add rinzu.macos https://github.com/remi0753/rinzu-macos/releases/download/v0.1.5/rinzu-macos-0.1.5.tar.gz
 rinzu lock .
 ```
 
@@ -44,6 +44,8 @@ Metal APIs cover devices, buffers, textures, samplers, pipelines, compute/render
 
 Textures support RGBA8/BGRA8 and single-byte R8/Alpha8 storage. Alpha8 samples coverage as premultiplied `(a,a,a,a)` for ordinary tinted drawing; it is not a render-target format. `Texture.readChannel` returns one tightly packed stored byte channel. `Font.metrics` exposes unrounded CoreText face and underline measurements in logical points.
 
+Session.fontCatalog provides owned installed-face descriptors. Font.info reports the actual face, traits, matrices and variation axes; withTraits and withVariation derive real fonts. Font.shape exposes unrounded line advances and owned visual-order run/glyph/UTF-16 cluster data. TextLayout.fragment retains complete shaped clusters for independent rasterization, including fallback and color glyphs. Application segmentation, layout and cache policies stay in Rinzu. [Font and shaping guide](docs/guide.md#font-catalog-and-shaped-text)
+
 Batch2D preserves draw order and batches compatible texture/filter/clip operations. Low-level coordinates are top-left drawable pixels. The managed canvas uses points with backing scale, and offers explicit pixel mode. Images are decoded/uploaded on Main. Text2D is a reusable shaped-text/texture snapshot; rebuild it when text changes.
 
 Surface rendering admits only a drawable matching the captured pixel extent. `Command.beginRenderMatching` exposes that check; a size mismatch remains idle and unleased. Canvas jobs manage a surface, batch, frame waits, and cleanup. Invalidation coalesces requests. Idle/hidden/minimized/occluded views stop their frame timer; unavailable drawables use bounded backoff. FrameClock schedules Main RunLoop deadlines and does not promise display-link synchronization or exact FPS.
@@ -66,6 +68,7 @@ Local candidates can be checked before publishing with `test_macos_distribution.
 
 | SDK tag  | Dependency                        | Rinzu                                     | Target      |
 | -------- | --------------------------------- | ----------------------------------------- | ----------- |
+| `v0.1.5` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.1.4` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.1.3` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.1.2` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |

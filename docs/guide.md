@@ -84,6 +84,37 @@ lease. Sampling swizzles do not change stored bytes or channel indices.
 position and thickness in logical font points, plus the face's units per em.
 Applications choose their own layout grid, shaping policy and cache identity.
 
+## Font catalog and shaped text
+
+`Session.fontCatalog()` returns an owned descriptor snapshot; applications select
+fonts and define refresh/cache policy. `Font.info()` reports the actual PostScript
+face, size, matrix, bold/italic/monospaced/color traits and supported variation axes
+with active values. `withTraits(0..3)` resolves real bold/italic faces and fails when
+unavailable; `withVariation(identifier, value)` derives a face within a supported
+axis range. No synthetic style or application-specific fallback policy is imposed.
+
+`Font.shape(text, ligatures)` makes one immutable, unwrapped CoreText line.
+`TextLayout.shaping()` exposes visual-order runs, the actual fallback face and
+text matrix, direction, glyph IDs, positions/advances and half-open UTF-16 source
+cluster ranges. Source indices are neither scalar nor grapheme nor application
+layout indices. Glyph ID zero remains observable as a missing glyph. Ligature
+control uses CoreText's standard ligature attribute; required script shaping is
+preserved when optional ligatures are disabled.
+
+`TextLayout.fragment(start, end)` retains the original line and selects complete
+clusters. It rejects surrogate/cluster splits and recursive fragment selection.
+The fragment's X origin is the first selected glyph's position; Y is the baseline
+(`metrics.baseline = 0`). Raster bounds include ink and padding, independent of
+logical advance. A fragment survives its source layout, and raster textures survive
+both. Fonts stay busy until all dependent layouts/fragments retire. Snapshots are
+managed owned values and survive native handle destruction.
+
+Input is limited to 64 KiB, advance to 8192 points, runs to 4096, glyphs to 65536,
+axes per face to 64, catalog faces to 16384 and each encoded snapshot to 16 MiB.
+These handles retain Session/Main affinity. Applications own segmentation, layout,
+bidirectional presentation, cell mapping, cache identities and eviction. The SDK
+only calls CoreText and rasterizes the selected native glyphs.
+
 ## Resource access and application bundles
 
 Create `macos-app.json` in an application package:

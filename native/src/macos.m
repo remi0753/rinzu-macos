@@ -90,6 +90,7 @@ enum {
   rinzu_native_byte_array_t eventSnapshot;
   rinzu_native_byte_array_t clipboardSnapshot;
   rinzu_native_byte_array_t resourceRootSnapshot;
+  rinzu_native_byte_array_t fontCatalogSnapshot;
   struct MacEvent selectedEvent;
 }
 @property(nonatomic) BOOL running, stopping, overflow, closing, scheduled, delivering;
@@ -103,6 +104,7 @@ enum {
 @property(nonatomic, strong) NSPasteboard *pasteboard;
 @property(nonatomic, strong) NSData *clipboardData;
 @property(nonatomic, strong) NSData *resourceRootData;
+@property(nonatomic, strong) NSData *fontCatalogData;
 @property(nonatomic) int64_t clipboardToken;
 @property(nonatomic, weak) RZMacWindow *activeWindow;
 - (void)enqueue:(struct MacEvent)event;
@@ -228,17 +230,25 @@ enum {
 @interface RZMacFont : RZMacHandle {
 @public
   CTFontRef font;
+  rinzu_native_byte_array_t infoSnapshot;
 }
+@property(nonatomic, strong) NSData *infoData;
 @end
 @interface RZMacText : RZMacHandle {
 @public
   CTFrameRef frame;
+  CTLineRef line;
+  rinzu_native_byte_array_t shapeSnapshot;
   struct MacTextMetrics metrics;
 }
 @property(nonatomic, strong) RZMacFont *font;
 @property(nonatomic, strong) NSAttributedString *attributed;
 @property(nonatomic) int64_t bytes;
 @property(nonatomic) double frameHeight;
+@property(nonatomic, strong) NSData *shapeData, *glyphData;
+@property(nonatomic) BOOL fragment;
+@property(nonatomic) int64_t rangeStart, rangeEnd;
+@property(nonatomic) double anchorX;
 @end
 @interface RZMacFrameClock : RZMacHandle {
 @public
@@ -301,6 +311,8 @@ enum {
 - (void)dealloc {
   if (frame)
     CFRelease(frame);
+  if (line)
+    CFRelease(line);
 }
 @end
 @implementation RZMacFrameClock
@@ -910,7 +922,8 @@ int32_t rinzu_macos_statistics(struct MacStatistics *output) {
         ++output->sessions;
         output->queuedEvents += ((RZMacSession *)handle)->count;
         output->eventPayloadBytes += ((RZMacSession *)handle).payloadBytes;
-        output->snapshotBytes += (int64_t)((RZMacSession *)handle).clipboardData.length;
+        output->snapshotBytes += (int64_t)(((RZMacSession *)handle).clipboardData.length +
+                                           ((RZMacSession *)handle).fontCatalogData.length);
         break;
       case RZ_WINDOW:
         ++output->windows;
@@ -951,10 +964,13 @@ int32_t rinzu_macos_statistics(struct MacStatistics *output) {
         break;
       case RZ_FONT:
         ++output->fonts;
+        output->snapshotBytes += (int64_t)((RZMacFont *)handle).infoData.length;
         break;
       case RZ_TEXT:
         ++output->textLayouts;
-        output->textBytes += ((RZMacText *)handle).bytes;
+        output->textBytes +=
+            ((RZMacText *)handle).bytes + (int64_t)((RZMacText *)handle).glyphData.length;
+        output->snapshotBytes += (int64_t)((RZMacText *)handle).shapeData.length;
         break;
       case RZ_FRAME_CLOCK: {
         RZMacFrameClock *clock = (RZMacFrameClock *)handle;
@@ -1119,6 +1135,7 @@ int32_t rinzu_macos_close(void *raw) {
           if (font->font)
             CFRelease(font->font);
           font->font = NULL;
+          font.infoData = nil;
           break;
         }
         case RZ_TEXT: {
@@ -1126,6 +1143,11 @@ int32_t rinzu_macos_close(void *raw) {
           if (text->frame)
             CFRelease(text->frame);
           text->frame = NULL;
+          if (text->line)
+            CFRelease(text->line);
+          text->line = NULL;
+          text.shapeData = nil;
+          text.glyphData = nil;
           text.attributed = nil;
           text.font = nil;
           break;
@@ -1161,6 +1183,8 @@ int32_t rinzu_macos_close(void *raw) {
           session.payloads = nil;
           session.clipboardData = nil;
           session.resourceRootData = nil;
+          session.fontCatalogData = nil;
+          session->fontCatalogSnapshot = (rinzu_native_byte_array_t){0};
           session->resourceRootSnapshot = (rinzu_native_byte_array_t){0};
           session.pasteboard = nil;
           break;
@@ -4527,6 +4551,489 @@ int32_t rinzu_macos_buffer_quad2d(void *raw, int64_t index, const struct MacQuad
   }
 }
 
+// Generic CoreText value snapshots. No client layout, grid or cache policy lives here.
+static int64_t font_traits_value(CTFontRef font) {
+  CTFontSymbolicTraits traits = CTFontGetSymbolicTraits(font);
+  return ((traits & kCTFontBoldTrait) ? 1 : 0) | ((traits & kCTFontItalicTrait) ? 2 : 0) |
+         ((traits & kCTFontMonoSpaceTrait) ? 4 : 0) | ((traits & kCTFontColorGlyphsTrait) ? 8 : 0);
+}
+static NSDictionary *text_matrix_value(CGAffineTransform matrix) {
+  return @{
+    @"a" : @(matrix.a),
+    @"b" : @(matrix.b),
+    @"c" : @(matrix.c),
+    @"d" : @(matrix.d),
+    @"tx" : @(matrix.tx),
+    @"ty" : @(matrix.ty)
+  };
+}
+static NSDictionary *font_value(CTFontRef font) {
+  NSString *name = CFBridgingRelease(CTFontCopyPostScriptName(font));
+  NSString *family = CFBridgingRelease(CTFontCopyFamilyName(font));
+  NSArray *axes = CFBridgingRelease(CTFontCopyVariationAxes(font));
+  NSDictionary *variation = CFBridgingRelease(CTFontCopyVariation(font));
+  if (!name.length || [name lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 256 || !family ||
+      [family lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 1024 || axes.count > 64)
+    return nil;
+  NSMutableArray *values = [NSMutableArray new];
+  for (NSDictionary *axis in axes) {
+    NSNumber *identifier = axis[(__bridge id)kCTFontVariationAxisIdentifierKey];
+    NSNumber *minimum = axis[(__bridge id)kCTFontVariationAxisMinimumValueKey];
+    NSNumber *maximum = axis[(__bridge id)kCTFontVariationAxisMaximumValueKey];
+    NSNumber *initial = axis[(__bridge id)kCTFontVariationAxisDefaultValueKey];
+    NSString *label = axis[(__bridge id)kCTFontVariationAxisNameKey] ?: @"";
+    if (!identifier || !minimum || !maximum || !initial ||
+        [label lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 1024)
+      return nil;
+    [values addObject:@{
+      @"identifier" : @((uint32_t)identifier.longLongValue),
+      @"minimum" : minimum,
+      @"maximum" : maximum,
+      @"initial" : initial,
+      @"value" : variation[identifier] ?: initial,
+      @"name" : label
+    }];
+  }
+  return @{
+    @"version" : @1,
+    @"postscriptName" : name,
+    @"family" : family,
+    @"size" : @(CTFontGetSize(font)),
+    @"traits" : @(font_traits_value(font)),
+    @"matrix" : text_matrix_value(CTFontGetMatrix(font)),
+    @"axes" : values
+  };
+}
+static NSData *text_json(id value) {
+  if (!value || ![NSJSONSerialization isValidJSONObject:value])
+    return nil;
+  NSData *data = [NSJSONSerialization dataWithJSONObject:value
+                                                 options:NSJSONWritingSortedKeys
+                                                   error:NULL];
+  return data.length <= 16777216 ? data : nil;
+}
+int32_t rinzu_macos_font_catalog(void *raw) {
+  @autoreleasepool {
+    @try {
+      RZMacSession *session = (RZMacSession *)lookup(raw, RZ_SESSION);
+      if (!session)
+        return missing();
+      if (!accepting(session))
+        return fail(RZ_BUSY, @"Session is closing");
+      CTFontCollectionRef collection = CTFontCollectionCreateFromAvailableFonts(
+          (__bridge CFDictionaryRef)
+              @{(__bridge id)kCTFontCollectionRemoveDuplicatesOption : @YES});
+      if (!collection)
+        _Exit(70);
+      NSArray *descriptors =
+          CFBridgingRelease(CTFontCollectionCreateMatchingFontDescriptors(collection));
+      CFRelease(collection);
+      if (descriptors.count > 16384)
+        return fail(RZ_ARGUMENT, @"font catalog exceeds 16384 faces");
+      NSMutableArray *faces = [NSMutableArray new];
+      for (id item in descriptors) {
+        CTFontDescriptorRef descriptor = (__bridge CTFontDescriptorRef)item;
+        NSString *name =
+            CFBridgingRelease(CTFontDescriptorCopyAttribute(descriptor, kCTFontNameAttribute));
+        NSString *family = CFBridgingRelease(
+            CTFontDescriptorCopyAttribute(descriptor, kCTFontFamilyNameAttribute));
+        NSDictionary *traits =
+            CFBridgingRelease(CTFontDescriptorCopyAttribute(descriptor, kCTFontTraitsAttribute));
+        CTFontSymbolicTraits bits = [traits[(__bridge id)kCTFontSymbolicTrait] unsignedIntValue];
+        if (!name.length || [name lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 256 ||
+            !family || [family lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 1024)
+          return fail(RZ_ARGUMENT, @"invalid font descriptor");
+        int flags = ((bits & kCTFontBoldTrait) ? 1 : 0) | ((bits & kCTFontItalicTrait) ? 2 : 0) |
+                    ((bits & kCTFontMonoSpaceTrait) ? 4 : 0) |
+                    ((bits & kCTFontColorGlyphsTrait) ? 8 : 0);
+        [faces addObject:@{@"postscriptName" : name, @"family" : family, @"traits" : @(flags)}];
+      }
+      NSData *data = text_json(@{@"version" : @1, @"faces" : faces});
+      if (!data)
+        return fail(RZ_ARGUMENT, @"font catalog snapshot exceeds bounds");
+      session.fontCatalogData = data;
+      session->fontCatalogSnapshot =
+          (rinzu_native_byte_array_t){(uint8_t *)data.bytes, data.length};
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+const rinzu_native_byte_array_t *rinzu_macos_font_catalog_bytes(void *raw) {
+  @autoreleasepool {
+    RZMacSession *session = (RZMacSession *)lookup(raw, RZ_SESSION);
+    return session ? &session->fontCatalogSnapshot : NULL;
+  }
+}
+int32_t rinzu_macos_font_info_snapshot(void *raw) {
+  @autoreleasepool {
+    @try {
+      RZMacFont *font = (RZMacFont *)lookup(raw, RZ_FONT);
+      if (!font)
+        return missing();
+      if (!font.infoData) {
+        font.infoData = text_json(font_value(font->font));
+        if (!font.infoData)
+          return fail(RZ_ARGUMENT, @"invalid font metadata");
+        font->infoSnapshot =
+            (rinzu_native_byte_array_t){(uint8_t *)font.infoData.bytes, font.infoData.length};
+      }
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+const rinzu_native_byte_array_t *rinzu_macos_font_info_bytes(void *raw) {
+  @autoreleasepool {
+    RZMacFont *font = (RZMacFont *)lookup(raw, RZ_FONT);
+    return font ? &font->infoSnapshot : NULL;
+  }
+}
+static int64_t publish_derived_font(RZMacFont *source, CTFontRef native) {
+  if (!native)
+    return fail(RZ_ARGUMENT, @"font cannot resolve the requested traits or variation");
+  RZMacFont *font = [RZMacFont new];
+  font->font = native;
+  return publish(font, RZ_FONT, source.owner);
+}
+int64_t rinzu_macos_font_traits(void *raw, int64_t traits) {
+  @autoreleasepool {
+    @try {
+      RZMacFont *font = (RZMacFont *)lookup(raw, RZ_FONT);
+      if (!font)
+        return missing();
+      if (!accepting(font))
+        return fail(RZ_BUSY, @"Session is closing");
+      if (traits < 0 || traits > 3)
+        return fail(RZ_ARGUMENT, @"unknown font style traits");
+      CTFontSymbolicTraits desired =
+          ((traits & 1) ? kCTFontBoldTrait : 0) | ((traits & 2) ? kCTFontItalicTrait : 0);
+      CTFontRef result = CTFontCreateCopyWithSymbolicTraits(font->font, 0, NULL, desired,
+                                                            kCTFontBoldTrait | kCTFontItalicTrait);
+      if (result && (font_traits_value(result) & 3) != traits) {
+        CFRelease(result);
+        result = NULL;
+      }
+      return publish_derived_font(font, result);
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+int64_t rinzu_macos_font_variation(void *raw, int64_t identifier, double value) {
+  @autoreleasepool {
+    @try {
+      RZMacFont *font = (RZMacFont *)lookup(raw, RZ_FONT);
+      if (!font)
+        return missing();
+      if (!accepting(font))
+        return fail(RZ_BUSY, @"Session is closing");
+      if (identifier < 0 || identifier > UINT32_MAX || !isfinite(value))
+        return fail(RZ_ARGUMENT, @"invalid variation identifier or value");
+      NSArray *axes = CFBridgingRelease(CTFontCopyVariationAxes(font->font));
+      NSNumber *key = nil;
+      for (NSDictionary *axis in axes) {
+        NSNumber *candidate = axis[(__bridge id)kCTFontVariationAxisIdentifierKey];
+        if ((uint32_t)candidate.longLongValue == identifier &&
+            value >= [axis[(__bridge id)kCTFontVariationAxisMinimumValueKey] doubleValue] &&
+            value <= [axis[(__bridge id)kCTFontVariationAxisMaximumValueKey] doubleValue]) {
+          key = candidate;
+          break;
+        }
+      }
+      if (!key)
+        return fail(RZ_ARGUMENT, @"unknown variation axis or value outside its range");
+      NSDictionary *prior = CFBridgingRelease(CTFontCopyVariation(font->font));
+      NSMutableDictionary *values = prior ? [prior mutableCopy] : [NSMutableDictionary new];
+      values[key] = @(value);
+      CTFontDescriptorRef descriptor = CTFontDescriptorCreateWithAttributes(
+          (__bridge CFDictionaryRef) @{(__bridge id)kCTFontVariationAttribute : values});
+      CTFontRef result = CTFontCreateCopyWithAttributes(font->font, 0, NULL, descriptor);
+      CFRelease(descriptor);
+      return publish_derived_font(font, result);
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+struct RZShapeGlyph {
+  int64_t run, index, start, end, identity;
+  double x, y, advanceX, advanceY;
+};
+static void draw_shape_range(CGContextRef context, CTRunRef run, const struct RZShapeGlyph *source,
+                             size_t count, double anchor) {
+  NSMutableData *glyphBytes = [NSMutableData dataWithLength:count * sizeof(CGGlyph)];
+  NSMutableData *pointBytes = [NSMutableData dataWithLength:count * sizeof(CGPoint)];
+  if (!glyphBytes || !pointBytes)
+    _Exit(70);
+  CGGlyph *glyphs = glyphBytes.mutableBytes;
+  CGPoint *points = pointBytes.mutableBytes;
+  for (size_t i = 0; i < count; i++) {
+    glyphs[i] = (CGGlyph)source[i].identity;
+    points[i] = CGPointMake(source[i].x - anchor, source[i].y);
+  }
+  CTFontRef face = (CTFontRef)CFDictionaryGetValue(CTRunGetAttributes(run), kCTFontAttributeName);
+  CGAffineTransform matrix = CTRunGetTextMatrix(run);
+  CTFontRef adjusted = NULL;
+  if (!CGAffineTransformEqualToTransform(matrix, CTFontGetMatrix(face))) {
+    adjusted = CTFontCreateCopyWithAttributes(face, 0, &matrix, NULL);
+    if (!adjusted)
+      _Exit(70);
+  }
+  CGContextSaveGState(context);
+  CGContextSetTextPosition(context, 0, 0);
+  CGContextSetTextMatrix(context, CGAffineTransformIdentity);
+  CTFontDrawGlyphs(adjusted ?: face, glyphs, points, count, context);
+  CGContextRestoreGState(context);
+  if (adjusted)
+    CFRelease(adjusted);
+}
+static int compare_text_index(const void *a, const void *b) {
+  CFIndex x = *(const CFIndex *)a, y = *(const CFIndex *)b;
+  return (x > y) - (x < y);
+}
+static BOOL text_boundary(NSString *text, CFIndex index) {
+  if (index < 0 || index > (CFIndex)text.length)
+    return NO;
+  return index == 0 || index == (CFIndex)text.length ||
+         !CFStringIsSurrogateLowCharacter([text characterAtIndex:(NSUInteger)index]);
+}
+int64_t rinzu_macos_text_shape(void *raw, const uint8_t *bytes, size_t length, _Bool ligatures) {
+  @autoreleasepool {
+    @try {
+      RZMacFont *font = (RZMacFont *)lookup(raw, RZ_FONT);
+      if (!font)
+        return missing();
+      if (!accepting(font))
+        return fail(RZ_BUSY, @"Session is closing");
+      NSString *plain = length <= 65536 ? text(bytes, length) : nil;
+      if (!plain)
+        return fail(RZ_ARGUMENT, @"invalid shaping UTF-8 (<=64 KiB)");
+      RZMacText *layout = [RZMacText new];
+      layout.font = font;
+      layout.bytes = (int64_t)length;
+      layout.attributed = [[NSAttributedString alloc]
+          initWithString:plain
+              attributes:@{
+                (__bridge id)kCTFontAttributeName : (__bridge id)font->font,
+                (__bridge id)kCTLigatureAttributeName : @(ligatures ? 1 : 0),
+                (__bridge id)
+                kCTForegroundColorAttributeName : (__bridge id)NSColor.whiteColor.CGColor
+              }];
+      layout->line =
+          CTLineCreateWithAttributedString((__bridge CFAttributedStringRef)layout.attributed);
+      if (!layout->line)
+        _Exit(70);
+      CGFloat ascent = 0, descent = 0, leading = 0;
+      double advance = CTLineGetTypographicBounds(layout->line, &ascent, &descent, &leading);
+      if (!isfinite(advance) || advance < 0 || advance > 8192)
+        return fail(RZ_ARGUMENT, @"shaped advance exceeds 8192 points");
+      if (ascent + descent + leading <= 0) {
+        ascent = CTFontGetAscent(font->font);
+        descent = CTFontGetDescent(font->font);
+        leading = CTFontGetLeading(font->font);
+      }
+      CGRect ink = CTLineGetImageBounds(layout->line, NULL);
+      double left = -2, top = -2, right = ceil(advance) + 2,
+             bottom = ceil(ascent + descent + leading) + 2;
+      if (!CGRectIsNull(ink) && !CGRectIsEmpty(ink)) {
+        left = MIN(left, floor(CGRectGetMinX(ink)) - 2);
+        top = MIN(top, floor(ascent - CGRectGetMaxY(ink)) - 2);
+        right = MAX(right, ceil(CGRectGetMaxX(ink)) + 2);
+        bottom = MAX(bottom, ceil(ascent - CGRectGetMinY(ink)) + 2);
+      }
+      layout->metrics = (struct MacTextMetrics){advance,
+                                                ascent + descent + leading,
+                                                ascent,
+                                                ascent,
+                                                descent,
+                                                leading,
+                                                left,
+                                                top,
+                                                right - left,
+                                                bottom - top,
+                                                1};
+      NSArray *runs = (__bridge NSArray *)CTLineGetGlyphRuns(layout->line);
+      if (runs.count > 4096)
+        return fail(RZ_ARGUMENT, @"shape exceeds 4096 runs");
+      NSMutableData *records = [NSMutableData new];
+      NSMutableArray *runValues = [NSMutableArray new];
+      int64_t total = 0;
+      for (NSUInteger r = 0; r < runs.count; ++r) {
+        CTRunRef run = (__bridge CTRunRef)runs[r];
+        CFIndex count = CTRunGetGlyphCount(run);
+        CFRange range = CTRunGetStringRange(run);
+        if (count < 0 || count > 65536 - total || range.length < 0 ||
+            !text_boundary(plain, range.location) ||
+            !text_boundary(plain, range.location + range.length))
+          return fail(RZ_ARGUMENT, @"invalid CoreText run range or glyph count");
+        NSMutableData *g = [NSMutableData dataWithLength:(NSUInteger)count * sizeof(CGGlyph)];
+        NSMutableData *p = [NSMutableData dataWithLength:(NSUInteger)count * sizeof(CGPoint)];
+        NSMutableData *a = [NSMutableData dataWithLength:(NSUInteger)count * sizeof(CGSize)];
+        NSMutableData *s = [NSMutableData dataWithLength:((NSUInteger)count + 1) * sizeof(CFIndex)];
+        if (!g || !p || !a || !s)
+          _Exit(70);
+        if (count) {
+          CTRunGetGlyphs(run, CFRangeMake(0, 0), g.mutableBytes);
+          CTRunGetPositions(run, CFRangeMake(0, 0), p.mutableBytes);
+          CTRunGetAdvances(run, CFRangeMake(0, 0), a.mutableBytes);
+          CTRunGetStringIndices(run, CFRangeMake(0, 0), s.mutableBytes);
+        }
+        CFIndex *indices = s.mutableBytes;
+        indices[count] = range.location + range.length;
+        NSMutableData *sorted = [s mutableCopy];
+        qsort(sorted.mutableBytes, (size_t)count + 1, sizeof(CFIndex), compare_text_index);
+        const CFIndex *cuts = sorted.bytes;
+        NSMutableArray *glyphs = [NSMutableArray new];
+        for (CFIndex i = 0; i < count; ++i) {
+          CFIndex start = indices[i];
+          CFIndex low = 0, high = count + 1;
+          while (low < high) {
+            CFIndex middle = low + (high - low) / 2;
+            if (cuts[middle] <= start)
+              low = middle + 1;
+            else
+              high = middle;
+          }
+          if (start < range.location || start >= range.location + range.length || low > count ||
+              !text_boundary(plain, start) || !text_boundary(plain, cuts[low]))
+            return fail(RZ_ARGUMENT, @"invalid CoreText cluster boundary");
+          CGPoint point = ((CGPoint *)p.bytes)[i];
+          CGSize delta = ((CGSize *)a.bytes)[i];
+          struct RZShapeGlyph value = {
+              (int64_t)r, i,       start,       cuts[low],   ((CGGlyph *)g.bytes)[i],
+              point.x,    point.y, delta.width, delta.height};
+          [records appendBytes:&value length:sizeof(value)];
+          [glyphs addObject:@{
+            @"identity" : @(value.identity),
+            @"start" : @(value.start),
+            @"end" : @(value.end),
+            @"x" : @(value.x),
+            @"y" : @(value.y),
+            @"advanceX" : @(value.advanceX),
+            @"advanceY" : @(value.advanceY)
+          }];
+        }
+        CTFontRef face =
+            (CTFontRef)CFDictionaryGetValue(CTRunGetAttributes(run), kCTFontAttributeName);
+        NSDictionary *info = face ? font_value(face) : nil;
+        if (!info)
+          return fail(RZ_ARGUMENT, @"invalid CoreText run face");
+        [runValues addObject:@{
+          @"start" : @(range.location),
+          @"end" : @(range.location + range.length),
+          @"rtl" : @((BOOL)((CTRunGetStatus(run) & kCTRunStatusRightToLeft) != 0)),
+          @"isFallback" : @((BOOL)!CFEqual(face, font->font)),
+          @"font" : info,
+          @"matrix" : text_matrix_value(CTRunGetTextMatrix(run)),
+          @"glyphs" : glyphs
+        }];
+        total += count;
+      }
+      NSData *data = text_json(@{
+        @"version" : @1,
+        @"utf16Length" : @(plain.length),
+        @"advance" : @(advance),
+        @"runs" : runValues
+      });
+      if (!data)
+        return fail(RZ_ARGUMENT, @"shape snapshot exceeds 16 MiB or has non-finite geometry");
+      layout.shapeData = data;
+      layout.glyphData = records;
+      layout->shapeSnapshot = (rinzu_native_byte_array_t){(uint8_t *)data.bytes, data.length};
+      return publish(layout, RZ_TEXT, font.owner);
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+int32_t rinzu_macos_text_shape_snapshot(void *raw) {
+  @autoreleasepool {
+    RZMacText *layout = (RZMacText *)lookup(raw, RZ_TEXT);
+    if (!layout)
+      return missing();
+    return layout->line && !layout.fragment
+               ? 0
+               : fail(RZ_ARGUMENT, @"shaping requires an original single-line shape");
+  }
+}
+const rinzu_native_byte_array_t *rinzu_macos_text_shape_bytes(void *raw) {
+  @autoreleasepool {
+    RZMacText *layout = (RZMacText *)lookup(raw, RZ_TEXT);
+    return layout ? &layout->shapeSnapshot : NULL;
+  }
+}
+int64_t rinzu_macos_text_fragment(void *raw, int64_t start, int64_t end) {
+  @autoreleasepool {
+    @try {
+      RZMacText *source = (RZMacText *)lookup(raw, RZ_TEXT);
+      if (!source)
+        return missing();
+      NSString *plain = source.attributed.string;
+      if (!accepting(source))
+        return fail(RZ_BUSY, @"Session is closing");
+      if (!source->line || source.fragment || start < 0 || end <= start ||
+          end > (int64_t)plain.length || !text_boundary(plain, start) || !text_boundary(plain, end))
+        return fail(RZ_ARGUMENT, @"invalid shaped fragment range");
+      const struct RZShapeGlyph *glyphs = source.glyphData.bytes;
+      size_t count = source.glyphData.length / sizeof(*glyphs);
+      BOOL selected = NO;
+      double anchor = 0;
+      CGRect ink = CGRectNull;
+      NSArray *runs = (__bridge NSArray *)CTLineGetGlyphRuns(source->line);
+      for (size_t i = 0; i < count; ++i) {
+        const struct RZShapeGlyph *g = glyphs + i;
+        if ((g->start < start && start < g->end) || (g->start < end && end < g->end))
+          return fail(RZ_ARGUMENT, @"fragment boundary splits a shaping cluster");
+        if (g->start >= start && g->start < end) {
+          if (!selected) {
+            selected = YES;
+            anchor = g->x;
+          }
+          CGRect bounds = CTRunGetImageBounds((__bridge CTRunRef)runs[(NSUInteger)g->run], NULL,
+                                              CFRangeMake(g->index, 1));
+          if (!CGRectIsNull(bounds) && !CGRectIsEmpty(bounds))
+            ink = CGRectUnion(ink, bounds);
+        }
+      }
+      RZMacText *layout = [RZMacText new];
+      layout.font = source.font;
+      layout.attributed = source.attributed;
+      layout->line = (CTLineRef)CFRetain(source->line);
+      layout.glyphData = source.glyphData;
+      layout.fragment = YES;
+      layout.rangeStart = start;
+      layout.rangeEnd = end;
+      layout.anchorX = anchor;
+      double left = 0, top = 0, width = 1, height = 1, inkWidth = 0, inkHeight = 0;
+      if (!CGRectIsNull(ink) && !CGRectIsEmpty(ink)) {
+        left = floor(CGRectGetMinX(ink) - anchor) - 2;
+        top = -ceil(CGRectGetMaxY(ink)) - 2;
+        width = ceil(CGRectGetMaxX(ink) - anchor) + 2 - left;
+        height = -floor(CGRectGetMinY(ink)) + 2 - top;
+        inkWidth = ink.size.width;
+        inkHeight = ink.size.height;
+      }
+      layout->metrics = (struct MacTextMetrics){inkWidth,
+                                                inkHeight,
+                                                0,
+                                                source->metrics.ascent,
+                                                source->metrics.descent,
+                                                source->metrics.leading,
+                                                left,
+                                                top,
+                                                width,
+                                                height,
+                                                1};
+      return publish(layout, RZ_TEXT, source.owner);
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+
 // Immutable CoreText layouts belong to the Session. Raster textures are
 // independent snapshots, so GPU leases never retain a mutable text engine.
 int64_t rinzu_macos_font_create(void *raw, const uint8_t *bytes, size_t length, double size,
@@ -4591,6 +5098,8 @@ int32_t rinzu_macos_font_destroy(void *raw) {
           return fail(RZ_BUSY, @"Font still owns text layouts");
       CFRelease(font->font);
       font->font = NULL;
+      font.infoData = nil;
+      font->infoSnapshot = (rinzu_native_byte_array_t){0};
       retire(font);
       return 0;
     } @catch (NSException *exception) {
@@ -4755,8 +5264,35 @@ int64_t rinzu_macos_text_texture(void *device_raw, void *text_raw, double scale)
       CGContextTranslateCTM(context, -layout->metrics.left * scale,
                             height + layout->metrics.top * scale);
       CGContextScaleCTM(context, scale, scale);
-      CGContextTranslateCTM(context, 0, -layout.frameHeight);
-      CTFrameDraw(layout->frame, context);
+      if (layout->line) {
+        CGContextTranslateCTM(context, 0, layout.fragment ? 0 : -layout->metrics.baseline);
+        if (!layout.fragment) {
+          CTLineDraw(layout->line, context);
+        } else {
+          CGContextSetRGBFillColor(context, 1, 1, 1, 1);
+          NSArray *runs = (__bridge NSArray *)CTLineGetGlyphRuns(layout->line);
+          const struct RZShapeGlyph *glyphs = layout.glyphData.bytes;
+          size_t count = layout.glyphData.length / sizeof(*glyphs);
+          size_t first = 0;
+          while (first < count) {
+            const struct RZShapeGlyph *g = glyphs + first;
+            if (g->start < layout.rangeStart || g->start >= layout.rangeEnd) {
+              first++;
+              continue;
+            }
+            size_t end = first + 1;
+            while (end < count && glyphs[end].run == g->run &&
+                   glyphs[end].start >= layout.rangeStart && glyphs[end].start < layout.rangeEnd)
+              end++;
+            draw_shape_range(context, (__bridge CTRunRef)runs[(NSUInteger)g->run], g, end - first,
+                             layout.anchorX);
+            first = end;
+          }
+        }
+      } else {
+        CGContextTranslateCTM(context, 0, -layout.frameHeight);
+        CTFrameDraw(layout->frame, context);
+      }
       RZMacTexture *texture = new_texture(device, (int64_t)width, (int64_t)height, 1, 1);
       if (!texture)
         return RZ_ARGUMENT;
@@ -4781,8 +5317,15 @@ int32_t rinzu_macos_text_destroy(void *raw) {
       RZMacText *layout = (RZMacText *)lookup(raw, RZ_TEXT);
       if (!layout)
         return missing();
-      CFRelease(layout->frame);
+      if (layout->frame)
+        CFRelease(layout->frame);
       layout->frame = NULL;
+      if (layout->line)
+        CFRelease(layout->line);
+      layout->line = NULL;
+      layout.shapeData = nil;
+      layout.glyphData = nil;
+      layout->shapeSnapshot = (rinzu_native_byte_array_t){0};
       layout.attributed = nil;
       layout.font = nil;
       retire(layout);
