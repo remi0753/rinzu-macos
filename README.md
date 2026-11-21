@@ -4,12 +4,12 @@ AppKit, CoreText, and Metal SDK for Rinzu on Apple Silicon. It provides native w
 
 ## Install
 
-Use a macOS arm64 Rinzu toolchain with native SDK archive support. Run GUI applications from a desktop session. [v0.1.5 release](https://github.com/remi0753/rinzu-macos/releases/tag/v0.1.5)
+Use a macOS arm64 Rinzu toolchain with native SDK archive support. Run GUI applications from a desktop session. [v0.2.0 release](https://github.com/remi0753/rinzu-macos/releases/tag/v0.2.0)
 
 From your application directory, register the module and refresh the native build lock.
 
 ```sh
-rinzu modules add rinzu.macos https://github.com/remi0753/rinzu-macos/releases/download/v0.1.5/rinzu-macos-0.1.5.tar.gz
+rinzu modules add rinzu.macos https://github.com/remi0753/rinzu-macos/releases/download/v0.2.0/rinzu-macos-0.2.0.tar.gz
 rinzu lock .
 ```
 
@@ -81,6 +81,7 @@ Local candidates can be checked before publishing with `test_macos_distribution.
 
 | SDK tag  | Dependency                        | Rinzu                                     | Target      |
 | -------- | --------------------------------- | ----------------------------------------- | ----------- |
+| `v0.2.0` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.1.5` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.1.4` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.1.3` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
@@ -127,3 +128,9 @@ A physically settled Metal surface can rebind to another Device in the same
 Session with `View.setDevice`. Its view identity and frame reader remain stable.
 `Device.isAvailable` exposes Metal's removal-request state. Clients recreate
 their pipelines, buffers and textures; the SDK does not retain application caches.
+
+The v0.2.0 API report flags one constructor change: Batch2D owns four additional
+sRGB pipelines. Use `Device.batch2D` to acquire batches; existing factory calls,
+legacy formats and examples remain supported. The new features are generic Metal
+and OS environment bindings; application color, layout and scheduling policy stay
+outside this SDK. [Validation](docs/rendering-validation.md)
