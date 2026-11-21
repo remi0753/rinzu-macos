@@ -478,6 +478,12 @@ class FrameClock {
         return checked(Int(rawFrameDestroy(self.handle)), "macos.frame.destroy");
     }
 
+    fn timing(self: FrameClock) -> FrameTiming {
+        let output = FrameTiming(source: 0, maximumFPS: 0, timestamp: 0.0, targetTimestamp: 0.0, period: 0.0);
+        let status = checked(Int(rawFrameTiming(self.handle, output)), "macos.frame.timing");
+        return output;
+    }
+
     fn statistics(self: FrameClock) -> FrameStatistics {
         let output = FrameStatistics(
             requests: 0,
@@ -985,6 +991,14 @@ class View {
         return checked(rawSurfacePixelFormat(self.handle), "macos.surface.pixelFormat");
     }
 
+    /// Display-paced callbacks on macOS 14+, deadline fallback on earlier systems.
+    /// Hidden/idle clocks retain no active timer or display callback.
+    fn displayClock(self: View, maximumFPS: Int) -> FrameClock {
+        return FrameClock(
+            handle: rawFrame(checked(rawFrameCreateDisplay(self.handle, maximumFPS), "macos.displayClock"))
+        );
+    }
+
     fn frameClock(self: View, fps: Int) -> FrameClock {
         return FrameClock(handle: rawFrame(checked(rawFrameCreate(self.handle, fps), "macos.frameClock")));
     }
@@ -1193,6 +1207,14 @@ native {
         scale: Float,
         time: Float,
         delta: Float
+    }
+
+    record FrameTiming {
+        source: Int,
+        maximumFPS: Int,
+        timestamp: Float,
+        targetTimestamp: Float,
+        period: Float
     }
 
     record FrameStatistics {
@@ -1605,6 +1627,10 @@ native {
 
     fn rawSurfaceScoped(device: DeviceHandle, window: WindowHandle, rect: Rect)
         -> Int symbol "rinzu_macos_surface_scoped";
+
+    fn rawFrameCreateDisplay(view: ViewHandle, maximumFPS: Int) -> Int symbol "rinzu_macos_frame_create_display";
+
+    fn rawFrameTiming(clock: FrameClockHandle, output: FrameTiming) -> CInt symbol "rinzu_macos_frame_timing";
 
     fn rawFrameCreate(view: ViewHandle, fps: Int) -> Int symbol "rinzu_macos_frame_create";
 
@@ -3805,6 +3831,7 @@ fn uiStopWindow(window: Window) {
 export FrameClock;
 export FrameInfo;
 export FrameStatistics;
+export FrameTiming;
 
 /// A frame begins in AppKit points / top-left; usePixels restores Batch2D pixel units.
 class Frame2D {

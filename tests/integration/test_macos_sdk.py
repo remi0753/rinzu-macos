@@ -303,7 +303,7 @@ def main():
                 if args.ui:
                     probes["data"].extend(["list", "large"])
                     if gpu:
-                        probes["frames"] = ["fixture", ""]
+                        probes["frames"] = ["fixture", "", "display"]
                         probes["frames_multi"] = [""]
                 for name, modes in probes.items():
                     binary = scratch / f"native-{name}"

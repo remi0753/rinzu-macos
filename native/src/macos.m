@@ -1,6 +1,7 @@
 #import <AppKit/AppKit.h>
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
+#import <QuartzCore/CADisplayLink.h>
 #import <ImageIO/ImageIO.h>
 #import <CoreText/CoreText.h>
 #include "rinzu_macos.h"
@@ -260,9 +261,13 @@ enum {
 @public
   rinzu_native_completion_v2_t completion;
   struct MacFrameInfo info;
+  struct MacFrameTiming timing;
 }
 @property(nonatomic, weak) RZMacView *view;
 @property(nonatomic, strong) NSTimer *timer;
+@property(nonatomic, strong) CADisplayLink *displayLink;
+@property(nonatomic) BOOL displayPaced;
+- (void)displayFrame:(CADisplayLink *)link;
 @property(nonatomic) BOOL dirty, animating, stopped, available, wasVisible;
 @property(nonatomic) int64_t token, requests, coalesced, ticks, retries;
 @property(nonatomic) int32_t failure;
@@ -321,7 +326,18 @@ enum {
     CFRelease(line);
 }
 @end
+static void publish_frame(RZMacFrameClock *clock);
 @implementation RZMacFrameClock
+- (void)displayFrame:(CADisplayLink *)link {
+  @autoreleasepool {
+    __attribute__((objc_precise_lifetime)) RZMacFrameClock *current = self;
+    link.paused = YES;
+    current->timing.timestamp = link.timestamp;
+    current->timing.targetTimestamp = link.targetTimestamp;
+    current->timing.period = link.targetTimestamp - link.timestamp;
+    publish_frame(current);
+  }
+}
 @end
 @implementation RZMacPipeline
 @end
@@ -982,7 +998,8 @@ int32_t rinzu_macos_statistics(struct MacStatistics *output) {
       case RZ_FRAME_CLOCK: {
         RZMacFrameClock *clock = (RZMacFrameClock *)handle;
         ++output->frameClocks;
-        output->frameTimers += clock.timer.valid;
+        output->frameTimers +=
+            clock.timer.valid || (clock.displayLink && !clock.displayLink.paused);
         output->frameWaiters += clock.token != 0;
         break;
       }
@@ -5445,58 +5462,94 @@ static BOOL frame_visible(RZMacFrameClock *clock) {
          view.view.bounds.size.width > 0 && view.view.bounds.size.height > 0 && pixels.width > 0 &&
          pixels.height > 0;
 }
+static void publish_frame(RZMacFrameClock *current) {
+  if (!current || current.closed)
+    return;
+  @try {
+    if (!current.token || rinzu_native_completion_is_done(&current->completion.base) ||
+        !frame_visible(current) || (!current.dirty && !current.animating))
+      return;
+    CGSize size = ((CAMetalLayer *)current.view.view.layer).drawableSize;
+    if (size.width <= 0 || size.height <= 0)
+      return;
+    double stamp = CACurrentMediaTime();
+    if (current.ticks == INT64_MAX)
+      _Exit(70);
+    current->info = (struct MacFrameInfo){
+        ++current.ticks,         (int64_t)size.width,
+        (int64_t)size.height,    current.view.view.window.backingScaleFactor,
+        stamp - current.started, current.lastTick > 0 ? stamp - current.lastTick : 0};
+    current.lastTick = stamp;
+    current.dirty = NO;
+    current.available = YES;
+    rinzu_native_completion_v2_publish(&current->completion);
+  } @catch (NSException *exception) {
+    current.failure = caught(exception);
+    stop_frame(current);
+  }
+}
 static void arm_frame(RZMacFrameClock *clock) {
   if (!clock || clock.stopped || !clock.token || clock.timer ||
+      (clock.displayLink && !clock.displayLink.paused) ||
       rinzu_native_completion_is_done(&clock->completion.base) ||
       (!clock.dirty && !clock.animating) || !frame_visible(clock))
     return;
   double now = CACurrentMediaTime();
   double deadline = MAX(now, clock.lastTick + MAX(clock.interval, clock.retryDelay));
+  BOOL display = NO;
+  if (@available(macOS 14.0, *)) {
+    display = clock.displayPaced;
+    if (display && deadline <= now + clock.interval + 0.0001) {
+      if (!clock.displayLink) {
+        clock.displayLink = [clock.view.view displayLinkWithTarget:clock
+                                                          selector:@selector(displayFrame:)];
+        if (!clock.displayLink)
+          _Exit(70);
+        int64_t maximum = MIN((int64_t)llround(1.0 / clock.interval),
+                              MAX(1, clock.view.view.window.screen.maximumFramesPerSecond));
+        clock.displayLink.preferredFrameRateRange =
+            CAFrameRateRangeMake((float)maximum, (float)maximum, (float)maximum);
+        clock->timing.source = 1;
+        clock->timing.maximumFPS = maximum;
+        [clock.displayLink addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
+      }
+      clock->timing.source = 1;
+      int64_t screenRate = MIN((int64_t)llround(1.0 / clock.interval),
+                               MAX(1, clock.view.view.window.screen.maximumFramesPerSecond));
+      clock->timing.maximumFPS = screenRate;
+      clock.displayLink.preferredFrameRateRange =
+          CAFrameRateRangeMake((float)screenRate, (float)screenRate, (float)screenRate);
+      clock.displayLink.paused = NO;
+      return;
+    }
+  }
+  clock->timing.source = 0;
+  if (!display) {
+    clock->timing.maximumFPS = (int64_t)llround(1.0 / clock.interval);
+    clock->timing.period = clock.interval;
+  }
   __weak RZMacFrameClock *weak = clock;
-  NSTimer *timer = [NSTimer
-      timerWithTimeInterval:MAX(0.0001, deadline - now)
-                    repeats:NO
-                      block:^(NSTimer *tick) {
-                        (void)tick;
-                        @autoreleasepool {
-                          __attribute__((objc_precise_lifetime)) RZMacFrameClock *current = weak;
-                          if (!current || current.closed)
-                            return;
-                          @try {
-                            current.timer = nil;
-                            if (!current.token ||
-                                rinzu_native_completion_is_done(&current->completion.base) ||
-                                !frame_visible(current) || (!current.dirty && !current.animating))
-                              return;
-                            CGSize size = ((CAMetalLayer *)current.view.view.layer).drawableSize;
-                            if (size.width <= 0 || size.height <= 0)
-                              return;
-                            double stamp = CACurrentMediaTime();
-                            if (current.ticks == INT64_MAX)
-                              _Exit(70);
-                            current->info = (struct MacFrameInfo){
-                                ++current.ticks,
-                                (int64_t)size.width,
-                                (int64_t)size.height,
-                                current.view.view.window.backingScaleFactor,
-                                stamp - current.started,
-                                current.lastTick > 0 ? stamp - current.lastTick : 0};
-                            current.lastTick = stamp;
-                            current.dirty = NO;
-                            current.available = YES;
-                            // LAST carrier access. Source may acknowledge/reuse immediately.
-                            rinzu_native_completion_v2_publish(&current->completion);
-                          } @catch (NSException *exception) {
-                            current.failure = caught(exception);
-                            stop_frame(current);
-                          }
-                        }
-                      }];
+  NSTimer *timer = [NSTimer timerWithTimeInterval:MAX(0.0001, deadline - now)
+                                          repeats:NO
+                                            block:^(NSTimer *tick) {
+                                              (void)tick;
+                                              @autoreleasepool {
+                                                __attribute__((objc_precise_lifetime))
+                                                RZMacFrameClock *current = weak;
+                                                if (!current || current.closed)
+                                                  return;
+                                                current.timer = nil;
+                                                if (display)
+                                                  arm_frame(current);
+                                                else
+                                                  publish_frame(current);
+                                              }
+                                            }];
   if (!timer)
     _Exit(70);
   timer.tolerance = MIN(clock.interval / 8, 0.002);
   clock.timer = timer;
-  [[NSRunLoop mainRunLoop] addTimer:timer forMode:NSRunLoopCommonModes];
+  [NSRunLoop.mainRunLoop addTimer:timer forMode:NSRunLoopCommonModes];
 }
 static void refresh_frame(RZMacFrameClock *clock, BOOL dirty) {
   if (!clock || clock.stopped)
@@ -5518,6 +5571,7 @@ static void refresh_frame(RZMacFrameClock *clock, BOOL dirty) {
   if (!visible) {
     [clock.timer invalidate];
     clock.timer = nil;
+    clock.displayLink.paused = YES;
   } else
     arm_frame(clock);
 }
@@ -5526,6 +5580,8 @@ static void stop_frame(RZMacFrameClock *clock) {
     return;
   [clock.timer invalidate];
   clock.timer = nil;
+  [clock.displayLink invalidate];
+  clock.displayLink = nil;
   clock.stopped = YES;
   clock.available = NO;
   if (clock.token && !rinzu_native_completion_is_done(&clock->completion.base))
@@ -5589,6 +5645,25 @@ int64_t rinzu_macos_frame_create(void *raw, int64_t fps) {
     }
   }
 }
+int64_t rinzu_macos_frame_create_display(void *raw, int64_t maximum_fps) {
+  int64_t identity = rinzu_macos_frame_create(raw, maximum_fps);
+  if (identity > 0) {
+    RZMacFrameClock *clock = (RZMacFrameClock *)lookup((void *)(uintptr_t)identity, RZ_FRAME_CLOCK);
+    clock.displayPaced = YES;
+  }
+  return identity;
+}
+int32_t rinzu_macos_frame_timing(void *raw, struct MacFrameTiming *output) {
+  @autoreleasepool {
+    RZMacFrameClock *clock = (RZMacFrameClock *)lookup(raw, RZ_FRAME_CLOCK);
+    if (!clock)
+      return missing();
+    if (!output)
+      return fail(RZ_ARGUMENT, @"missing frame timing output");
+    *output = clock->timing;
+    return 0;
+  }
+}
 void *rinzu_macos_frame(int64_t identity) {
   @autoreleasepool {
     return by_id(identity, RZ_FRAME_CLOCK);
@@ -5631,6 +5706,7 @@ int32_t rinzu_macos_frame_animating(void *raw, _Bool enabled) {
       if (!enabled && !clock.dirty) {
         [clock.timer invalidate];
         clock.timer = nil;
+        clock.displayLink.paused = YES;
       }
       arm_frame(clock);
       return 0;
@@ -5739,6 +5815,7 @@ int32_t rinzu_macos_frame_cancel(void *raw, int64_t token) {
       return fail(RZ_BUSY, @"FrameClock reader token mismatch");
     [clock.timer invalidate];
     clock.timer = nil;
+    clock.displayLink.paused = YES;
     if (!rinzu_native_completion_is_done(&clock->completion.base)) {
       clock.available = NO;
       rinzu_native_completion_v2_publish(&clock->completion);

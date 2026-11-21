@@ -56,7 +56,12 @@ Session.fontCatalog provides owned installed-face descriptors. Font.info reports
 
 Batch2D preserves draw order and batches compatible texture/filter/clip operations. Low-level coordinates are top-left drawable pixels. The managed canvas uses points with backing scale, and offers explicit pixel mode. Images are decoded/uploaded on Main. Text2D is a reusable shaped-text/texture snapshot; rebuild it when text changes.
 
-Surface rendering admits only a drawable matching the captured pixel extent. `Command.beginRenderMatching` exposes that check; a size mismatch remains idle and unleased. Canvas jobs manage a surface, batch, frame waits, and cleanup. Invalidation coalesces requests. Idle/hidden/minimized/occluded views stop their frame timer; unavailable drawables use bounded backoff. FrameClock schedules Main RunLoop deadlines and does not promise display-link synchronization or exact FPS.
+Surface rendering admits only a drawable matching the captured pixel extent. `Command.beginRenderMatching` exposes that check; a size mismatch remains idle and unleased. Canvas jobs manage a surface, batch, frame waits, and cleanup. Invalidation coalesces requests. Idle/hidden/minimized/occluded views stop their frame timer; unavailable drawables use bounded backoff. `View.frameClock` keeps its Main RunLoop deadline contract. `View.displayClock`
+uses the view's CADisplayLink on macOS 14+, capped by the screen and requested
+maximum FPS, with deadline fallback on earlier systems. `FrameClock.timing`
+identifies the active source and exposes native timestamps/period. Paused, idle
+and hidden readers have no active display callback. Neither clock promises an
+exact callback rate under system load.
 
 ## Documents and sheets
 

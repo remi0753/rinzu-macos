@@ -39,6 +39,10 @@ struct MacFrameInfo {
   int64_t sequence, width, height;
   double scale, time, delta;
 };
+struct MacFrameTiming {
+  int64_t source, maximumFPS;
+  double timestamp, targetTimestamp, period;
+};
 struct MacFrameStatistics {
   int64_t requests, coalesced, ticks, retries;
   _Bool pending, visible, animating, stopped;
@@ -275,6 +279,8 @@ int32_t rinzu_macos_text_metrics(void *text, struct MacTextMetrics *output);
 int64_t rinzu_macos_text_texture(void *device, void *text, double scale);
 int32_t rinzu_macos_text_destroy(void *text);
 int64_t rinzu_macos_surface_scoped(void *device, void *window, const struct MacRect *rect);
+int64_t rinzu_macos_frame_create_display(void *view, int64_t maximum_fps);
+int32_t rinzu_macos_frame_timing(void *clock, struct MacFrameTiming *output);
 int64_t rinzu_macos_frame_create(void *view, int64_t fps);
 void *rinzu_macos_frame(int64_t id);
 int32_t rinzu_macos_frame_request(void *clock);

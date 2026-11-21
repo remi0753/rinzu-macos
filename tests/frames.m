@@ -55,6 +55,12 @@ static void finish(int expected) {
     assert(rinzu_macos_command_destroy(command) == 0);
     puts("PASS:frames:stale-drawable:idle-unleased:matching-abandon");
   }
+  struct MacFrameTiming timing;
+  assert(rinzu_macos_frame_timing(frame_clock, &timing) == 0);
+  if (expected && ((RZMacFrameClock *)lookup(frame_clock, RZ_FRAME_CLOCK)).displayPaced) {
+    if (@available(macOS 14.0, *))
+      assert(timing.source == 1 && timing.maximumFPS > 0 && timing.period > 0);
+  }
   assert(rinzu_macos_frame_finish(frame_clock, token) == 0);
   assert(!rinzu_macos_frame_wait_owned(frame_clock, token));
 }
@@ -91,7 +97,9 @@ int main(int argc, const char **argv) {
     assert(layer.pixelFormat == MTLPixelFormatBGRA8Unorm_sRGB && layer.colorspace);
     assert(rinzu_macos_view_add(root, surface) == 0);
     assert(rinzu_macos_frame_create(surface, 0) == RZ_ARGUMENT);
-    frame_clock = rinzu_macos_frame(rinzu_macos_frame_create(surface, 120));
+    BOOL display = argc == 2 && !strcmp(argv[1], "display");
+    frame_clock = rinzu_macos_frame(display ? rinzu_macos_frame_create_display(surface, 120)
+                                            : rinzu_macos_frame_create(surface, 120));
     assert(frame_clock && rinzu_macos_frame_create(surface, 60) == RZ_BUSY);
     assert(rinzu_macos_frame_state(frame_clock) == 0);
     assert(rinzu_macos_frame_wait_begin(frame_clock, rinzu_macos_wait_token()) == RZ_BUSY);
