@@ -218,6 +218,10 @@ class Device {
         );
     }
 
+    fn isAvailable(self: Device) -> Bool {
+        return rawDeviceAvailable(self.handle);
+    }
+
     fn surface(self: Device, rect: Rect) -> View {
         return View(handle: rawView(checked(rawSurfaceCreate(self.handle, rect), "macos.surface")));
     }
@@ -650,6 +654,16 @@ class Session {
     const handle: SessionHandle
 
     /// Owned absolute app-resource root; None in an ordinary JIT/console host.
+    fn observeEnvironment(self: Session, enabled: Bool) -> Int {
+        return checked(Int(rawEnvironmentWatch(self.handle, enabled)), "macos.environment.observe");
+    }
+
+    fn environment(self: Session) -> Environment {
+        let output = Environment(generation: 0, fontGeneration: 0, preferences: 0, observing: false);
+        let status = checked(Int(rawEnvironment(self.handle, output)), "macos.environment.snapshot");
+        return output;
+    }
+
     fn resourceRoot(self: Session) -> Option<String> {
         let length = checked(rawResourceRootSize(self.handle), "macos.resourceRoot");
         if length == 0 {
@@ -958,6 +972,11 @@ class View {
 
     /// sRGB formats encode linear render output and declare the surface's color space.
     /// Format changes require physical settlement of all commands using this surface.
+    /// Rebind a settled surface without changing its view identity or frame reader.
+    fn setDevice(self: View, device: Device) -> Int {
+        return checked(Int(rawSurfaceDevice(self.handle, device.handle)), "macos.surface.setDevice");
+    }
+
     fn setPixelFormat(self: View, format: Int) -> Int {
         return checked(Int(rawSurfaceFormat(self.handle, format)), "macos.surface.setPixelFormat");
     }
@@ -1158,6 +1177,13 @@ native {
         format: Int,
         usage: Int,
         bytes: Int
+    }
+
+    record Environment {
+        generation: Int,
+        fontGeneration: Int,
+        preferences: Int,
+        observing: CBool
     }
 
     record FrameInfo {
@@ -1690,6 +1716,14 @@ native {
     fn rawSamplerDestroy(sampler: SamplerHandle) -> CInt symbol "rinzu_macos_sampler_destroy";
 
     fn rawRotation2D(radians: Float, output: Transform2D) -> CInt symbol "rinzu_macos_rotation2d";
+
+    fn rawEnvironmentWatch(session: SessionHandle, enabled: CBool) -> CInt symbol "rinzu_macos_environment_watch";
+
+    fn rawEnvironment(session: SessionHandle, output: Environment) -> CInt symbol "rinzu_macos_environment";
+
+    fn rawSurfaceDevice(view: ViewHandle, device: DeviceHandle) -> CInt symbol "rinzu_macos_surface_device";
+
+    fn rawDeviceAvailable(device: DeviceHandle) -> CBool symbol "rinzu_macos_device_available";
 
     fn rawSurfaceFormat(view: ViewHandle, format: Int) -> CInt symbol "rinzu_macos_surface_format";
 
@@ -4422,3 +4456,36 @@ export textValues.FontCatalog;
 export textValues.TextGlyph;
 export textValues.TextRun;
 export textValues.TextShape;
+
+/// Opt-in OS notifications and current accessibility display preferences.
+let eventEnvironment = 21;
+
+let environmentFonts = 1;
+
+let environmentPreferences = 2;
+
+let environmentDisplays = 4;
+
+let environmentWake = 8;
+
+let environmentDevices = 16;
+
+let preferenceReduceMotion = 1;
+
+let preferenceReduceTransparency = 2;
+
+let preferenceIncreaseContrast = 4;
+
+let preferenceDifferentiateWithoutColor = 8;
+
+export Environment;
+export eventEnvironment;
+export environmentFonts;
+export environmentPreferences;
+export environmentDisplays;
+export environmentWake;
+export environmentDevices;
+export preferenceReduceMotion;
+export preferenceReduceTransparency;
+export preferenceIncreaseContrast;
+export preferenceDifferentiateWithoutColor;

@@ -4,6 +4,7 @@ import rinzu.stdio;
 import rinzu.testing;
 
 async fn verify(device: macos.Device) throws(Error) {
+    rinzu.testing.assertTrue(device.isAvailable(), "current Metal Device is available");
     let library = device.library(
         r#"
 #include <metal_stdlib>

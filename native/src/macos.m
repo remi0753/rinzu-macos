@@ -58,7 +58,8 @@ enum {
   RZ_WINDOW_STATE,
   RZ_TASK_FINISHED,
   RZ_INPUT_LIMIT,
-  RZ_DATA
+  RZ_DATA,
+  RZ_ENVIRONMENT
 };
 enum {
   RZ_EVENT_LIMIT = 256,
@@ -106,6 +107,10 @@ enum {
 @property(nonatomic, strong) NSData *resourceRootData;
 @property(nonatomic, strong) NSData *fontCatalogData;
 @property(nonatomic) int64_t clipboardToken;
+@property(nonatomic) int64_t environmentGeneration, fontGeneration;
+@property(nonatomic, strong) NSMutableArray *environmentObservers;
+@property(nonatomic) BOOL observingEnvironment;
+@property(nonatomic, strong) id<NSObject> deviceObserver;
 @property(nonatomic, weak) RZMacWindow *activeWindow;
 - (void)enqueue:(struct MacEvent)event;
 - (void)enqueue:(struct MacEvent)event text:(NSData *)text;
@@ -201,6 +206,7 @@ enum {
 @interface RZMacDevice : RZMacHandle
 @property(nonatomic, strong) id<MTLDevice> device;
 @property(nonatomic, strong) id<MTLCommandQueue> queue;
+@property(nonatomic) BOOL removed;
 @end
 @interface RZMacBuffer : RZMacHandle {
 @public
@@ -664,7 +670,7 @@ static void event_wait_observer(CFRunLoopObserverRef observer, CFRunLoopActivity
                      event.kind == RZ_MOUSE_MOVED || event.kind == RZ_TEXT_CHANGED ||
                      event.kind == RZ_SELECTION_CHANGED || event.kind == RZ_TASK_FINISHED ||
                      event.kind == RZ_WINDOW_STATE || event.kind == RZ_SCROLL ||
-                     (event.kind == RZ_DATA && event.flags == 1);
+                     event.kind == RZ_ENVIRONMENT || (event.kind == RZ_DATA && event.flags == 1);
   BOOL replace = last && replaceable && last->kind == event.kind && last->viewId == event.viewId &&
                  last->windowId == event.windowId && last->flags == event.flags;
   if (replace && event.kind == RZ_SCROLL) {
@@ -1180,6 +1186,7 @@ int32_t rinzu_macos_close(void *raw) {
           ((RZMacDevice *)handle).device = nil;
           break;
         case RZ_SESSION:
+          rinzu_macos_environment_watch(reference(session), NO);
           [session clearEvents];
           session.payloads = nil;
           session.clipboardData = nil;
@@ -4094,6 +4101,37 @@ int32_t rinzu_macos_rotation2d(double radians, struct MacTransform2D *output) {
     return 0;
   }
 }
+int32_t rinzu_macos_surface_device(void *raw, void *device_raw) {
+  @autoreleasepool {
+    @try {
+      RZMacView *view = (RZMacView *)lookup(raw, RZ_VIEW);
+      RZMacDevice *device = (RZMacDevice *)lookup(device_raw, RZ_DEVICE);
+      if (!view || !device)
+        return missing();
+      if (!view.device || view.owner != device.owner)
+        return fail(RZ_ARGUMENT, @"surface Device must belong to the same Session");
+      if (!accepting(view) || !accepting(device) || view.leases)
+        return fail(RZ_BUSY, @"surface is closing or leased");
+      if (device.removed)
+        return fail(RZ_GPU, @"Device removal was requested");
+      CAMetalLayer *layer = (CAMetalLayer *)view.view.layer;
+      layer.device = device.device;
+      view.device = device;
+      resized(view);
+      if (view.clock)
+        refresh_frame(view.clock, YES);
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+_Bool rinzu_macos_device_available(void *raw) {
+  @autoreleasepool {
+    RZMacDevice *device = (RZMacDevice *)lookup(raw, RZ_DEVICE);
+    return device && !device.removed;
+  }
+}
 int32_t rinzu_macos_surface_format(void *raw, int64_t format) {
   @autoreleasepool {
     @try {
@@ -6491,5 +6529,113 @@ int32_t rinzu_macos_window_effective_theme(void *raw) {
     NSString *match = [window.window.effectiveAppearance
         bestMatchFromAppearancesWithNames:@[ NSAppearanceNameAqua, NSAppearanceNameDarkAqua ]];
     return [match isEqualToString:NSAppearanceNameDarkAqua] ? 2 : 1;
+  }
+}
+
+// Owned, opt-in OS environment observation. Applications choose all rendering policy.
+static int64_t environment_preferences(void) {
+  NSWorkspace *workspace = NSWorkspace.sharedWorkspace;
+  return (workspace.accessibilityDisplayShouldReduceMotion ? 1 : 0) |
+         (workspace.accessibilityDisplayShouldReduceTransparency ? 2 : 0) |
+         (workspace.accessibilityDisplayShouldIncreaseContrast ? 4 : 0) |
+         (workspace.accessibilityDisplayShouldDifferentiateWithoutColor ? 8 : 0);
+}
+static void environment_changed(RZMacSession *session, int64_t reason) {
+  if (!session || session.closed || !session.observingEnvironment || !accepting(session))
+    return;
+  if (session.environmentGeneration == INT64_MAX ||
+      (reason == 1 && session.fontGeneration == INT64_MAX))
+    _Exit(70);
+  ++session.environmentGeneration;
+  if (reason == 1)
+    ++session.fontGeneration;
+  [session enqueue:(struct MacEvent){.kind = RZ_ENVIRONMENT,
+                                     .flags = reason,
+                                     .action = session.fontGeneration,
+                                     .value = (double)environment_preferences()}];
+}
+int32_t rinzu_macos_environment_watch(void *raw, _Bool enabled) {
+  @autoreleasepool {
+    @try {
+      RZMacSession *session = (RZMacSession *)lookup(raw, RZ_SESSION);
+      if (!session)
+        return missing();
+      if (session.observingEnvironment == enabled)
+        return 0;
+      session.observingEnvironment = NO;
+      for (NSArray *registration in session.environmentObservers)
+        [(NSNotificationCenter *)registration[0] removeObserver:registration[1]];
+      session.environmentObservers = nil;
+      if (session.deviceObserver) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        MTLRemoveDeviceObserver(session.deviceObserver);
+#pragma clang diagnostic pop
+        session.deviceObserver = nil;
+      }
+      if (!enabled)
+        return 0;
+      if (!accepting(session))
+        return fail(RZ_BUSY, @"Session is closing");
+      session.observingEnvironment = YES;
+      session.environmentObservers = [NSMutableArray new];
+      NSNotificationCenter *local = NSNotificationCenter.defaultCenter;
+      NSNotificationCenter *workspace = NSWorkspace.sharedWorkspace.notificationCenter;
+      NSArray *registrations = @[
+        @[ local, NSFontSetChangedNotification, @1 ],
+        @[ local, (__bridge NSString *)kCTFontManagerRegisteredFontsChangedNotification, @1 ],
+        @[ workspace, NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification, @2 ],
+        @[ local, NSApplicationDidChangeScreenParametersNotification, @4 ],
+        @[ workspace, NSWorkspaceDidWakeNotification, @8 ]
+      ];
+      __weak RZMacSession *weak = session;
+      for (NSArray *registration in registrations) {
+        NSNotificationCenter *center = registration[0];
+        int64_t reason = [registration[2] longLongValue];
+        id token = [center addObserverForName:registration[1]
+                                       object:nil
+                                        queue:NSOperationQueue.mainQueue
+                                   usingBlock:^(NSNotification *notification) {
+                                     (void)notification;
+                                     environment_changed(weak, reason);
+                                   }];
+        [session.environmentObservers addObject:@[ center, token ]];
+      }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+      id<NSObject> observer = nil;
+      MTLCopyAllDevicesWithObserver(
+          &observer, ^(id<MTLDevice> changed, MTLDeviceNotificationName name) {
+            BOOL removed = [name isEqualToString:MTLDeviceRemovalRequestedNotification] ||
+                           [name isEqualToString:MTLDeviceWasRemovedNotification];
+            dispatch_async(dispatch_get_main_queue(), ^{
+              RZMacSession *current = weak;
+              if (!current || current.closed || !current.observingEnvironment)
+                return;
+              for (RZMacHandle *handle in handles.allValues)
+                if (handle.kind == RZ_DEVICE && handle.owner == current &&
+                    ((RZMacDevice *)handle).device == changed)
+                  ((RZMacDevice *)handle).removed = removed;
+              environment_changed(current, 16);
+            });
+          });
+      session.deviceObserver = observer;
+#pragma clang diagnostic pop
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+int32_t rinzu_macos_environment(void *raw, struct MacEnvironment *output) {
+  @autoreleasepool {
+    RZMacSession *session = (RZMacSession *)lookup(raw, RZ_SESSION);
+    if (!session)
+      return missing();
+    if (!output)
+      return fail(RZ_ARGUMENT, @"missing environment snapshot output");
+    *output = (struct MacEnvironment){session.environmentGeneration, session.fontGeneration,
+                                      environment_preferences(), session.observingEnvironment};
+    return 0;
   }
 }

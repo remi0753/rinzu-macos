@@ -43,6 +43,10 @@ struct MacFrameStatistics {
   int64_t requests, coalesced, ticks, retries;
   _Bool pending, visible, animating, stopped;
 };
+struct MacEnvironment {
+  int64_t generation, fontGeneration, preferences;
+  _Bool observing;
+};
 struct MacEvent {
   int64_t kind, windowId, viewId, sequence;
   double x, y, width, height, scale;
@@ -212,6 +216,10 @@ const rinzu_native_byte_array_t *rinzu_macos_clipboard_bytes(void *session, int6
 int32_t rinzu_macos_clipboard_finish(void *session, int64_t token);
 
 _Bool rinzu_macos_metal_available(void);
+int32_t rinzu_macos_environment_watch(void *session, _Bool enabled);
+int32_t rinzu_macos_environment(void *session, struct MacEnvironment *output);
+int32_t rinzu_macos_surface_device(void *view, void *device);
+_Bool rinzu_macos_device_available(void *device);
 int64_t rinzu_macos_device_create(void *session);
 void *rinzu_macos_device(int64_t id);
 int32_t rinzu_macos_device_destroy(void *device);

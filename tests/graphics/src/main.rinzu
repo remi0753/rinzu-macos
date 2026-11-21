@@ -270,6 +270,12 @@ async fn exercise() {
         }
         else {
             let session = rinzu.macos.open();
+            let observing = session.observeEnvironment(true);
+            let environment = session.environment();
+            if !environment.observing || environment.preferences < 0 || environment.preferences > 15 {
+                rinzu.core.panic("invalid owned environment snapshot");
+            }
+            let disabled = session.observeEnvironment(false);
             let device = session.device();
             if mode == "pixels" {
                 await srgb.verify(device);

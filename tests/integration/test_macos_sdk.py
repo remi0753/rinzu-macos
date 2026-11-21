@@ -285,6 +285,7 @@ def main():
                 probes = {
                     "data": ["model", "tree"],
                     "resources": [""],
+                    "environment": [""],
                     "text": ["measure"],
                     "shaping": ["shape"],
                 }

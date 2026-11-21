@@ -106,3 +106,19 @@ python3 -B tests/integration/test_macos_interrupt.py --rinzu "$rinzu_cli" --sani
 ```
 
 The distribution check registers the public GitHub release asset in fresh applications. It checks the pinned checksum, offline restoration, the example packages, and matching output from JIT and moved, signed AOT app bundles.
+
+## OS environment snapshots
+
+`Session.observeEnvironment(true)` owns opt-in font, accessibility display,
+screen-change and wake observers until disabled or the Session closes.
+`eventEnvironment` carries a reason flag; `Session.environment()` is an owned
+scalar snapshot with monotonically increasing font/environment generations and
+current reduce-motion/transparency/contrast/color preferences. Notification
+coalescing uses the ordinary bounded event queue. Late callbacks cannot re-open
+a stopped owner. Font selection, rendering preferences and recovery policy belong
+to the application.
+
+A physically settled Metal surface can rebind to another Device in the same
+Session with `View.setDevice`. Its view identity and frame reader remain stable.
+`Device.isAvailable` exposes Metal's removal-request state. Clients recreate
+their pipelines, buffers and textures; the SDK does not retain application caches.

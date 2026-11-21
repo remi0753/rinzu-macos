@@ -44,8 +44,14 @@ static void finish(int expected) {
            0);
     assert(rinzu_macos_command_state(command) == 1 && view.leases == 1);
     assert(state.targetFormat == 6);
+    assert(rinzu_macos_surface_device(surface, device) == RZ_BUSY);
     assert(rinzu_macos_surface_format(surface, 2) == RZ_BUSY);
     assert(rinzu_macos_command_abandon(command) == 0 && !view.leases);
+    void *replacement = rinzu_macos_device(rinzu_macos_device_create(session));
+    assert(rinzu_macos_device_available(replacement));
+    assert(rinzu_macos_surface_device(surface, replacement) == 0);
+    assert(rinzu_macos_surface_device(surface, device) == 0);
+    assert(rinzu_macos_device_destroy(replacement) == 0);
     assert(rinzu_macos_command_destroy(command) == 0);
     puts("PASS:frames:stale-drawable:idle-unleased:matching-abandon");
   }
