@@ -111,6 +111,14 @@ class Command {
         return checked(Int(rawDraw(self.handle, start, count)), "macos.command.drawTriangles");
     }
 
+    /// Instance IDs include baseInstance. The caller bounds its shader's buffer access.
+    fn drawTrianglesInstanced(self: Command, start: Int, count: Int, instances: Int, baseInstance: Int) -> Int {
+        return checked(
+            Int(rawDrawInstances(self.handle, start, count, instances, baseInstance)),
+            "macos.command.drawTrianglesInstanced"
+        );
+    }
+
     fn commit(self: Command) -> Int {
         return checked(Int(rawCommit(self.handle)), "macos.command.commit");
     }
@@ -266,6 +274,16 @@ vertex Raster vertex2d(uint i [[vertex_id]], const device Vertex *vertices [[buf
     Vertex v = vertices[i];
     return {float4(v.position, 0, 1), v.uv, v.color};
 }
+vertex Raster vertex2d_srgb(uint i [[vertex_id]], const device Vertex *vertices [[buffer(0)]]) {
+    Vertex v = vertices[i];
+    float3 c = v.color.rgb;
+    c = select(pow((c + 0.055) / 1.055, float3(2.4)), c / 12.92, c <= 0.04045);
+    return {float4(v.position, 0, 1), v.uv, float4(c, v.color.a)};
+}
+fragment float4 fragment2d_straight(Raster v [[stage_in]], texture2d<float> image [[texture(0)]], sampler filter [[sampler(0)]]) {
+    float4 c = image.sample(filter, v.uv);
+    return float4(c.rgb * c.a, c.a) * float4(v.color.rgb * v.color.a, v.color.a);
+}
 fragment float4 fragment2d(Raster v [[stage_in]], texture2d<float> image [[texture(0)]], sampler filter [[sampler(0)]]) {
     return image.sample(filter, v.uv) * float4(v.color.rgb * v.color.a, v.color.a);
 }
@@ -274,12 +292,40 @@ fragment float4 fragment2d(Raster v [[stage_in]], texture2d<float> image [[textu
         try {
             let rgba = library.renderPipelineWithOptions("vertex2d", "fragment2d", pixelRGBA8, blendPremultiplied);
             let bgra = library.renderPipelineWithOptions("vertex2d", "fragment2d", pixelBGRA8, blendPremultiplied);
+            let rgbaSrgb = library.renderPipelineWithOptions(
+                "vertex2d_srgb",
+                "fragment2d",
+                pixelRGBA8Srgb,
+                blendPremultiplied
+            );
+            let bgraSrgb = library.renderPipelineWithOptions(
+                "vertex2d_srgb",
+                "fragment2d",
+                pixelBGRA8Srgb,
+                blendPremultiplied
+            );
+            let rgbaStraight = library.renderPipelineWithOptions(
+                "vertex2d_srgb",
+                "fragment2d_straight",
+                pixelRGBA8Srgb,
+                blendPremultiplied
+            );
+            let bgraStraight = library.renderPipelineWithOptions(
+                "vertex2d_srgb",
+                "fragment2d_straight",
+                pixelBGRA8Srgb,
+                blendPremultiplied
+            );
             let white = self.texture2D(1, 1, pixelRGBA8, textureSampled);
             let uploaded = white.write(Scissor(x: 0, y: 0, width: 1, height: 1), 4, bytesApi.from(b"\xff\xff\xff\xff"));
             return Batch2D(
                 vertices: self.vertexBuffer2D(capacity * 6),
                 rgba: rgba,
                 bgra: bgra,
+                rgbaSrgb: rgbaSrgb,
+                bgraSrgb: bgraSrgb,
+                rgbaStraight: rgbaStraight,
+                bgraStraight: bgraStraight,
                 nearest: self.sampler(filterNearest, addressClamp),
                 linear: self.sampler(filterLinear, addressClamp),
                 white: white,
@@ -908,6 +954,16 @@ class View {
         let output = Rect(x: 0.0, y: 0.0, width: 0.0, height: 0.0);
         let status = checked(Int(rawSurfaceSize(self.handle, output)), "macos.surface.drawableSize");
         return output;
+    }
+
+    /// sRGB formats encode linear render output and declare the surface's color space.
+    /// Format changes require physical settlement of all commands using this surface.
+    fn setPixelFormat(self: View, format: Int) -> Int {
+        return checked(Int(rawSurfaceFormat(self.handle, format)), "macos.surface.setPixelFormat");
+    }
+
+    fn pixelFormat(self: View) -> Int {
+        return checked(rawSurfacePixelFormat(self.handle), "macos.surface.pixelFormat");
     }
 
     fn frameClock(self: View, fps: Int) -> FrameClock {
@@ -1635,6 +1691,10 @@ native {
 
     fn rawRotation2D(radians: Float, output: Transform2D) -> CInt symbol "rinzu_macos_rotation2d";
 
+    fn rawSurfaceFormat(view: ViewHandle, format: Int) -> CInt symbol "rinzu_macos_surface_format";
+
+    fn rawSurfacePixelFormat(view: ViewHandle) -> Int symbol "rinzu_macos_surface_pixel_format";
+
     fn rawSurfaceSize(view: ViewHandle, output: Rect) -> CInt symbol "rinzu_macos_surface_size";
 
     fn rawBufferVertex(buffer: BufferHandle, index: Int, vertex: Vertex2D) -> CInt symbol "rinzu_macos_buffer_vertex2d";
@@ -1719,6 +1779,9 @@ native {
         -> CInt symbol "rinzu_macos_command_dispatch";
 
     fn rawDraw(command: CommandHandle, start: Int, count: Int) -> CInt symbol "rinzu_macos_command_draw";
+
+    fn rawDrawInstances(command: CommandHandle, start: Int, count: Int, instances: Int, baseInstance: Int)
+        -> CInt symbol "rinzu_macos_command_draw_instances";
 
     fn rawCommit(command: CommandHandle) -> CInt symbol "rinzu_macos_command_commit";
 
@@ -3238,6 +3301,10 @@ class Quad2D {
     const transform: Transform2D
 }
 
+let pixelRGBA8Srgb = 5;
+
+let pixelBGRA8Srgb = 6;
+
 let pixelRGBA8 = 1;
 
 let pixelBGRA8 = 2;
@@ -3277,6 +3344,8 @@ export Vertex2D;
 export Quad2D;
 export Transform2D;
 export Scissor;
+export pixelRGBA8Srgb;
+export pixelBGRA8Srgb;
 export pixelRGBA8;
 export pixelBGRA8;
 export pixelR8;
@@ -3341,6 +3410,10 @@ class Batch2D {
     const vertices: Buffer,
     const rgba: RenderPipeline,
     const bgra: RenderPipeline,
+    const rgbaSrgb: RenderPipeline,
+    const bgraSrgb: RenderPipeline,
+    const rgbaStraight: RenderPipeline,
+    const bgraStraight: RenderPipeline,
     const nearest: Sampler,
     const linear: Sampler,
     const white: Texture,
@@ -3435,7 +3508,8 @@ class Batch2D {
         self.imageRegion(texture, destination, Rect(x: 0.0, y: 0.0, width: 1.0, height: 1.0), tint);
     }
 
-    /// Normalized UVs, with row zero at the top. Texture pixels must be premultiplied.
+    /// Normalized UVs, with row zero at the top. Unorm pixels are premultiplied; sRGB pixels use straight alpha on sRGB targets.
+    /// Tint is encoded sRGB on sRGB targets. Clear colors remain linear Metal colors.
     fn imageRegion(self: Batch2D, texture: Texture, destination: Rect, uv: Rect, tint: Color) {
         try {}
         finally {
@@ -3509,7 +3583,9 @@ class Batch2D {
     }
 
     private fn encodeNow(self: Batch2D, command: Command, format: Int) -> Int {
-        if self.closed || self.width <= 0 || (format != pixelRGBA8 && format != pixelBGRA8) {
+        if self.closed
+            || self.width <= 0
+            || (format != pixelRGBA8 && format != pixelBGRA8 && format != pixelRGBA8Srgb && format != pixelBGRA8Srgb) {
             throw err.create(-7804, "macos.batch2D.encode");
         }
         // Binding first makes subsequent writes/reset fail until finish/abandon.
@@ -3517,6 +3593,12 @@ class Batch2D {
         var pipeline = self.bgra;
         if format == pixelRGBA8 {
             pipeline = self.rgba;
+        }
+        if format == pixelRGBA8Srgb {
+            pipeline = self.rgbaSrgb;
+        }
+        if format == pixelBGRA8Srgb {
+            pipeline = self.bgraSrgb;
         }
         let installed = command.setRenderPipeline(pipeline);
         var index = 0;
@@ -3526,6 +3608,20 @@ class Batch2D {
                     throw err.create(-7804, "macos.batch2D.span");
                 }
                 case Option.Some(draw): {
+                    if format == pixelRGBA8Srgb || format == pixelBGRA8Srgb {
+                        let source = draw.texture.info();
+                        var selected = self.rgbaSrgb;
+                        if format == pixelBGRA8Srgb {
+                            selected = self.bgraSrgb;
+                        }
+                        if source.format == pixelRGBA8Srgb || source.format == pixelBGRA8Srgb {
+                            selected = self.rgbaStraight;
+                            if format == pixelBGRA8Srgb {
+                                selected = self.bgraStraight;
+                            }
+                        }
+                        let colorPipeline = command.setRenderPipeline(selected);
+                    }
                     let clipped = command.setScissor(draw.clip);
                     let sampled = command.setFragmentTexture(0, draw.texture);
                     let filtered = command.setFragmentSampler(0, draw.sampler);
@@ -3550,7 +3646,7 @@ class Batch2D {
                 admitted = true;
             }
             let begun = self.command.beginRenderMatching(surface, clear, self.width, self.height);
-            let encoded = self.encodeNow(self.command, pixelBGRA8);
+            let encoded = self.encodeNow(self.command, surface.pixelFormat());
             let submitted = self.command.commit();
             return await self.command.wait();
         }
@@ -3614,6 +3710,10 @@ class Batch2D {
         let vertices = self.vertices.destroy();
         let rgba = self.rgba.destroy();
         let bgra = self.bgra.destroy();
+        let rgbaSrgbRetired = self.rgbaSrgb.destroy();
+        let bgraSrgbRetired = self.bgraSrgb.destroy();
+        let rgbaStraightRetired = self.rgbaStraight.destroy();
+        let bgraStraightRetired = self.bgraStraight.destroy();
         let nearest = self.nearest.destroy();
         let linear = self.linear.destroy();
         let white = self.white.destroy();

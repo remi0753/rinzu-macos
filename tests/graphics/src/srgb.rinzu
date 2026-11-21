@@ -1,0 +1,93 @@
+import rinzu.bytes;
+import rinzu.macos as macos;
+import rinzu.stdio;
+import rinzu.testing;
+
+async fn verify(device: macos.Device) throws(Error) {
+    let library = device.library(
+        r#"
+#include <metal_stdlib>
+using namespace metal;
+struct O { float4 p [[position]]; };
+vertex O vs(uint v [[vertex_id]], uint i [[instance_id]]) {
+    const float2 c[6]={float2(0,0),float2(1,0),float2(0,1),float2(0,1),float2(1,0),float2(1,1)};
+    float2 p=float2(float(i)-2.0,0)+c[v];
+    return {float4(p.x*2.0/3.0-1.0,1.0-p.y*2.0,0,1)};
+}
+fragment float4 fs(O o [[stage_in]]) { return float4(0.5,0,0,0.5); }
+"#
+    );
+    try {
+        for format in [macos.pixelRGBA8Srgb, macos.pixelBGRA8Srgb] {
+            let pipeline = library.renderPipelineWithOptions("vs", "fs", format, macos.blendPremultiplied);
+            try {
+                let target = device.texture2D(3, 1, format, macos.textureRenderTarget);
+                try {
+                    let command = device.command();
+                    try {
+                        let begun = command.beginRenderTexture(
+                            target,
+                            macos.Color(red: 0.0, green: 0.0, blue: 1.0, alpha: 1.0)
+                        );
+                        let bound = command.setRenderPipeline(pipeline);
+                        let drawn = command.drawTrianglesInstanced(0, 6, 2, 2);
+                        let submitted = command.commit();
+                        let done = await command.wait();
+                        let pixel = target.read(macos.Scissor(x: 0, y: 0, width: 1, height: 1));
+                        rinzu.testing.assertEqual<ByteArray>(
+                            pixel,
+                            rinzu.bytes.from(b"\xbc\x00\xbc\xff"),
+                            "linear-light sRGB instanced source-over"
+                        );
+                        let info = target.info();
+                        rinzu.testing.assertTrue(
+                            info.bytes == 12 && info.format == format,
+                            "sRGB is four-byte storage"
+                        );
+                    }
+                    finally {
+                        let commandRetired = command.destroy();
+                    }
+                }
+                finally {
+                    let targetRetired = target.destroy();
+                }
+            }
+            finally {
+                let pipelineRetired = pipeline.destroy();
+            }
+        }
+    }
+    finally {
+        let libraryRetired = library.destroy();
+    }
+    let batch = device.batch2D(2);
+    try {
+        let batchTarget = device.texture2D(1, 1, macos.pixelRGBA8Srgb, macos.textureRenderTarget);
+        try {
+            batch.reset(1, 1);
+            batch.fillRect(
+                macos.Rect(x: 0.0, y: 0.0, width: 1.0, height: 1.0),
+                macos.Color(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.5)
+            );
+            let rendered = await batch.renderTexture(
+                batchTarget,
+                macos.Color(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0)
+            );
+            rinzu.testing.assertEqual<ByteArray>(
+                batchTarget.read(macos.Scissor(x: 0, y: 0, width: 1, height: 1)),
+                rinzu.bytes.from(b"\xbc\xbc\xbc\xff"),
+                "sRGB Batch2D decodes tint and blends linear"
+            );
+        }
+        finally {
+            let batchTargetRetired = batchTarget.destroy();
+        }
+    }
+    finally {
+        batch.destroy();
+    }
+    rinzu.stdio.writeLine("GRAPHICS:srgb:linear:instanced:base:owned");
+}
+
+export verify;

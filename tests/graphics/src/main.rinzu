@@ -1,3 +1,4 @@
+import "srgb.rinzu" as srgb;
 import rinzu.timer;
 import rinzu.macos;
 import rinzu.process;
@@ -271,6 +272,7 @@ async fn exercise() {
             let session = rinzu.macos.open();
             let device = session.device();
             if mode == "pixels" {
+                await srgb.verify(device);
                 await alphaMasks(session, device);
                 await pixels(device);
             }

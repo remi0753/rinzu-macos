@@ -379,6 +379,69 @@ static void sampling(void *device) {
   pixel(bgra, 0, 0, 255, 0, 0, 255);
   puts("PASS:metal2d-sampling:nearest:linear:clamp:repeat:mirror:straight:bgra");
 }
+static void srgb_instances(void *device) {
+  const char *source =
+      "#include <metal_stdlib>\nusing namespace metal;\n"
+      "struct O { float4 p [[position]]; };\n"
+      "vertex O vs(uint v [[vertex_id]], uint i [[instance_id]]) { "
+      "const float2 "
+      "c[6]={float2(0,0),float2(1,0),float2(0,1),float2(0,1),float2(1,0),float2(1,1)}; "
+      "float2 p=float2(float(i)-2.0,0)+c[v]; return {float4(p.x*2.0/3.0-1.0,1.0-2.0*p.y,0,1)}; }\n"
+      "fragment float4 fs(O o [[stage_in]], texture2d<float> t [[texture(0)]],sampler s "
+      "[[sampler(0)]]) { "
+      "float4 c=t.sample(s,float2(0.5)); return float4(c.rgb*c.a,c.a); }\n";
+  void *lib = rinzu_macos_library(
+      rinzu_macos_library_create(device, (const uint8_t *)source, strlen(source), 0));
+  assert(lib);
+  void *cmd = rinzu_macos_command(rinzu_macos_command_create(device));
+  void *sampler = rinzu_macos_sampler(rinzu_macos_sampler_create(device, 0, 0));
+  void *sample = texture(device, 1, 1, 5, 1);
+  struct MacScissor one = {0, 0, 1, 1};
+  const uint8_t gray[] = {128, 0, 0, 128};
+  assert(rinzu_macos_texture_write(sample, &one, 4, gray, 4) == 0);
+  pixel(sample, 0, 0, 128, 0, 0, 128);
+  assert(rinzu_macos_texture_create(device, 1, 1, 5, 4) == RZ_ARGUMENT);
+  assert(rinzu_macos_texture_create(device, 1, 1, 6, 5) == RZ_ARGUMENT);
+  for (int format = 5; format <= 6; ++format) {
+    void *p = pipeline(lib, format, 1), *target = texture(device, 3, 1, format, 3);
+    struct MacTextureInfo info;
+    assert(rinzu_macos_texture_info(target, &info) == 0 && info.bytes == 12 &&
+           info.format == format);
+    struct MacColor blue = {0, 0, 1, 1};
+    assert(rinzu_macos_command_draw_instances(cmd, 0, 6, 2, 2) == RZ_BUSY);
+    assert(rinzu_macos_command_render_texture(cmd, target, &blue) == 0);
+    assert(rinzu_macos_command_pipeline(cmd, p) == 0);
+    assert(rinzu_macos_command_texture(cmd, sample, 0, 2) == 0);
+    assert(rinzu_macos_command_sampler(cmd, sampler, 0, 2) == 0);
+    assert(rinzu_macos_command_draw_instances(cmd, -1, 6, 1, 0) == RZ_ARGUMENT);
+    assert(rinzu_macos_command_draw_instances(cmd, 0, 0, 1, 0) == RZ_ARGUMENT);
+    assert(rinzu_macos_command_draw_instances(cmd, INT64_MAX, 6, 1, 0) == RZ_ARGUMENT);
+    assert(rinzu_macos_command_draw_instances(cmd, 0, 6, 0, 0) == RZ_ARGUMENT);
+    assert(rinzu_macos_command_draw_instances(cmd, 0, 6, 1, -1) == RZ_ARGUMENT);
+    assert(rinzu_macos_command_draw_instances(cmd, 0, 6, 2, INT64_MAX) == RZ_ARGUMENT);
+    assert(rinzu_macos_command_draw_instances(cmd, 0, 6, 2, 2) == 0);
+    assert(rinzu_macos_texture_read(target, &one) == RZ_BUSY);
+    assert(rinzu_macos_command_commit(cmd) == 0);
+    wait_gpu(cmd);
+    if (format == 5) {
+      pixel(target, 0, 0, 93, 0, 187, 255);
+      pixel(target, 1, 0, 93, 0, 187, 255);
+      pixel(target, 2, 0, 0, 0, 255, 255);
+    } else {
+      pixel(target, 0, 0, 187, 0, 93, 255);
+      pixel(target, 1, 0, 187, 0, 93, 255);
+      pixel(target, 2, 0, 255, 0, 0, 255);
+    }
+    assert(rinzu_macos_texture_destroy(target) == 0);
+    assert(rinzu_macos_render_destroy(p) == 0);
+  }
+  assert(rinzu_macos_texture_destroy(sample) == 0);
+  assert(rinzu_macos_sampler_destroy(sampler) == 0);
+  assert(rinzu_macos_command_destroy(cmd) == 0);
+  assert(rinzu_macos_library_destroy(lib) == 0);
+  puts(
+      "PASS:metal2d-srgb:linear-blend:sample-decode:encoded-readback:instances:base:bounds:leases");
+}
 int main(int argc, const char **argv) {
   @autoreleasepool {
     assert(argc == 2);
@@ -397,6 +460,8 @@ int main(int argc, const char **argv) {
       rendering(session, device);
     else if (!strcmp(argv[1], "compute"))
       compute(device);
+    else if (!strcmp(argv[1], "srgb"))
+      srgb_instances(device);
     else if (!strcmp(argv[1], "sampling"))
       sampling(device);
     else

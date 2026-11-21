@@ -43,6 +43,8 @@ static void finish(int expected) {
     assert(rinzu_macos_command_render_matching(command, surface, &clear, info.width, info.height) ==
            0);
     assert(rinzu_macos_command_state(command) == 1 && view.leases == 1);
+    assert(state.targetFormat == 6);
+    assert(rinzu_macos_surface_format(surface, 2) == RZ_BUSY);
     assert(rinzu_macos_command_abandon(command) == 0 && !view.leases);
     assert(rinzu_macos_command_destroy(command) == 0);
     puts("PASS:frames:stale-drawable:idle-unleased:matching-abandon");
@@ -73,6 +75,14 @@ int main(int argc, const char **argv) {
     root = rinzu_macos_window_content(window);
     struct MacRect rect = {0, 0, 320, 180};
     surface = rinzu_macos_view(rinzu_macos_surface_scoped(device, window, &rect));
+    assert(rinzu_macos_surface_pixel_format(surface) == 2);
+    assert(rinzu_macos_surface_format(surface, 1) == RZ_ARGUMENT);
+    assert(rinzu_macos_surface_format(root, 6) == RZ_ARGUMENT);
+    assert(rinzu_macos_surface_format(surface, 6) == 0);
+    assert(rinzu_macos_surface_pixel_format(surface) == 6);
+    RZMacView *colorView = (RZMacView *)lookup(surface, RZ_VIEW);
+    CAMetalLayer *layer = (CAMetalLayer *)colorView.view.layer;
+    assert(layer.pixelFormat == MTLPixelFormatBGRA8Unorm_sRGB && layer.colorspace);
     assert(rinzu_macos_view_add(root, surface) == 0);
     assert(rinzu_macos_frame_create(surface, 0) == RZ_ARGUMENT);
     frame_clock = rinzu_macos_frame(rinzu_macos_frame_create(surface, 120));

@@ -444,6 +444,7 @@ static void wake_application(void) {
                                         data2:0];
   [NSApp postEvent:wake atStart:NO];
 }
+static NSUInteger pixel_bytes(int64_t format);
 static void refresh_frame(RZMacFrameClock *clock, BOOL dirty);
 static void stop_frame(RZMacFrameClock *clock);
 static void stop_frames(RZMacSession *session, RZMacWindow *window);
@@ -954,8 +955,8 @@ int32_t rinzu_macos_statistics(struct MacStatistics *output) {
       case RZ_TEXTURE: {
         RZMacTexture *texture = (RZMacTexture *)handle;
         ++output->textures;
-        output->textureBytes += (int64_t)(texture.texture.width * texture.texture.height *
-                                          (texture.format >= 3 ? 1 : 4));
+        output->textureBytes +=
+            (int64_t)(texture.texture.width * texture.texture.height * pixel_bytes(texture.format));
         output->snapshotBytes += (int64_t)texture.readback.length;
         break;
       }
@@ -2133,6 +2134,27 @@ void *rinzu_macos_compute(int64_t identity) {
     return by_id(identity, RZ_COMPUTE);
   }
 }
+// Public format numbers stay stable; Alpha8 is a sampled R8 swizzle.
+static NSUInteger pixel_bytes(int64_t format) {
+  return format == 3 || format == 4 ? 1 : 4;
+}
+static MTLPixelFormat pixel_format(int64_t format) {
+  switch (format) {
+  case 1:
+    return MTLPixelFormatRGBA8Unorm;
+  case 2:
+    return MTLPixelFormatBGRA8Unorm;
+  case 3:
+  case 4:
+    return MTLPixelFormatR8Unorm;
+  case 5:
+    return MTLPixelFormatRGBA8Unorm_sRGB;
+  case 6:
+    return MTLPixelFormatBGRA8Unorm_sRGB;
+  default:
+    return MTLPixelFormatInvalid;
+  }
+}
 int64_t rinzu_macos_render_pipeline(void *raw, const uint8_t *vertex, size_t vertex_length,
                                     const uint8_t *fragment, size_t fragment_length) {
   return rinzu_macos_render_pipeline_options(raw, vertex, vertex_length, fragment, fragment_length,
@@ -2148,7 +2170,7 @@ int64_t rinzu_macos_render_pipeline_options(void *raw, const uint8_t *vertex, si
         return missing();
       if (!accepting(library))
         return fail(RZ_BUSY, @"Session is closing");
-      if ((format < 1 || format > 3) || blend < 0 || blend > 2)
+      if ((format < 1 || format > 6 || format == 4) || blend < 0 || blend > 2)
         return fail(RZ_ARGUMENT, @"invalid pipeline pixel format or blend mode");
       NSString *vertex_name = text(vertex, vertex_length),
                *fragment_name = text(fragment, fragment_length);
@@ -2162,9 +2184,7 @@ int64_t rinzu_macos_render_pipeline_options(void *raw, const uint8_t *vertex, si
       if (!descriptor.vertexFunction || !descriptor.fragmentFunction)
         return fail(RZ_SHADER, @"render function was not found");
       MTLRenderPipelineColorAttachmentDescriptor *color = descriptor.colorAttachments[0];
-      color.pixelFormat = format == 3   ? MTLPixelFormatR8Unorm
-                          : format == 1 ? MTLPixelFormatRGBA8Unorm
-                                        : MTLPixelFormatBGRA8Unorm;
+      color.pixelFormat = pixel_format(format);
       if (blend) {
         color.blendingEnabled = YES;
         color.sourceRGBBlendFactor = blend == 1 ? MTLBlendFactorOne : MTLBlendFactorSourceAlpha;
@@ -2331,7 +2351,7 @@ static int32_t begin_surface_render(void *raw, void *view_raw, const struct MacC
       command.drawable = drawable;
       command.targetWidth = drawable.texture.width;
       command.targetHeight = drawable.texture.height;
-      command.targetFormat = 2;
+      command.targetFormat = layer.pixelFormat == MTLPixelFormatBGRA8Unorm_sRGB ? 6 : 2;
       MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
       if (!pass)
         _Exit(70);
@@ -2440,6 +2460,10 @@ int32_t rinzu_macos_command_dispatch(void *raw, int64_t x, int64_t y, int64_t z,
   }
 }
 int32_t rinzu_macos_command_draw(void *raw, int64_t start, int64_t count) {
+  return rinzu_macos_command_draw_instances(raw, start, count, 1, 0);
+}
+int32_t rinzu_macos_command_draw_instances(void *raw, int64_t start, int64_t count,
+                                           int64_t instances, int64_t base) {
   @autoreleasepool {
     @try {
       RZMacCommand *command = (RZMacCommand *)lookup(raw, RZ_COMMAND);
@@ -2447,11 +2471,14 @@ int32_t rinzu_macos_command_draw(void *raw, int64_t start, int64_t count) {
         return missing();
       if (command.state != 1 || !command.render || !command.pipeline)
         return fail(RZ_BUSY, @"render pipeline must be bound before drawing");
-      if (start < 0 || count <= 0 || start > INT64_MAX - count)
-        return fail(RZ_ARGUMENT, @"invalid vertex range");
+      if (start < 0 || count <= 0 || start > INT64_MAX - count || instances < 1 || base < 0 ||
+          base > INT64_MAX - instances)
+        return fail(RZ_ARGUMENT, @"invalid vertex or instance range");
       [command.render drawPrimitives:MTLPrimitiveTypeTriangle
                          vertexStart:(NSUInteger)start
-                         vertexCount:(NSUInteger)count];
+                         vertexCount:(NSUInteger)count
+                       instanceCount:(NSUInteger)instances
+                        baseInstance:(NSUInteger)base];
       return 0;
     } @catch (NSException *exception) {
       return caught(exception);
@@ -4003,19 +4030,18 @@ static BOOL texture_size(int64_t width, int64_t height) {
 }
 static RZMacTexture *new_texture(RZMacDevice *device, int64_t width, int64_t height, int64_t format,
                                  int64_t usage) {
-  if (width < 1 || height < 1 || width > 8192 || height > 8192 || format < 1 || format > 4 ||
-      (uint64_t)width * (uint64_t)height > RZ_BUFFER_LIMIT / (format >= 3 ? 1 : 4) || usage < 1 ||
-      usage > 7 || (format == 2 && (usage & 4)) || (format == 4 && (usage & 2))) {
+  if (width < 1 || height < 1 || width > 8192 || height > 8192 || format < 1 || format > 6 ||
+      (uint64_t)width * (uint64_t)height > RZ_BUFFER_LIMIT / pixel_bytes(format) || usage < 1 ||
+      usage > 7 || ((format == 2 || format == 5 || format == 6) && (usage & 4)) ||
+      (format == 4 && (usage & 2))) {
     fail(RZ_ARGUMENT, @"invalid texture dimensions (1..8192), format or usage");
     return nil;
   }
-  MTLTextureDescriptor *descriptor = [MTLTextureDescriptor
-      texture2DDescriptorWithPixelFormat:format >= 3   ? MTLPixelFormatR8Unorm
-                                         : format == 1 ? MTLPixelFormatRGBA8Unorm
-                                                       : MTLPixelFormatBGRA8Unorm
-                                   width:(NSUInteger)width
-                                  height:(NSUInteger)height
-                               mipmapped:NO];
+  MTLTextureDescriptor *descriptor =
+      [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:pixel_format(format)
+                                                         width:(NSUInteger)width
+                                                        height:(NSUInteger)height
+                                                     mipmapped:NO];
   descriptor.storageMode = MTLStorageModeShared;
   if (format == 4)
     descriptor.swizzle = MTLTextureSwizzleChannelsMake(MTLTextureSwizzleRed, MTLTextureSwizzleRed,
@@ -4068,6 +4094,39 @@ int32_t rinzu_macos_rotation2d(double radians, struct MacTransform2D *output) {
     return 0;
   }
 }
+int32_t rinzu_macos_surface_format(void *raw, int64_t format) {
+  @autoreleasepool {
+    @try {
+      RZMacView *view = (RZMacView *)lookup(raw, RZ_VIEW);
+      if (!view)
+        return missing();
+      if (!view.device || (format != 2 && format != 6))
+        return fail(RZ_ARGUMENT, @"surface format must be BGRA8 or BGRA8 sRGB");
+      if (!accepting(view) || view.leases)
+        return fail(RZ_BUSY, @"surface is closing or leased");
+      CAMetalLayer *layer = (CAMetalLayer *)view.view.layer;
+      CGColorSpaceRef space = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+      layer.pixelFormat = pixel_format(format);
+      layer.colorspace = format == 6 ? space : NULL;
+      CGColorSpaceRelease(space);
+      if (view.clock)
+        refresh_frame(view.clock, YES);
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+int64_t rinzu_macos_surface_pixel_format(void *raw) {
+  @autoreleasepool {
+    RZMacView *view = (RZMacView *)lookup(raw, RZ_VIEW);
+    if (!view)
+      return missing();
+    if (!view.device)
+      return fail(RZ_ARGUMENT, @"pixel format requires a Metal surface");
+    return ((CAMetalLayer *)view.view.layer).pixelFormat == MTLPixelFormatBGRA8Unorm_sRGB ? 6 : 2;
+  }
+}
 int32_t rinzu_macos_surface_size(void *raw, struct MacRect *output) {
   @autoreleasepool {
     RZMacView *view = (RZMacView *)lookup(raw, RZ_VIEW);
@@ -4090,7 +4149,7 @@ int32_t rinzu_macos_texture_info(void *raw, struct MacTextureInfo *output) {
     *output = (struct MacTextureInfo){
         (int64_t)texture.texture.width, (int64_t)texture.texture.height, texture.format,
         texture.usage,
-        (int64_t)(texture.texture.width * texture.texture.height * (texture.format >= 3 ? 1 : 4))};
+        (int64_t)(texture.texture.width * texture.texture.height * pixel_bytes(texture.format))};
     return 0;
   }
 }
@@ -4112,7 +4171,7 @@ int32_t rinzu_macos_texture_write(void *raw, const struct MacScissor *region, in
         return missing();
       if (texture.leases)
         return fail(RZ_BUSY, @"texture is leased by a command");
-      int64_t bpp = texture.format >= 3 ? 1 : 4;
+      int64_t bpp = pixel_bytes(texture.format);
       if (!texture_region(texture, region) || row_bytes < region->width * bpp ||
           row_bytes > RZ_BUFFER_LIMIT || row_bytes % bpp || !bytes ||
           (uint64_t)row_bytes * (uint64_t)(region->height - 1) + (uint64_t)region->width * bpp >
@@ -4140,7 +4199,7 @@ int32_t rinzu_macos_texture_read(void *raw, const struct MacScissor *region) {
         return fail(RZ_BUSY, @"texture is leased by a command");
       if (!texture_region(texture, region))
         return fail(RZ_ARGUMENT, @"invalid texture read region");
-      NSUInteger stride = (NSUInteger)region->width * (texture.format >= 3 ? 1 : 4);
+      NSUInteger stride = (NSUInteger)region->width * pixel_bytes(texture.format);
       NSMutableData *bytes = [NSMutableData dataWithLength:stride * (NSUInteger)region->height];
       if (!bytes)
         _Exit(70);
@@ -4163,7 +4222,7 @@ int32_t rinzu_macos_texture_read_channel(void *raw, const struct MacScissor *reg
       RZMacTexture *texture = (RZMacTexture *)lookup(raw, RZ_TEXTURE);
       if (!texture)
         return missing();
-      int64_t bpp = texture.format >= 3 ? 1 : 4;
+      int64_t bpp = pixel_bytes(texture.format);
       if (channel < 0 || channel >= bpp)
         return fail(RZ_ARGUMENT, @"invalid stored texture channel");
       int32_t status = rinzu_macos_texture_read(raw, region);

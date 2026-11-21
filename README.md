@@ -42,6 +42,14 @@ List/table/tree DataView models use stable row IDs, columns, selection, expansio
 
 Metal APIs cover devices, buffers, textures, samplers, pipelines, compute/render commands, offscreen targets, uploads/readback, and asynchronous GPU completion. Resources must remain live through submitted work. Await physical completion before reuse or destroy.
 
+`Command.drawTrianglesInstanced` accepts a vertex range, instance count and base instance.
+Metal's instance ID includes that base; applications bound shader buffer indexing.
+`pixelRGBA8Srgb` and `pixelBGRA8Srgb` provide four-byte, hardware sRGB decode/encode.
+They support sampling/rendering, not shader writes. Upload/readback preserve stored
+encoded bytes. Shaders supply linear RGB and the selected blend contract.
+`View.setPixelFormat(pixelBGRA8Srgb)` also declares the layer's sRGB color space;
+changes require no GPU lease. Defaults remain compatible with existing clients.
+
 Textures support RGBA8/BGRA8 and single-byte R8/Alpha8 storage. Alpha8 samples coverage as premultiplied `(a,a,a,a)` for ordinary tinted drawing; it is not a render-target format. `Texture.readChannel` returns one tightly packed stored byte channel. `Font.metrics` exposes unrounded CoreText face and underline measurements in logical points.
 
 Session.fontCatalog provides owned installed-face descriptors. Font.info reports the actual face, traits, matrices and variation axes; withTraits and withVariation derive real fonts. Font.shape exposes unrounded line advances and owned visual-order run/glyph/UTF-16 cluster data. TextLayout.fragment retains complete shaped clusters for independent rasterization, including fallback and color glyphs. Application segmentation, layout and cache policies stay in Rinzu. [Font and shaping guide](docs/guide.md#font-catalog-and-shaped-text)

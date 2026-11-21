@@ -297,6 +297,7 @@ def main():
                         "render",
                         "compute",
                         "sampling",
+                        "srgb",
                     ]
                 if args.ui:
                     probes["data"].extend(["list", "large"])
@@ -358,6 +359,24 @@ def main():
                         run(
                             "shaping-sanitizer-raster",
                             [shaped, "raster"],
+                            contains=["PASS:"],
+                        )
+                    if gpu:
+                        color = scratch / "metal2d-sanitized"
+                        build_probe(
+                            "metal2d-sanitizer-build",
+                            "metal2d",
+                            color,
+                            [
+                                "-O1",
+                                "-g",
+                                "-fsanitize=address,undefined",
+                                "-fno-omit-frame-pointer",
+                            ],
+                        )
+                        run(
+                            "metal2d-sanitizer-srgb",
+                            [color, "srgb"],
                             contains=["PASS:"],
                         )
                 if args.tsan:

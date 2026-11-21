@@ -242,6 +242,8 @@ int64_t rinzu_macos_sampler_create(void *device, int64_t filter, int64_t address
 void *rinzu_macos_sampler(int64_t id);
 int32_t rinzu_macos_sampler_destroy(void *sampler);
 int32_t rinzu_macos_rotation2d(double radians, struct MacTransform2D *output);
+int32_t rinzu_macos_surface_format(void *view, int64_t format);
+int64_t rinzu_macos_surface_pixel_format(void *view);
 int32_t rinzu_macos_surface_size(void *view, struct MacRect *output);
 int32_t rinzu_macos_font_catalog(void *session);
 const rinzu_native_byte_array_t *rinzu_macos_font_catalog_bytes(void *session);
@@ -316,6 +318,8 @@ int32_t rinzu_macos_command_buffer(void *command, void *buffer, int64_t offset, 
 int32_t rinzu_macos_command_dispatch(void *command, int64_t x, int64_t y, int64_t z, int64_t tx,
                                      int64_t ty, int64_t tz);
 int32_t rinzu_macos_command_draw(void *command, int64_t start, int64_t count);
+int32_t rinzu_macos_command_draw_instances(void *command, int64_t start, int64_t count,
+                                           int64_t instances, int64_t base);
 int32_t rinzu_macos_command_commit(void *command);
 int32_t rinzu_macos_command_abandon(void *command);
 int64_t rinzu_macos_wait_token(void);
