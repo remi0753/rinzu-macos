@@ -1,5 +1,6 @@
 import rinzu.macos;
 import "shaping.rinzu" as shaped;
+import "input.rinzu" as inputChecked;
 import rinzu.process;
 import rinzu.stdio;
 import rinzu.testing;
@@ -60,6 +61,7 @@ async fn capturedRun() {
 }
 
 fn core() {
+    inputChecked.run();
     let session = rinzu.macos.open();
     let view = session.view(rinzu.macos.Rect(x: 2.0, y: 3.0, width: 20.0, height: 30.0));
     let frame = view.frame();

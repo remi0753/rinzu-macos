@@ -39,3 +39,22 @@ staged inputs, native binaries, module caches, bundles and reports inside its
 isolated execution directory were removed on exit, including failed preflights.
 Task-level qualification reports and the candidate archive are retained only
 until local application integration finishes, then removed.
+
+## Rinzu snapshot encoding follow-up (2026-11-22)
+
+`encodeInputSnapshot` is available beside `decodeInputPacket` for preparing and
+inspecting the generic input wire format without a View. `View.publishInput`
+uses that same encoder. Numeric span fragments are assembled in Rinzu instead
+of allocating a JSON value tree for every span. User text and snapshot metadata
+retain the JSON encoder. Finite geometry, 32,768 spans, UTF-8 and 8 MiB wire
+limits are preserved; no native implementation changed.
+
+The source core passed JIT and AOT with exact fractional/extreme/signed finite
+coordinates, escaped CJK/emoji text, empty spans, non-finite rejection and span
+count bounds. All 49 native cases passed without skips, including actual
+windows, Metal and ASan/UBSan. The public comparison against v0.2.0 reports 16
+additions and no breaking candidates. The eight unchanged examples and archive
+registration, offline, moved signed AOT and tamper checks passed. The updated
+nine-file candidate archive SHA-256 is
+`fa87e91154232c8bdb6f4d66e9aa4866025df68f33cabce34c7e345d3410b1d9`.
+Publication remains held; these are local qualification results.

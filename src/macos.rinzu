@@ -4622,6 +4622,7 @@ export inputValues.InputSpan;
 export inputValues.InputSnapshot;
 export inputValues.InputPacket;
 export inputValues.decodeInputPacket;
+export inputValues.encodeInputSnapshot;
 export InputState;
 export eventInput;
 

@@ -103,11 +103,25 @@ fn decodeInputPacket(text: String) -> InputPacket {
     return value;
 }
 
-fn inputNumber(value: Float) -> rinzu.json.Value {
+fn inputGeometry(value: Float) -> Float {
     if !(value >= -1000000.0 && value <= 1000000.0) {
         throw error(-7804, "macos.input.geometry");
     }
-    return rinzu.json.floatValue(value);
+    return value;
+}
+
+fn inputNumber(value: Float) -> rinzu.json.Value {
+    return rinzu.json.floatValue(inputGeometry(value));
+}
+
+fn inputSpanBytes(span: InputSpan) -> ByteArray {
+    let x = inputGeometry(span.x);
+    let y = inputGeometry(span.y);
+    let width = inputGeometry(span.width);
+    let height = inputGeometry(span.height);
+    // Finite Float display uses the C locale and 17 significant digits. Only
+    // numeric values enter this fragment; all user text uses the JSON encoder.
+    return rinzu.string.encodeUtf8(f"[{span.start},{span.length},{x},{y},{width},{height},{span.line}]");
 }
 
 fn encodeInputSnapshot(value: InputSnapshot) -> ByteArray {
@@ -128,28 +142,11 @@ fn encodeInputSnapshot(value: InputSnapshot) -> ByteArray {
         || rinzu.list.length(value.rawCodes) > 256 {
         throw error(-7804, "macos.input.snapshot");
     }
-    var spans: List<rinzu.json.Value> = [];
-    for span in value.spans {
-        spans = rinzu.list.append(
-            spans,
-            rinzu.json.array(
-                [
-                    rinzu.json.intValue(span.start),
-                    rinzu.json.intValue(span.length),
-                    inputNumber(span.x),
-                    inputNumber(span.y),
-                    inputNumber(span.width),
-                    inputNumber(span.height),
-                    rinzu.json.intValue(span.line)
-                ]
-            )
-        );
-    }
     var codes: List<rinzu.json.Value> = [];
     for code in value.rawCodes {
         codes = rinzu.list.append(codes, rinzu.json.intValue(code));
     }
-    let result = rinzu.json.encode(
+    let metadata = rinzu.json.encode(
         rinzu.json.object(
             {
                 "version": rinzu.json.intValue(1), "epoch": rinzu.json.intValue(value.epoch), "revision":
@@ -168,12 +165,41 @@ fn encodeInputSnapshot(value: InputSnapshot) -> ByteArray {
                             inputNumber(value.caretWidth),
                             inputNumber(value.caretHeight)
                         ]
-                    ), "spans": rinzu.json.array(spans), "enabled": rinzu.json.boolean(value.enabled), "focused":
-                    rinzu.json.boolean(value.focused), "raw": rinzu.json.boolean(value.raw), "rawModifiers":
-                    rinzu.json.intValue(value.rawModifiers), "rawCodes": rinzu.json.array(codes)
+                    ), "enabled": rinzu.json.boolean(value.enabled), "focused": rinzu.json.boolean(
+                        value.focused
+                    ), "raw": rinzu.json.boolean(value.raw), "rawModifiers": rinzu.json.intValue(
+                        value.rawModifiers
+                    ), "rawCodes": rinzu.json.array(codes)
             }
         )
     );
+    var prefix = rinzu.bytes.from(b"");
+    switch rinzu.bytes.slice(metadata, 0, rinzu.bytes.length(metadata) - 1) {
+        case Option.Some(bytes): {
+            prefix = bytes;
+        }
+        case Option.None: {
+            throw error(-7804, "macos.input.snapshot");
+        }
+    }
+    var parts: List<ByteArray> = [prefix, rinzu.bytes.from(b",\"spans\":[")];
+    var size = rinzu.bytes.length(prefix) + 12;
+    var first = true;
+    for span in value.spans {
+        let encoded = inputSpanBytes(span);
+        if !first {
+            size = size + 1;
+            parts = rinzu.list.append(parts, rinzu.bytes.from(b","));
+        }
+        first = false;
+        size = size + rinzu.bytes.length(encoded);
+        if size > 8388608 {
+            throw error(-7804, "macos.input.snapshotLimit");
+        }
+        parts = rinzu.list.append(parts, encoded);
+    }
+    parts = rinzu.list.append(parts, rinzu.bytes.from(b"]}"));
+    let result = rinzu.bytes.concatAll(parts);
     if rinzu.bytes.length(result) > 8388608 {
         throw error(-7804, "macos.input.snapshotLimit");
     }

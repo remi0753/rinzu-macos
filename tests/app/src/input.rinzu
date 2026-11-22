@@ -1,0 +1,154 @@
+import rinzu.macos as input;
+import rinzu.json;
+import rinzu.list;
+import rinzu.number;
+import rinzu.stdio;
+import rinzu.testing;
+
+fn field(value: rinzu.json.Value, name: String) -> rinzu.json.Value {
+    switch rinzu.json.field(value, name) {
+        case Option.Some(found): {
+            return found;
+        }
+        case Option.None: {
+            throw error(1, f"missing input field {name}");
+        }
+    }
+}
+
+fn element(value: rinzu.json.Value, index: Int) -> rinzu.json.Value {
+    switch rinzu.json.at(value, index) {
+        case Option.Some(found): {
+            return found;
+        }
+        case Option.None: {
+            throw error(1, "missing input array element");
+        }
+    }
+}
+
+fn run() {
+    let coordinates = [0.0, -0.0, 0.12345678901234567, -999999.9999999999, 0.0000000000000001, 1000000.0];
+    var spans: List<input.InputSpan> = [];
+    var index = 0;
+    for coordinate in coordinates {
+        spans = rinzu.list.append(
+            spans,
+            {
+                start = index,
+                length = 1,
+                x = coordinate,
+                y = -coordinate,
+                width = 10.25,
+                height = 18.5,
+                line = 0
+            }
+        );
+        index = index + 1;
+    }
+    let text = "0123456789\"\\\n日😀";
+    let snapshot: input.InputSnapshot = {
+        epoch = 1,
+        revision = 2,
+        ack = 0,
+        text = text,
+        selectedStart = 14,
+        selectedLength = 2,
+        inputStart = 14,
+        inputLength = 2,
+        markedStart = -1,
+        markedLength = 0,
+        caretX = 0.12345678901234567,
+        caretY = -0.25,
+        caretWidth = 1.5,
+        caretHeight = 18.5,
+        spans = spans,
+        enabled = true,
+        focused = false,
+        raw = false,
+        rawModifiers = 0,
+        rawCodes = [0, 65535]
+    };
+    let decoded = rinzu.json.parse(input.encodeInputSnapshot(snapshot));
+    rinzu.testing.assertEqual<String>(
+        rinzu.json.asString(field(decoded, "text")),
+        text,
+        "input text uses JSON escaping"
+    );
+    rinzu.testing.assertEqual<Int>(
+        rinzu.json.asInt(field(decoded, "selectedStart")),
+        14,
+        "UTF-16 selection is preserved"
+    );
+    rinzu.testing.assertTrue(rinzu.json.asBool(field(decoded, "enabled")), "snapshot metadata survives streaming");
+    let caret = field(decoded, "caret");
+    rinzu.testing.assertEqual<Float>(
+        rinzu.json.asFloat(element(caret, 0)),
+        snapshot.caretX,
+        "fractional caret is exact"
+    );
+    let geometry = field(decoded, "spans");
+    rinzu.testing.assertEqual<Int>(rinzu.json.arrayLength(geometry), 6, "all spans are encoded");
+    let empty = rinzu.json.parse(input.encodeInputSnapshot({ ...snapshot, spans = [] }));
+    rinzu.testing.assertEqual<Int>(
+        rinzu.json.arrayLength(field(empty, "spans")),
+        0,
+        "empty span arrays remain valid JSON"
+    );
+    var position = 0;
+    for coordinate in coordinates {
+        let row = element(geometry, position);
+        rinzu.testing.assertEqual<Int>(rinzu.json.arrayLength(row), 7, "generic span wire shape is preserved");
+        rinzu.testing.assertEqual<Int>(rinzu.json.asInt(element(row, 0)), position, "span text offset");
+        rinzu.testing.assertEqual<Float>(
+            rinzu.json.asFloat(element(row, 2)),
+            coordinate,
+            "finite coordinate round trip"
+        );
+        rinzu.testing.assertEqual<Float>(
+            rinzu.json.asFloat(element(row, 3)),
+            -coordinate,
+            "signed coordinate round trip"
+        );
+        rinzu.testing.assertEqual<Float>(rinzu.json.asFloat(element(row, 4)), 10.25, "span width");
+        position = position + 1;
+    }
+    var rejected = false;
+    try {
+        let invalid = input.encodeInputSnapshot(
+            {
+                ...snapshot,
+                spans = [
+                    {
+                        start = 0,
+                        length = 1,
+                        x = rinzu.number.sqrt(-1.0),
+                        y = 0.0,
+                        width = 1.0,
+                        height = 1.0,
+                        line = 0
+                    }
+                ]
+            }
+        );
+    }
+    catch problems {
+        rejected = true;
+    }
+    rinzu.testing.assertTrue(rejected, "streaming never formats a non-finite JSON number");
+    var tooMany = spans;
+    while rinzu.list.length(tooMany) <= 32768 {
+        tooMany = rinzu.list.concatAll([tooMany, tooMany]);
+    }
+    var bounded = false;
+    try {
+        let invalidCount = input.encodeInputSnapshot({ ...snapshot, spans = tooMany });
+    }
+    catch problems {
+        bounded = true;
+    }
+    rinzu.testing.assertTrue(bounded, "streaming preserves the span count bound");
+    rinzu.stdio.writeLine("SOURCE:input-codec-ok:finite:exact:escaping:bounds");
+}
+
+export run;
