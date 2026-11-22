@@ -81,7 +81,7 @@ int main(void) {
                                  block:^(NSTimer *tick) {
                                    RZMacView *control = (RZMacView *)lookup(view_raw, RZ_VIEW);
                                    RZMacNativeView *view = (RZMacNativeView *)control.view;
-                                   if (!view.window.isKeyWindow) {
+                                   if (!view.window.isKeyWindow || !NSApp.active) {
                                      assert(++focus_attempts < 500);
                                      [view.window makeKeyAndOrderFront:nil];
                                      [NSApp activateIgnoringOtherApps:YES];
@@ -208,6 +208,26 @@ int main(void) {
                                    assert(session->sequence == before_release + 1 &&
                                           [last_packet(session)[@"kind"] intValue] == 2);
                                    context.commitOnDeactivate = YES;
+                                   int64_t before_application_focus = session->sequence;
+                                   [session applicationDidResignActive:
+                                                [NSNotification
+                                                    notificationWithName:
+                                                        NSApplicationDidResignActiveNotification
+                                                                  object:NSApp]];
+                                   NSDictionary *application_lost = [NSJSONSerialization
+                                       JSONObjectWithData:session.payloads[
+                                                              @(before_application_focus + 1)]
+                                                  options:0
+                                                    error:NULL];
+                                   assert([application_lost[@"kind"] intValue] == 12 &&
+                                          [application_lost[@"flags"] intValue] == 0);
+                                   [session applicationDidBecomeActive:
+                                                [NSNotification
+                                                    notificationWithName:
+                                                        NSApplicationDidBecomeActiveNotification
+                                                                  object:NSApp]];
+                                   assert([last_packet(session)[@"kind"] intValue] == 12 &&
+                                          ([last_packet(session)[@"flags"] intValue] & 2) != 0);
                                    int64_t before_focus = session->sequence;
                                    assert([view resignFirstResponder]);
                                    NSDictionary *lost = [NSJSONSerialization
@@ -215,7 +235,7 @@ int main(void) {
                                                   options:0
                                                     error:NULL];
                                    assert([lost[@"kind"] intValue] == 12 &&
-                                          [lost[@"flags"] intValue] == 0 &&
+                                          ([lost[@"flags"] intValue] & 1) == 0 &&
                                           [last_packet(session)[@"kind"] intValue] == 4);
                                    context.commitOnDeactivate = NO;
                                    [view syncInputContext];
@@ -236,7 +256,7 @@ int main(void) {
                                                     error:NULL];
                                    assert(!view.inputActive && !view.inputFocused &&
                                           [window_lost[@"kind"] intValue] == 12 &&
-                                          [window_lost[@"flags"] intValue] == 0 &&
+                                          ([window_lost[@"flags"] intValue] & 1) == 0 &&
                                           [last_packet(session)[@"kind"] intValue] == 4);
                                    int64_t inactive_sequence = session->sequence;
                                    [view keyDown:left];
@@ -255,7 +275,7 @@ int main(void) {
                                    [other close];
                                    assert(view.inputActive && view.inputFocused &&
                                           [last_packet(session)[@"kind"] intValue] == 12 &&
-                                          [last_packet(session)[@"flags"] intValue] == 1);
+                                          ([last_packet(session)[@"flags"] intValue] & 1) == 1);
                                    [view setHidden:YES];
                                    assert(!view.inputActive && !view.inputFocused);
                                    [view keyDown:left];

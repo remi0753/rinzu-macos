@@ -75,3 +75,10 @@ deactivation. `enabled` is an application permission; the SDK independently
 checks actual focus. Consumers should revoke on focus loss, and keep the current
 epoch on focus gain so that keys captured in the same native event batch remain
 owned.
+
+Focus packets (`kind=12`) capture bit 0 for the surface focus and bit 1 for
+application activation. Activation changes emit a packet even while a sheet
+already owns the first responder. Clients can revoke pending permission prompts
+on application deactivation without confusing it with their own sheet taking
+focus. The SDK supplies these facts; prompt and permission policy remain with
+the client. Deactivation is queued before the input context is deactivated.

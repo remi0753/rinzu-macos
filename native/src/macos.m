@@ -724,7 +724,7 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
           selection:NSMakeRange(NSNotFound, 0)
         replacement:NSMakeRange(NSNotFound, 0)
                 key:nil
-              flags:focused ? 1 : 0];
+              flags:(focused ? 1 : 0) | (NSApp.active ? 2 : 0)];
   }
   BOOL active = self.inputEnabled && focused;
   if (active == self.inputActive)
@@ -816,7 +816,7 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
             selection:NSMakeRange(NSNotFound, 0)
           replacement:NSMakeRange(NSNotFound, 0)
                   key:nil
-                flags:0];
+                flags:NSApp.active ? 2 : 0];
     }
     if (self.inputActive) {
       self.inputActive = NO;
@@ -976,8 +976,8 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
   return self.inputSnapshot ? self.inputSnapshot[@"text"] : [super accessibilityValue];
 }
 - (BOOL)isAccessibilityFocused {
-  return self.window.isVisible && self.window.isKeyWindow && self.window.firstResponder == self &&
-         !self.hiddenOrHasHiddenAncestor;
+  return NSApp.active && self.window.isVisible && self.window.isKeyWindow &&
+         self.window.firstResponder == self && !self.hiddenOrHasHiddenAncestor;
 }
 - (void)setAccessibilityFocused:(BOOL)focused {
   if (focused)
@@ -1280,7 +1280,48 @@ static void event_wait_observer(CFRunLoopObserverRef observer, CFRunLoopActivity
     }
   stop_after_sheets(session);
 }
+// Capture application activation even when an attached sheet already owns
+// the first responder. A later reactivation cannot erase the loss event.
+static void application_input_focus(RZMacSession *session, BOOL active) {
+  if (session.closed || session.stopping)
+    return;
+  for (RZMacHandle *handle in handles.allValues) {
+    if (handle.closed || handle.kind != RZ_VIEW || handle.owner != session)
+      continue;
+    NSView *native = ((RZMacView *)handle).view;
+    if (![native isKindOfClass:RZMacNativeView.class])
+      continue;
+    RZMacNativeView *view = (RZMacNativeView *)native;
+    if (!view.inputSnapshot)
+      continue;
+    BOOL focused = active && view.isAccessibilityFocused;
+    view.inputFocused = focused;
+    [view emitInput:12
+               text:nil
+          selection:NSMakeRange(NSNotFound, 0)
+        replacement:NSMakeRange(NSNotFound, 0)
+                key:nil
+              flags:(focused ? 1 : 0) | (active ? 2 : 0)];
+    BOOL contextActive = focused && view.inputEnabled;
+    if (view.inputActive != contextActive) {
+      view.inputActive = contextActive;
+      if (contextActive)
+        [[view inputContext] activate];
+      else
+        [view.ownedInputContext deactivate];
+    }
+  }
+}
+
 @implementation RZMacSession
+- (void)applicationDidBecomeActive:(NSNotification *)notification {
+  (void)notification;
+  application_input_focus(self, YES);
+}
+- (void)applicationDidResignActive:(NSNotification *)notification {
+  (void)notification;
+  application_input_focus(self, NO);
+}
 - (void)clearEvents {
   [self.payloads removeAllObjects];
   self.payloadBytes = (int64_t)self.selectedText.length;
