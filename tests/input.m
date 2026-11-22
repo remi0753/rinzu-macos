@@ -6,8 +6,14 @@
 // A text system may flush a dead key and then request a command in one event.
 @interface MixedInputContext : NSTextInputContext
 @property(nonatomic, weak) RZMacNativeView *target;
+@property(nonatomic) BOOL commitOnDeactivate;
 @end
 @implementation MixedInputContext
+- (void)deactivate {
+  if (self.commitOnDeactivate)
+    [self.target insertText:@"late" replacementRange:NSMakeRange(NSNotFound, 0)];
+  [super deactivate];
+}
 - (BOOL)handleEvent:(NSEvent *)event {
   (void)event;
   [self.target insertText:@"´" replacementRange:NSMakeRange(NSNotFound, 0)];
@@ -23,8 +29,10 @@ static NSDictionary *projection(int64_t epoch, int64_t revision, int64_t ack) {
     @"revision" : @(revision),
     @"ack" : @(ack),
     @"text" : @"A日😀\nB",
-    @"selectedStart" : @2,
-    @"selectedLength" : @0,
+    @"selectedStart" : @0,
+    @"selectedLength" : @1,
+    @"inputStart" : @2,
+    @"inputLength" : @0,
     @"markedStart" : @(-1),
     @"markedLength" : @0,
     @"caret" : @[ @40.0, @20.0, @1.0, @20.0 ],
@@ -63,14 +71,23 @@ int main(void) {
     void *view_raw = rinzu_macos_view(rinzu_macos_view_create(session_raw, &rect));
     assert(rinzu_macos_view_add(rinzu_macos_window_content(window_raw), view_raw) == 0);
     assert(rinzu_macos_window_show(window_raw) == 0);
+    __block NSUInteger focus_attempts = 0;
     [NSTimer
         scheduledTimerWithTimeInterval:0.02
-                               repeats:NO
+                               repeats:YES
                                  block:^(NSTimer *tick) {
-                                   (void)tick;
-                                   assert(publish_projection(view_raw, projection(1, 1, 0)) == 0);
                                    RZMacView *control = (RZMacView *)lookup(view_raw, RZ_VIEW);
                                    RZMacNativeView *view = (RZMacNativeView *)control.view;
+                                   if (!view.window.isKeyWindow) {
+                                     assert(++focus_attempts < 500);
+                                     [view.window makeKeyAndOrderFront:nil];
+                                     [NSApp activateIgnoringOtherApps:YES];
+                                     return;
+                                   }
+                                   [tick invalidate];
+                                   assert([view.window makeFirstResponder:view]);
+                                   assert(publish_projection(view_raw, projection(1, 1, 0)) == 0);
+                                   assert(view.inputActive && view.ownedInputContext);
                                    assert(rinzu_macos_view_cursor(view_raw, 2) == 0 &&
                                           view.explicitCursor == NSCursor.pointingHandCursor);
                                    assert(rinzu_macos_view_cursor(view_raw, 4) == RZ_ARGUMENT);
@@ -89,6 +106,10 @@ int main(void) {
                                        isEqual:NSAccessibilityTextAreaRole]);
                                    assert([view.accessibilityValue isEqual:@"A日😀\nB"]);
                                    assert([view accessibilityNumberOfCharacters] == 6);
+                                   assert(NSEqualRanges(view.selectedRange, NSMakeRange(2, 0)) &&
+                                          NSEqualRanges(view.accessibilitySelectedTextRange,
+                                                        NSMakeRange(0, 1)) &&
+                                          [view.accessibilitySelectedText isEqual:@"A"]);
                                    assert(NSEqualRanges([view accessibilityRangeForIndex:3],
                                                         NSMakeRange(2, 2)));
                                    assert([view accessibilityLineForIndex:5] == 1);
@@ -99,6 +120,10 @@ int main(void) {
                                                                        actualRange:&actual];
                                    assert(NSEqualRanges(actual, NSMakeRange(1, 3)) &&
                                           first.size.width == 40 && first.size.height == 20);
+                                   NSRect collapsed =
+                                       [view accessibilityFrameForRange:NSMakeRange(0, 0)];
+                                   assert(collapsed.size.width == 0 &&
+                                          fabs(collapsed.origin.x - first.origin.x + 10) < 0.01);
                                    assert([view characterIndexForPoint:NSMakePoint(
                                                                            NSMinX(first) + 1,
                                                                            NSMidY(first))] == 1);
@@ -124,6 +149,8 @@ int main(void) {
                                    assert([marked[@"kind"] intValue] == 3 &&
                                           [marked[@"epoch"] intValue] == 1 &&
                                           [marked[@"text"] isEqual:@"かな😀"]);
+                                   assert([view.accessibilityValue isEqual:@"A日😀\nB"] &&
+                                          [view.accessibilitySelectedText isEqual:@"A"]);
                                    assert(NSEqualRanges(view.markedRange, NSMakeRange(2, 4)) &&
                                           NSEqualRanges(view.selectedRange, NSMakeRange(4, 2)));
                                    NSAttributedString *substring =
@@ -151,6 +178,7 @@ int main(void) {
                                    MixedInputContext *context =
                                        [[MixedInputContext alloc] initWithClient:view];
                                    context.target = view;
+                                   [view.ownedInputContext deactivate];
                                    view.ownedInputContext = context;
                                    NSMutableDictionary *mixed =
                                        [projection(1, 2, session->sequence) mutableCopy];
@@ -172,7 +200,38 @@ int main(void) {
                                    assert([command[@"kind"] intValue] == 1 &&
                                           [command[@"command"] isEqual:@"moveLeft:"] &&
                                           !([command[@"flags"] intValue] & 2));
+                                   int64_t before_release = session->sequence;
+                                   [view keyUp:left];
+                                   assert(session->sequence == before_release + 1 &&
+                                          [last_packet(session)[@"kind"] intValue] == 2);
+                                   context.commitOnDeactivate = YES;
+                                   int64_t before_focus = session->sequence;
+                                   assert([view resignFirstResponder]);
+                                   NSDictionary *lost = [NSJSONSerialization
+                                       JSONObjectWithData:session.payloads[@(before_focus + 1)]
+                                                  options:0
+                                                    error:NULL];
+                                   assert([lost[@"kind"] intValue] == 12 &&
+                                          [lost[@"flags"] intValue] == 0 &&
+                                          [last_packet(session)[@"kind"] intValue] == 4);
+                                   context.commitOnDeactivate = NO;
                                    view.ownedInputContext = nil;
+                                   view.inputActive = NO;
+                                   unsigned before_motion = session->count;
+                                   NSEvent *motion =
+                                       [NSEvent mouseEventWithType:NSEventTypeMouseMoved
+                                                          location:NSMakePoint(30, 30)
+                                                     modifierFlags:0
+                                                         timestamp:0
+                                                      windowNumber:view.window.windowNumber
+                                                           context:nil
+                                                       eventNumber:0
+                                                        clickCount:0
+                                                          pressure:0];
+                                   for (unsigned index = 0; index < 1000; ++index)
+                                     [view mouseMoved:motion];
+                                   assert(session->count <= before_motion + 1 &&
+                                          [last_packet(session)[@"kind"] intValue] == 10);
                                    int64_t ack = session->sequence;
                                    assert(rinzu_macos_input_ack(view_raw, 1, ack) == 0);
                                    assert(rinzu_macos_input_ack(view_raw, 1, ack - 1) ==

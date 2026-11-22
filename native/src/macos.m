@@ -211,13 +211,14 @@ enum {
 @property(nonatomic, strong) NSEvent *inputKey;
 @property(nonatomic) NSRange inputSelection;
 @property(nonatomic) NSUInteger inputMarkBase;
-@property(nonatomic) BOOL inputProduced, suppressInput, inputPending;
-@property(nonatomic) int64_t inputEpoch, inputMutationSequence, inputAcknowledged;
+@property(nonatomic) BOOL inputProduced, suppressInput, inputPending, inputActive;
+@property(nonatomic) int64_t inputEpoch, inputMutationSequence, inputAcknowledged, inputRangeBase;
 @property(nonatomic, strong) NSTrackingArea *inputTracking;
 @property(nonatomic, strong) NSCursor *explicitCursor;
 - (BOOL)inputEnabled;
 - (NSString *)inputQueryText;
 - (void)detachInput;
+- (void)syncInputContext;
 - (void)emitInput:(NSInteger)kind
              text:(NSString *)text
         selection:(NSRange)selection
@@ -603,6 +604,9 @@ static NSRange input_pair(NSDictionary *snapshot, NSString *prefix) {
   NSUInteger length = [snapshot[[prefix stringByAppendingString:@"Length"]] unsignedIntegerValue];
   return NSMakeRange(start < 0 ? NSNotFound : (NSUInteger)start, length);
 }
+static NSRange input_selection(NSDictionary *snapshot) {
+  return input_pair(snapshot, snapshot[@"inputStart"] ? @"input" : @"selected");
+}
 static NSRect input_local_rect(RZMacNativeView *view, NSArray *span) {
   NSRect rect = NSMakeRect([span[2] doubleValue], [span[3] doubleValue], [span[4] doubleValue],
                            [span[5] doubleValue]);
@@ -620,6 +624,54 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
   NSRect window = [view convertRect:rect toView:nil];
   return view.window ? [view.window convertRectToScreen:window] : NSZeroRect;
 }
+static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL transient,
+                                   NSRangePointer actual) {
+  NSString *text = transient ? [view inputQueryText] : (view.inputSnapshot[@"text"] ?: @"");
+  NSRange selection = transient ? view.selectedRange : input_selection(view.inputSnapshot);
+  NSRange insertion = NSMakeRange(selection.location == NSNotFound ? 0 : NSMaxRange(selection), 0);
+  if (range.location == NSNotFound)
+    range = insertion;
+  if (!input_range(text, range)) {
+    if (actual)
+      *actual = NSMakeRange(NSNotFound, 0);
+    return NSZeroRect;
+  }
+  if (!range.length && range.location == insertion.location) {
+    if (actual)
+      *actual = range;
+    return input_screen_rect(view, input_caret(view));
+  }
+  NSRect rect = NSZeroRect;
+  NSRange covered = NSMakeRange(NSNotFound, 0);
+  NSInteger line = -1;
+  for (NSArray *span in view.inputSnapshot[@"spans"]) {
+    NSRange candidate = NSMakeRange([span[0] unsignedIntegerValue], [span[1] unsignedIntegerValue]);
+    NSRect next = input_local_rect(view, span);
+    if (!range.length) {
+      if (NSLocationInRange(range.location, candidate) ||
+          (range.location == text.length && NSMaxRange(candidate) == text.length)) {
+        if (range.location == NSMaxRange(candidate))
+          next.origin.x = NSMaxX(next);
+        next.size.width = 0;
+        if (actual)
+          *actual =
+              NSMakeRange(range.location == text.length ? text.length : candidate.location, 0);
+        return input_screen_rect(view, next);
+      }
+      continue;
+    }
+    if (!NSIntersectionRange(range, candidate).length)
+      continue;
+    if (line >= 0 && line != [span[6] integerValue])
+      break;
+    rect = line < 0 ? next : NSUnionRect(rect, next);
+    covered = line < 0 ? candidate : NSUnionRange(covered, candidate);
+    line = [span[6] integerValue];
+  }
+  if (actual)
+    *actual = covered;
+  return line < 0 ? NSZeroRect : input_screen_rect(view, rect);
+}
 @implementation RZMacNativeView
 - (BOOL)inputEnabled {
   return self.inputSnapshot && [self.inputSnapshot[@"enabled"] boolValue] && self.control &&
@@ -636,6 +688,7 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
   self.suppressInput = YES;
   [self.ownedInputContext discardMarkedText];
   [self.ownedInputContext deactivate];
+  self.inputActive = NO;
   self.ownedInputContext = nil;
   self.inputSnapshot = nil;
   self.inputPending = NO;
@@ -648,6 +701,16 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
   self.inputTracking = nil;
   self.inputSelection = NSMakeRange(0, 0);
   self.suppressInput = NO;
+}
+- (void)syncInputContext {
+  BOOL active = self.inputEnabled && self.window.isKeyWindow && self.window.firstResponder == self;
+  if (active == self.inputActive)
+    return;
+  self.inputActive = active;
+  if (active)
+    [[self inputContext] activate];
+  else
+    [self.ownedInputContext deactivate];
 }
 - (void)emitInput:(NSInteger)kind
              text:(NSString *)text
@@ -662,7 +725,9 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
   BOOL charactersAvailable = keyboard && key.type != NSEventTypeFlagsChanged;
   BOOL scroll = key && key.type == NSEventTypeScrollWheel;
   NSString *characters = text ?: (charactersAvailable ? (key.characters ?: @"") : @"");
-  NSString *unmodified = charactersAvailable ? (key.charactersIgnoringModifiers ?: @"") : @"";
+  NSString *unmodified = charactersAvailable
+                             ? ([key charactersByApplyingModifiers:0] ?: key.charactersIgnoringModifiers ?: @"")
+                             : @"";
   if ([characters lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 65536 ||
       [unmodified lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 65536) {
     kind = 7; // Bounded ingress failure; the owner revokes its input epoch.
@@ -675,6 +740,8 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
     @"version" : @1,
     @"kind" : @(kind),
     @"epoch" : self.inputSnapshot[@"epoch"],
+    @"revision" : self.inputSnapshot[@"revision"],
+    @"rangeBase" : @(self.inputRangeBase),
     @"keyCode" : keyboard ? @(key.keyCode) : @(-1),
     @"keyType" : keyboard ? @((int64_t)key.type) : @0,
     @"modifiers" : key ? @((int64_t)key.modifierFlags) : @0,
@@ -713,7 +780,10 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
 - (BOOL)becomeFirstResponder {
   BOOL result = [super becomeFirstResponder];
   if (result && self.inputSnapshot) {
-    [[self inputContext] activate];
+    if (self.inputEnabled) {
+      self.inputActive = YES;
+      [[self inputContext] activate];
+    }
     [self emitInput:12
                text:nil
           selection:NSMakeRange(NSNotFound, 0)
@@ -726,13 +796,14 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
 - (BOOL)resignFirstResponder {
   BOOL result = [super resignFirstResponder];
   if (result && self.inputSnapshot) {
-    [self.ownedInputContext deactivate];
+    self.inputActive = NO;
     [self emitInput:12
                text:nil
           selection:NSMakeRange(NSNotFound, 0)
         replacement:NSMakeRange(NSNotFound, 0)
                 key:nil
               flags:0];
+    [self.ownedInputContext deactivate];
   }
   return result;
 }
@@ -747,14 +818,15 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
   if (self.hasMarkedText)
     return NSMakeRange(self.inputMarkBase + self.inputSelection.location,
                        self.inputSelection.length);
-  return self.inputSnapshot ? input_pair(self.inputSnapshot, @"selected")
-                            : NSMakeRange(NSNotFound, 0);
+  return self.inputSnapshot ? input_selection(self.inputSnapshot) : NSMakeRange(NSNotFound, 0);
 }
 - (void)setMarkedText:(id)value
         selectedRange:(NSRange)selection
      replacementRange:(NSRange)replacement {
   if (!self.inputEnabled)
     return;
+  self.inputRangeBase =
+      (int64_t)(self.hasMarkedText ? self.inputMarkBase : self.selectedRange.location);
   NSString *text = [value isKindOfClass:NSAttributedString.class] ? [value string] : value;
   if (![text isKindOfClass:NSString.class] || !input_range(text, selection) ||
       [text lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 65536) {
@@ -785,6 +857,7 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
 - (void)unmarkText {
   if (!self.hasMarkedText)
     return;
+  self.inputRangeBase = (int64_t)self.inputMarkBase;
   self.inputProduced = YES;
   self.inputPending = NO;
   self.inputMarked = nil;
@@ -799,12 +872,14 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
 - (void)insertText:(id)value replacementRange:(NSRange)replacement {
   if (!self.inputEnabled)
     return;
+  self.inputRangeBase =
+      (int64_t)(self.hasMarkedText ? self.inputMarkBase : self.selectedRange.location);
   NSString *text = [value isKindOfClass:NSAttributedString.class] ? [value string] : value;
   if (![text isKindOfClass:NSString.class])
     return;
   self.inputProduced = YES;
   self.inputPending = NO;
-  NSInteger flags = (self.hasMarkedText ? 4 : 0) |
+  NSInteger flags = ((self.hasMarkedText || self.inputPending) ? 4 : 0) |
                     (self.inputKey.type == NSEventTypeKeyDown && self.inputKey.isARepeat ? 1 : 0);
   self.inputMarked = nil;
   self.inputSelection = NSMakeRange(0, 0);
@@ -818,6 +893,7 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
 - (void)doCommandBySelector:(SEL)selector {
   if (!self.inputEnabled)
     return;
+  self.inputPending = NO;
   self.inputCommand = NSStringFromSelector(selector);
   if (!self.inputKey) {
     [self emitInput:6
@@ -838,7 +914,7 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
     return text;
   NSRange range = input_pair(self.inputSnapshot, @"marked");
   if (range.location == NSNotFound)
-    range = input_pair(self.inputSnapshot, @"selected");
+    range = input_selection(self.inputSnapshot);
   return input_range(text, range)
              ? [text stringByReplacingCharactersInRange:range withString:self.inputMarked]
              : text;
@@ -857,27 +933,7 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
   return [[NSAttributedString alloc] initWithString:[text substringWithRange:adjusted]];
 }
 - (NSRect)firstRectForCharacterRange:(NSRange)range actualRange:(NSRangePointer)actual {
-  NSRect rect = input_caret(self);
-  NSRange covered = NSMakeRange(self.selectedRange.location, 0);
-  BOOL found = NO;
-  if (range.location != NSNotFound && range.length &&
-      range.location <= NSUIntegerMax - range.length) {
-    for (NSArray *span in self.inputSnapshot[@"spans"]) {
-      NSRange candidate =
-          NSMakeRange([span[0] unsignedIntegerValue], [span[1] unsignedIntegerValue]);
-      if (!NSIntersectionRange(range, candidate).length)
-        continue;
-      NSRect next = input_local_rect(self, span);
-      if (found && (next.origin.y != rect.origin.y || next.size.height != rect.size.height))
-        break;
-      rect = found ? NSUnionRect(rect, next) : next;
-      covered = found ? NSUnionRange(covered, candidate) : candidate;
-      found = YES;
-    }
-  }
-  if (actual)
-    *actual = covered;
-  return input_screen_rect(self, rect);
+  return input_character_rect(self, range, YES, actual);
 }
 - (NSUInteger)characterIndexForPoint:(NSPoint)point {
   if (!self.window || !self.inputSnapshot)
@@ -899,7 +955,7 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
   return self.inputSnapshot ? NSAccessibilityTextAreaRole : [super accessibilityRole];
 }
 - (id)accessibilityValue {
-  return self.inputSnapshot ? [self inputQueryText] : [super accessibilityValue];
+  return self.inputSnapshot ? self.inputSnapshot[@"text"] : [super accessibilityValue];
 }
 - (BOOL)isAccessibilityFocused {
   return self.window.isKeyWindow && self.window.firstResponder == self;
@@ -909,23 +965,29 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
     [self.window makeFirstResponder:self];
 }
 - (NSInteger)accessibilityNumberOfCharacters {
-  return (NSInteger)[self inputQueryText].length;
+  return (NSInteger)[self.inputSnapshot[@"text"] length];
 }
 - (NSRange)accessibilityVisibleCharacterRange {
-  return NSMakeRange(0, [self inputQueryText].length);
+  NSRange result = NSMakeRange(NSNotFound, 0);
+  for (NSArray *span in self.inputSnapshot[@"spans"]) {
+    NSRange next = NSMakeRange([span[0] unsignedIntegerValue], [span[1] unsignedIntegerValue]);
+    result = result.location == NSNotFound ? next : NSUnionRange(result, next);
+  }
+  return result.location == NSNotFound ? NSMakeRange(0, 0) : result;
 }
 - (NSRange)accessibilitySelectedTextRange {
-  return self.selectedRange;
+  return input_pair(self.inputSnapshot, @"selected");
 }
 - (NSArray<NSValue *> *)accessibilitySelectedTextRanges {
-  return @[ [NSValue valueWithRange:self.selectedRange] ];
+  return @[ [NSValue valueWithRange:self.accessibilitySelectedTextRange] ];
 }
 - (NSString *)accessibilitySelectedText {
-  NSString *text = [self inputQueryText];
-  return input_range(text, self.selectedRange) ? [text substringWithRange:self.selectedRange] : @"";
+  NSString *text = self.inputSnapshot[@"text"] ?: @"";
+  NSRange range = self.accessibilitySelectedTextRange;
+  return input_range(text, range) ? [text substringWithRange:range] : @"";
 }
 - (void)setAccessibilitySelectedTextRange:(NSRange)range {
-  if (input_range([self inputQueryText], range))
+  if (input_range(self.inputSnapshot[@"text"] ?: @"", range))
     [self emitInput:13
                text:nil
           selection:range
@@ -934,23 +996,28 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
               flags:0];
 }
 - (NSString *)accessibilityStringForRange:(NSRange)range {
-  NSString *text = [self inputQueryText];
+  NSString *text = self.inputSnapshot[@"text"] ?: @"";
   return input_range(text, range) ? [text substringWithRange:range] : nil;
 }
 - (NSAttributedString *)accessibilityAttributedStringForRange:(NSRange)range {
-  return [self attributedSubstringForProposedRange:range actualRange:NULL];
+  NSString *text = [self accessibilityStringForRange:range];
+  return text ? [[NSAttributedString alloc] initWithString:text] : nil;
 }
 - (NSRect)accessibilityFrameForRange:(NSRange)range {
-  return [self firstRectForCharacterRange:range actualRange:NULL];
+  return input_character_rect(self, range, NO, NULL);
 }
 - (NSRange)accessibilityRangeForPosition:(NSPoint)point {
   NSUInteger index = [self characterIndexForPoint:point];
   if (index == NSNotFound)
     return NSMakeRange(NSNotFound, 0);
-  return [[self inputQueryText] rangeOfComposedCharacterSequenceAtIndex:index];
+  return [self accessibilityRangeForIndex:(NSInteger)index];
 }
 - (NSRange)accessibilityRangeForIndex:(NSInteger)index {
-  NSString *text = [self inputQueryText];
+  for (NSArray *span in self.inputSnapshot[@"spans"])
+    if (index >= [span[0] longLongValue] &&
+        index < [span[0] longLongValue] + [span[1] longLongValue])
+      return NSMakeRange([span[0] unsignedIntegerValue], [span[1] unsignedIntegerValue]);
+  NSString *text = self.inputSnapshot[@"text"] ?: @"";
   return index >= 0 && (NSUInteger)index < text.length
              ? [text rangeOfComposedCharacterSequenceAtIndex:(NSUInteger)index]
              : NSMakeRange(NSNotFound, 0);
@@ -972,7 +1039,8 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
   return range;
 }
 - (NSInteger)accessibilityInsertionPointLineNumber {
-  return [self accessibilityLineForIndex:(NSInteger)self.selectedRange.location];
+  NSRange input = input_selection(self.inputSnapshot);
+  return [self accessibilityLineForIndex:(NSInteger)NSMaxRange(input)];
 }
 - (BOOL)acceptsFirstResponder {
   return YES;
@@ -992,6 +1060,7 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
   [super viewDidMoveToWindow];
   if (self.inputSnapshot)
     self.window.acceptsMouseMovedEvents = YES;
+  [self syncInputContext];
   resized(self.control);
 }
 - (void)updateTrackingAreas {
@@ -1058,18 +1127,12 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
 - (void)keyUp:(NSEvent *)event {
   if (self.inputSnapshot) {
     if (self.inputEnabled) {
-      self.inputKey = event;
-      self.inputCommand = nil;
-      self.inputProduced = NO;
-      BOOL handled = [[self inputContext] handleEvent:event];
       [self emitInput:2
                  text:nil
             selection:NSMakeRange(NSNotFound, 0)
           replacement:NSMakeRange(NSNotFound, 0)
                   key:event
-                flags:(self.inputProduced || handled) ? 2 : 0];
-      self.inputKey = nil;
-      self.inputCommand = nil;
+                flags:(self.hasMarkedText || self.inputPending) ? 2 : 0];
     }
     return;
   }
@@ -1077,18 +1140,12 @@ static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
 }
 - (void)flagsChanged:(NSEvent *)event {
   if (self.inputEnabled) {
-    self.inputKey = event;
-    self.inputCommand = nil;
-    self.inputProduced = NO;
-    BOOL handled = [[self inputContext] handleEvent:event];
     [self emitInput:14
                text:nil
           selection:NSMakeRange(NSNotFound, 0)
         replacement:NSMakeRange(NSNotFound, 0)
                 key:event
-              flags:(self.inputProduced || handled) ? 2 : 0];
-    self.inputKey = nil;
-    self.inputCommand = nil;
+              flags:(self.hasMarkedText || self.inputPending) ? 2 : 0];
   } else
     [super flagsChanged:event];
 }
@@ -1235,9 +1292,11 @@ static void event_wait_observer(CFRunLoopObserverRef observer, CFRunLoopActivity
                      event.kind == RZ_MOUSE_MOVED || event.kind == RZ_TEXT_CHANGED ||
                      event.kind == RZ_SELECTION_CHANGED || event.kind == RZ_TASK_FINISHED ||
                      event.kind == RZ_WINDOW_STATE || event.kind == RZ_SCROLL ||
-                     event.kind == RZ_ENVIRONMENT || (event.kind == RZ_DATA && event.flags == 1);
+                     event.kind == RZ_ENVIRONMENT || (event.kind == RZ_DATA && event.flags == 1) ||
+                     (event.kind == RZ_INPUT && event.flags == 10);
   BOOL replace = last && replaceable && last->kind == event.kind && last->viewId == event.viewId &&
-                 last->windowId == event.windowId && last->flags == event.flags;
+                 last->windowId == event.windowId && last->flags == event.flags &&
+                 (event.kind != RZ_INPUT || last->action == event.action);
   if (replace && event.kind == RZ_SCROLL) {
     event.deltaX += last->deltaX;
     event.deltaY += last->deltaY;
@@ -7293,6 +7352,9 @@ static BOOL input_snapshot_valid(NSDictionary *value) {
       [value[@"text"] lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > RZ_TEXT_LIMIT ||
       !input_integer(value[@"selectedStart"], 0, RZ_TEXT_LIMIT) ||
       !input_integer(value[@"selectedLength"], 0, RZ_TEXT_LIMIT) ||
+      (value[@"inputStart"] && (!input_integer(value[@"inputStart"], 0, RZ_TEXT_LIMIT) ||
+                                !input_integer(value[@"inputLength"], 0, RZ_TEXT_LIMIT))) ||
+      (value[@"inputLength"] && !value[@"inputStart"]) ||
       !input_integer(value[@"markedStart"], -1, RZ_TEXT_LIMIT) ||
       !input_integer(value[@"markedLength"], 0, RZ_TEXT_LIMIT) ||
       ![value[@"enabled"] isKindOfClass:NSNumber.class] ||
@@ -7302,7 +7364,7 @@ static BOOL input_snapshot_valid(NSDictionary *value) {
     return NO;
   NSString *text = value[@"text"];
   NSRange selected = input_pair(value, @"selected"), marked = input_pair(value, @"marked");
-  if (!input_range(text, selected) ||
+  if (!input_range(text, selected) || !input_range(text, input_selection(value)) ||
       (marked.location != NSNotFound && !input_range(text, marked)) ||
       (marked.location == NSNotFound && marked.length))
     return NO;
@@ -7381,8 +7443,14 @@ int32_t rinzu_macos_input_publish(void *raw, const uint8_t *bytes, size_t length
       view.inputData = [data copy];
       view.inputEpoch = epoch;
       view.inputAcknowledged = ack;
+      [view syncInputContext];
+      if (!contextChanged && view.hasMarkedText && ack < view.inputMutationSequence) {
+        NSRange marked = input_pair(value, @"marked");
+        view.inputMarkBase =
+            marked.location == NSNotFound ? input_selection(value).location : marked.location;
+      }
       if (!contextChanged && ack >= view.inputMutationSequence) {
-        NSRange marked = input_pair(value, @"marked"), selected = input_pair(value, @"selected");
+        NSRange marked = input_pair(value, @"marked"), selected = input_selection(value);
         if (marked.location != NSNotFound && selected.location >= marked.location &&
             NSMaxRange(selected) <= NSMaxRange(marked)) {
           view.inputMarked = [value[@"text"] substringWithRange:marked];
@@ -7403,7 +7471,9 @@ int32_t rinzu_macos_input_publish(void *raw, const uint8_t *bytes, size_t length
       if (![previous[@"text"] isEqual:value[@"text"]])
         NSAccessibilityPostNotification(view, NSAccessibilityValueChangedNotification);
       if (![previous[@"selectedStart"] isEqual:value[@"selectedStart"]] ||
-          ![previous[@"selectedLength"] isEqual:value[@"selectedLength"]])
+          ![previous[@"selectedLength"] isEqual:value[@"selectedLength"]] ||
+          ![previous[@"inputStart"] isEqual:value[@"inputStart"]] ||
+          ![previous[@"inputLength"] isEqual:value[@"inputLength"]])
         NSAccessibilityPostNotification(view, NSAccessibilitySelectedTextChangedNotification);
       if (![previous[@"focused"] isEqual:value[@"focused"]])
         NSAccessibilityPostNotification(view, NSAccessibilityFocusedUIElementChangedNotification);

@@ -75,6 +75,8 @@ fn core() {
             text = "A日😀",
             selectedStart = 2,
             selectedLength = 2,
+            inputStart = 2,
+            inputLength = 2,
             markedStart = -1,
             markedLength = 0,
             caretX = 10.0,

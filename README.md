@@ -4,12 +4,12 @@ AppKit, CoreText, and Metal SDK for Rinzu on Apple Silicon. It provides native w
 
 ## Install
 
-Use a macOS arm64 Rinzu toolchain with native SDK archive support. Run GUI applications from a desktop session. [v0.3.0 release](https://github.com/remi0753/rinzu-macos/releases/tag/v0.3.0)
+Use a macOS arm64 Rinzu toolchain with native SDK archive support. Run GUI applications from a desktop session. [v0.2.0 release](https://github.com/remi0753/rinzu-macos/releases/tag/v0.2.0)
 
 From your application directory, register the module and refresh the native build lock.
 
 ```sh
-rinzu modules add rinzu.macos https://github.com/remi0753/rinzu-macos/releases/download/v0.3.0/rinzu-macos-0.3.0.tar.gz
+rinzu modules add rinzu.macos https://github.com/remi0753/rinzu-macos/releases/download/v0.2.0/rinzu-macos-0.2.0.tar.gz
 rinzu lock .
 ```
 
@@ -26,6 +26,10 @@ A scope owns its window, resources, and jobs. Dispatch owned UiEvent values in m
 Session/Window/View and rendering resources are managed classes wrapping exported opaque handle types. Opaque handles have no methods or constructors and are used at the native ABI. Rect, Color, Event, and statistics are native scalar records with automatic writeback.
 
 The low-level run handler has type fn(RunContext,Event)->Unit. RunContext is a language record containing session. Native code keeps the context through actual call/callback settlement and uses its checked fallback. Do not retain arbitrary managed callbacks outside supported call lifetimes.
+
+The custom-view input API below is an unpublished v0.3.0 development candidate.
+Use the qualified local checkout while publication is held; the stable v0.2.0
+archive does not include this API.
 
 ## Controls and events
 
@@ -75,7 +79,7 @@ session.resourceRoot returns Option<String> for application assets, or None in a
 
 Use rinzu bundle to create an application from macos-app.json, then bundle-verify to inspect the generated inventory and ad-hoc signature. Keep the entire bundle together. Native OS-image compatibility still applies. Developer ID signing, notarization, and App Store submission are separate distribution steps.
 
-See [AOT and bundle distribution](https://github.com/remi0753/rinzu/blob/v0.3.0/docs/tooling/distribution.md).
+See [AOT and bundle distribution](https://github.com/remi0753/rinzu/blob/v0.2.0/docs/tooling/distribution.md).
 
 Local candidates can be checked before publishing with `test_macos_distribution.py --archive /path/to/candidate.tar.gz --sha256 DIGEST` using the installed toolchain. The same check covers archive integrity, offline restoration, JIT and relocated signed bundles.
 
@@ -83,7 +87,7 @@ Local candidates can be checked before publishing with `test_macos_distribution.
 
 | SDK tag  | Dependency                        | Rinzu                                     | Target      |
 | -------- | --------------------------------- | ----------------------------------------- | ----------- |
-| `v0.3.0` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
+| `v0.2.0` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.1.5` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.1.4` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.1.3` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
@@ -92,7 +96,7 @@ Local candidates can be checked before publishing with `test_macos_distribution.
 | `v0.1.0` | Published module                  | Toolchain with native SDK archive support | macOS arm64 |
 | `v0.1.0` | SDK checkout                      | Released Rinzu `0.3.0`                    | macOS arm64 |
 
-The SDK, examples, and original test vectors come from the [Rinzu v0.3.0 source tree](https://github.com/remi0753/rinzu/tree/7aa3591af36cf4635f579a8d12803362dc48bff8/sdk/macos). The repository records upstream commit `7aa3591af36cf4635f579a8d12803362dc48bff8` as the extraction baseline.
+The SDK, examples, and original test vectors come from the [Rinzu v0.2.0 source tree](https://github.com/remi0753/rinzu/tree/7aa3591af36cf4635f579a8d12803362dc48bff8/sdk/macos). The repository records upstream commit `7aa3591af36cf4635f579a8d12803362dc48bff8` as the extraction baseline.
 
 ## Verify the SDK
 
@@ -131,7 +135,7 @@ Session with `View.setDevice`. Its view identity and frame reader remain stable.
 `Device.isAvailable` exposes Metal's removal-request state. Clients recreate
 their pipelines, buffers and textures; the SDK does not retain application caches.
 
-The v0.3.0 API report flags one constructor change: Batch2D owns four additional
+The v0.2.0 API report flags one constructor change: Batch2D owns four additional
 sRGB pipelines. Use `Device.batch2D` to acquire batches; existing factory calls,
 legacy formats and examples remain supported. The new features are generic Metal
 and OS environment bindings; application color, layout and scheduling policy stay

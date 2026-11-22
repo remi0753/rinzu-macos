@@ -52,3 +52,19 @@ acceptance belongs to each application's own qualification.
 Apple's contracts: [NSTextInputClient](https://developer.apple.com/documentation/appkit/nstextinputclient),
 [marked text](https://developer.apple.com/documentation/appkit/nstextinputclient/setmarkedtext%28_%3Aselectedrange%3Areplacementrange%3A%29),
 [candidate rectangle](https://developer.apple.com/documentation/appkit/nstextinputclient/firstrect%28forcharacterrange%3Aactualrange%3A%29).
+
+The AX selection (`selectedStart`/`selectedLength`) and text-system selection
+(`inputStart`/`inputLength`) are independent. A selectable read-only canvas can
+retain a reading selection while the input insertion point stays elsewhere.
+AX queries use only the published projection; transient native preedit belongs
+to synchronous text-system queries until acknowledged. Cluster and collapsed
+range queries use the supplied geometry, including points away from the caret.
+
+Attaching or enabling a snapshot on an already focused view activates its
+input context; disabling, focus loss and detach deactivate it. Key-up and
+modifier snapshots do not reinterpret their characters as text. Focus loss is
+queued before any deactivation-induced commit so the owner can revoke it.
+Consecutive pointer motion in one view and epoch coalesces to its latest
+position. Keyboard and editing proposals preserve their order. `unmodified`
+contains the key's text with modifiers removed through AppKit's keyboard layout
+API, rather than a guessed physical keyboard mapping.

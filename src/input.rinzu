@@ -22,6 +22,8 @@ type InputSnapshot = {
     text: String,
     selectedStart: Int,
     selectedLength: Int,
+    inputStart: Int,
+    inputLength: Int,
     markedStart: Int,
     markedLength: Int,
     caretX: Float,
@@ -46,6 +48,8 @@ type InputPacket = {
     kind: Int,
     epoch: Int,
     keyCode: Int,
+    revision: Int,
+    rangeBase: Int,
     keyType: Int,
     modifiers: Int,
     flags: Int,
@@ -81,6 +85,8 @@ fn decodeInputPacket(text: String) -> InputPacket {
         || value.kind < 1
         || value.kind > 14
         || value.epoch < 1
+        || value.revision < 1
+        || value.rangeBase < 0
         || value.keyCode < -1
         || value.keyCode > 65535
         || value.modifiers < 0
@@ -110,6 +116,8 @@ fn encodeInputSnapshot(value: InputSnapshot) -> ByteArray {
         || value.ack < 0
         || value.selectedStart < 0
         || value.selectedLength < 0
+        || value.inputStart < 0
+        || value.inputLength < 0
         || value.markedStart < -1
         || value.markedLength < 0
         || (value.markedStart == -1 && value.markedLength != 0)
@@ -149,6 +157,8 @@ fn encodeInputSnapshot(value: InputSnapshot) -> ByteArray {
                         value.text
                     ), "selectedStart": rinzu.json.intValue(value.selectedStart), "selectedLength": rinzu.json.intValue(
                         value.selectedLength
+                    ), "inputStart": rinzu.json.intValue(value.inputStart), "inputLength": rinzu.json.intValue(
+                        value.inputLength
                     ), "markedStart": rinzu.json.intValue(value.markedStart), "markedLength": rinzu.json.intValue(
                         value.markedLength
                     ), "caret": rinzu.json.array(
