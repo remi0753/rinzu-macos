@@ -896,9 +896,9 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
   if (![text isKindOfClass:NSString.class])
     return;
   self.inputProduced = YES;
-  self.inputPending = NO;
   NSInteger flags = ((self.hasMarkedText || self.inputPending) ? 4 : 0) |
                     (self.inputKey.type == NSEventTypeKeyDown && self.inputKey.isARepeat ? 1 : 0);
+  self.inputPending = NO;
   self.inputMarked = nil;
   self.inputSelection = NSMakeRange(0, 0);
   [self emitInput:4

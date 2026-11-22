@@ -8,7 +8,7 @@ terminal behavior remain outside this SDK.
 All owned files were formatted and checked before executable tests. The native
 suite passed 49 cases without skips, including real windows, Metal and
 ASan/UBSan. The new input probe covers UTF-16 and surrogate boundaries, IME
-proposal metadata, marked/commit/cancel, a dead-key flush followed by a command,
+proposal metadata, marked/commit/cancel, a dead-key flush followed by a command, a pending dead key without marked text,
 key-up without text reinterpretation, responder and window focus-loss ordering,
 hidden-view rejection, focus recovery, application deactivation while a sheet
 owns focus, activation flags and loss-before-input-context ordering, motion
@@ -26,7 +26,7 @@ behavioral equivalence.
 The deterministic nine-file archive passed module registration, SHA-256 checks,
 offline restoration, all eight unchanged examples, JIT and relocated signed
 AOT bundles, and modified-asset rejection. Archive SHA-256:
-`a07dce94dc35e6399c854db5f33bfd2bc67ad59ffa73ebcf7862478e946ad313`.
+`e9dd3ebe214c4022a269902037bdafeaa13e38c981ed2f7382d7b8ba797ff382`.
 
 Publication is held at the user's request. No v0.3.0 tag or release is created;
 consumers use a locally committed development checkout. The stable public

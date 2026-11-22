@@ -176,6 +176,13 @@ int main(void) {
                                    [view unmarkText];
                                    assert([last_packet(session)[@"kind"] intValue] == 5 &&
                                           !view.hasMarkedText);
+                                   // A dead key may be pending without marked text.
+                                   view.inputPending = YES;
+                                   [view insertText:@"é"
+                                       replacementRange:NSMakeRange(NSNotFound, 0)];
+                                   assert([last_packet(session)[@"kind"] intValue] == 4 &&
+                                          ([last_packet(session)[@"flags"] intValue] & 4) != 0 &&
+                                          !view.inputPending);
                                    [view setAccessibilitySelectedTextRange:NSMakeRange(2, 2)];
                                    assert([last_packet(session)[@"kind"] intValue] == 13);
                                    MixedInputContext *context =
