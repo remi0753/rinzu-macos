@@ -114,14 +114,18 @@ fn inputNumber(value: Float) -> rinzu.json.Value {
     return rinzu.json.floatValue(inputGeometry(value));
 }
 
-fn inputSpanBytes(span: InputSpan) -> ByteArray {
+fn inputSpanBytes(span: InputSpan, comma: Bool) -> ByteArray {
     let x = inputGeometry(span.x);
     let y = inputGeometry(span.y);
     let width = inputGeometry(span.width);
     let height = inputGeometry(span.height);
     // Finite Float display uses the C locale and 17 significant digits. Only
     // numeric values enter this fragment; all user text uses the JSON encoder.
-    return rinzu.string.encodeUtf8(f"[{span.start},{span.length},{x},{y},{width},{height},{span.line}]");
+    var delimiter = "";
+    if comma {
+        delimiter = ",";
+    }
+    return rinzu.string.encodeUtf8(f"{delimiter}[{span.start},{span.length},{x},{y},{width},{height},{span.line}]");
 }
 
 fn encodeInputSnapshot(value: InputSnapshot) -> ByteArray {
@@ -183,20 +187,24 @@ fn encodeInputSnapshot(value: InputSnapshot) -> ByteArray {
         }
     }
     var parts: List<ByteArray> = [prefix, rinzu.bytes.from(b",\"spans\":[")];
+    var pending: List<ByteArray> = [];
     var size = rinzu.bytes.length(prefix) + 12;
     var first = true;
     for span in value.spans {
-        let encoded = inputSpanBytes(span);
-        if !first {
-            size = size + 1;
-            parts = rinzu.list.append(parts, rinzu.bytes.from(b","));
-        }
+        let encoded = inputSpanBytes(span, !first);
         first = false;
         size = size + rinzu.bytes.length(encoded);
         if size > 8388608 {
             throw error(-7804, "macos.input.snapshotLimit");
         }
-        parts = rinzu.list.append(parts, encoded);
+        pending = rinzu.list.append(pending, encoded);
+        if rinzu.list.length(pending) == 64 {
+            parts = rinzu.list.append(parts, rinzu.bytes.concatAll(pending));
+            pending = [];
+        }
+    }
+    if rinzu.list.length(pending) != 0 {
+        parts = rinzu.list.append(parts, rinzu.bytes.concatAll(pending));
     }
     parts = rinzu.list.append(parts, rinzu.bytes.from(b"]}"));
     let result = rinzu.bytes.concatAll(parts);

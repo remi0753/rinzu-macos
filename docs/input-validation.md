@@ -58,3 +58,19 @@ registration, offline, moved signed AOT and tamper checks passed. The updated
 nine-file candidate archive SHA-256 is
 `fa87e91154232c8bdb6f4d66e9aa4866025df68f33cabce34c7e345d3410b1d9`.
 Publication remains held; these are local qualification results.
+
+### Bounded span fragments
+
+The initial flat fragment List passed functional qualification but regressed
+encoding time. A separate AOT comparison with identical snapshots measured
+medians of 8 / 50 ms for the original JSON-tree encoder at 2,369 / 7,742 spans,
+30 / 346 ms for the flat fragment prototype, and 4 / 13 ms with bounded groups
+of 64 fragments. Every decoded output matched the original. Completed groups
+are concatenated once, bounding repeated immutable-list prefix copies.
+
+The grouped implementation passed the source core JIT/AOT precision and bounds
+checks, API comparison, eight unchanged examples and local distribution probes.
+Its nine-file archive SHA-256 is
+`47cbf303c5c2d1e862617346b4f52562063435a1337c1731dc356a692a4cfcb4`.
+The native implementation and its qualified 49 cases are unchanged. Publication
+remains held. These codec measurements do not replace application latency tests.
