@@ -53,7 +53,10 @@ static int publish_projection(void *view, NSDictionary *value) {
   return rinzu_macos_input_publish(view, data.bytes, data.length);
 }
 static NSDictionary *last_packet(RZMacSession *session) {
-  NSData *data = session.payloads[@(session->sequence)];
+  int64_t sequence = session->sequence;
+  NSData *data = session.payloads[@(sequence)];
+  while (!data && sequence > 0)
+    data = session.payloads[@(--sequence)];
   assert(data);
   NSDictionary *packet = [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL];
   assert(packet && [packet[@"version"] intValue] == 1);
@@ -215,6 +218,50 @@ int main(void) {
                                           [lost[@"flags"] intValue] == 0 &&
                                           [last_packet(session)[@"kind"] intValue] == 4);
                                    context.commitOnDeactivate = NO;
+                                   [view syncInputContext];
+                                   assert(view.inputActive && view.inputFocused);
+                                   context.commitOnDeactivate = YES;
+                                   int64_t before_window_blur = session->sequence;
+                                   NSWindow *other = [[NSWindow alloc]
+                                       initWithContentRect:NSMakeRect(80, 80, 100, 80)
+                                                 styleMask:NSWindowStyleMaskTitled
+                                                   backing:NSBackingStoreBuffered
+                                                     defer:NO];
+                                   other.releasedWhenClosed = NO;
+                                   [other makeKeyAndOrderFront:nil];
+                                   NSDictionary *window_lost = [NSJSONSerialization
+                                       JSONObjectWithData:session
+                                                              .payloads[@(before_window_blur + 1)]
+                                                  options:0
+                                                    error:NULL];
+                                   assert(!view.inputActive && !view.inputFocused &&
+                                          [window_lost[@"kind"] intValue] == 12 &&
+                                          [window_lost[@"flags"] intValue] == 0 &&
+                                          [last_packet(session)[@"kind"] intValue] == 4);
+                                   int64_t inactive_sequence = session->sequence;
+                                   [view keyDown:left];
+                                   assert(session->sequence == inactive_sequence);
+                                   context.commitOnDeactivate = NO;
+                                   NSDate *key_deadline = [NSDate dateWithTimeIntervalSinceNow:5];
+                                   do {
+                                     [view.window makeKeyAndOrderFront:nil];
+                                     [NSApp activateIgnoringOtherApps:YES];
+                                     [view.window makeFirstResponder:view];
+                                     [[NSRunLoop currentRunLoop]
+                                            runMode:NSDefaultRunLoopMode
+                                         beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.01]];
+                                   } while (!view.isAccessibilityFocused &&
+                                            key_deadline.timeIntervalSinceNow > 0);
+                                   [other close];
+                                   assert(view.inputActive && view.inputFocused &&
+                                          [last_packet(session)[@"kind"] intValue] == 12 &&
+                                          [last_packet(session)[@"flags"] intValue] == 1);
+                                   [view setHidden:YES];
+                                   assert(!view.inputActive && !view.inputFocused);
+                                   [view keyDown:left];
+                                   [view setHidden:NO];
+                                   [view.window makeFirstResponder:view];
+                                   assert(view.inputActive && view.inputFocused);
                                    view.ownedInputContext = nil;
                                    view.inputActive = NO;
                                    unsigned before_motion = session->count;

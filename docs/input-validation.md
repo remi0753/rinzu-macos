@@ -9,7 +9,8 @@ All owned files were formatted and checked before executable tests. The native
 suite passed 49 cases without skips, including real windows, Metal and
 ASan/UBSan. The new input probe covers UTF-16 and surrogate boundaries, IME
 proposal metadata, marked/commit/cancel, a dead-key flush followed by a command,
-key-up without text reinterpretation, focus-loss ordering, motion coalescing,
+key-up without text reinterpretation, responder and window focus-loss ordering,
+hidden-view rejection, focus recovery, motion coalescing,
 epoch and ack rejection, independent text-system and AX selections,
 AX cluster/line/point queries, window movement,
 backing coordinates and complete resource release. The input probe also passed
@@ -23,7 +24,7 @@ behavioral equivalence.
 The deterministic nine-file archive passed module registration, SHA-256 checks,
 offline restoration, all eight unchanged examples, JIT and relocated signed
 AOT bundles, and modified-asset rejection. Archive SHA-256:
-`bdf84cdcd1c6f95d6e83d66481e1556316f8e2f8969153b29bf6bb734a990950`.
+`ed33895a236e3aeeb46174fb6a7fd045d2915a23e3bf4fb6a99f27fa0b2c6b0c`.
 
 Publication is held at the user's request. No v0.3.0 tag or release is created;
 consumers use a locally committed development checkout. The stable public

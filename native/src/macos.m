@@ -211,7 +211,7 @@ enum {
 @property(nonatomic, strong) NSEvent *inputKey;
 @property(nonatomic) NSRange inputSelection;
 @property(nonatomic) NSUInteger inputMarkBase;
-@property(nonatomic) BOOL inputProduced, suppressInput, inputPending, inputActive;
+@property(nonatomic) BOOL inputProduced, suppressInput, inputPending, inputActive, inputFocused;
 @property(nonatomic) int64_t inputEpoch, inputMutationSequence, inputAcknowledged, inputRangeBase;
 @property(nonatomic, strong) NSTrackingArea *inputTracking;
 @property(nonatomic, strong) NSCursor *explicitCursor;
@@ -503,6 +503,12 @@ static void window_state(RZMacWindow *window) {
   if (!window || window.closed)
     return;
   for (RZMacHandle *handle in handles.allValues)
+    if (handle.kind == RZ_VIEW) {
+      NSView *view = ((RZMacView *)handle).view;
+      if (view.window == window.window && [view isKindOfClass:RZMacNativeView.class])
+        [(RZMacNativeView *)view syncInputContext];
+    }
+  for (RZMacHandle *handle in handles.allValues)
     if (handle.kind == RZ_FRAME_CLOCK && (((RZMacFrameClock *)handle).view.rootWindow == window ||
                                           ((RZMacFrameClock *)handle).view.scopeWindow == window))
       refresh_frame((RZMacFrameClock *)handle, YES);
@@ -529,6 +535,10 @@ static RZMacView *responder_view(NSResponder *responder) {
   RZMacView *before = responder_view(self.firstResponder);
   BOOL accepted = [super makeFirstResponder:responder];
   RZMacView *after = responder_view(self.firstResponder);
+  if ([before.view isKindOfClass:RZMacNativeView.class])
+    [(RZMacNativeView *)before.view syncInputContext];
+  if (after != before && [after.view isKindOfClass:RZMacNativeView.class])
+    [(RZMacNativeView *)after.view syncInputContext];
   if (before != after) {
     if (before && !before.closed) {
       struct MacEvent event = view_event(before, RZ_FOCUS);
@@ -689,6 +699,7 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
   [self.ownedInputContext discardMarkedText];
   [self.ownedInputContext deactivate];
   self.inputActive = NO;
+  self.inputFocused = NO;
   self.ownedInputContext = nil;
   self.inputSnapshot = nil;
   self.inputPending = NO;
@@ -703,7 +714,19 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
   self.suppressInput = NO;
 }
 - (void)syncInputContext {
-  BOOL active = self.inputEnabled && self.window.isKeyWindow && self.window.firstResponder == self;
+  if (!self.inputSnapshot)
+    return;
+  BOOL focused = self.isAccessibilityFocused;
+  if (focused != self.inputFocused) {
+    self.inputFocused = focused;
+    [self emitInput:12
+               text:nil
+          selection:NSMakeRange(NSNotFound, 0)
+        replacement:NSMakeRange(NSNotFound, 0)
+                key:nil
+              flags:focused ? 1 : 0];
+  }
+  BOOL active = self.inputEnabled && focused;
   if (active == self.inputActive)
     return;
   self.inputActive = active;
@@ -779,31 +802,26 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
 }
 - (BOOL)becomeFirstResponder {
   BOOL result = [super becomeFirstResponder];
-  if (result && self.inputSnapshot) {
-    if (self.inputEnabled) {
-      self.inputActive = YES;
-      [[self inputContext] activate];
-    }
-    [self emitInput:12
-               text:nil
-          selection:NSMakeRange(NSNotFound, 0)
-        replacement:NSMakeRange(NSNotFound, 0)
-                key:nil
-              flags:1];
-  }
+  if (result)
+    [self syncInputContext];
   return result;
 }
 - (BOOL)resignFirstResponder {
   BOOL result = [super resignFirstResponder];
   if (result && self.inputSnapshot) {
-    self.inputActive = NO;
-    [self emitInput:12
-               text:nil
-          selection:NSMakeRange(NSNotFound, 0)
-        replacement:NSMakeRange(NSNotFound, 0)
-                key:nil
-              flags:0];
-    [self.ownedInputContext deactivate];
+    if (self.inputFocused) {
+      self.inputFocused = NO;
+      [self emitInput:12
+                 text:nil
+            selection:NSMakeRange(NSNotFound, 0)
+          replacement:NSMakeRange(NSNotFound, 0)
+                  key:nil
+                flags:0];
+    }
+    if (self.inputActive) {
+      self.inputActive = NO;
+      [self.ownedInputContext deactivate];
+    }
   }
   return result;
 }
@@ -958,7 +976,8 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
   return self.inputSnapshot ? self.inputSnapshot[@"text"] : [super accessibilityValue];
 }
 - (BOOL)isAccessibilityFocused {
-  return self.window.isKeyWindow && self.window.firstResponder == self;
+  return self.window.isVisible && self.window.isKeyWindow && self.window.firstResponder == self &&
+         !self.hiddenOrHasHiddenAncestor;
 }
 - (void)setAccessibilityFocused:(BOOL)focused {
   if (focused)
@@ -1084,6 +1103,7 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
 - (void)setHidden:(BOOL)hidden {
   BOOL changed = self.hidden != hidden;
   [super setHidden:hidden];
+  [self syncInputContext];
   if (changed)
     for (RZMacHandle *handle in handles.allValues)
       if (handle.kind == RZ_FRAME_CLOCK)
@@ -1098,7 +1118,7 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
 }
 - (void)keyDown:(NSEvent *)event {
   if (self.inputSnapshot) {
-    if (!self.inputEnabled)
+    if (!self.inputEnabled || !self.isAccessibilityFocused)
       return;
     self.inputKey = event;
     self.inputCommand = nil;
@@ -1126,7 +1146,7 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
 }
 - (void)keyUp:(NSEvent *)event {
   if (self.inputSnapshot) {
-    if (self.inputEnabled) {
+    if (self.inputEnabled && self.isAccessibilityFocused) {
       [self emitInput:2
                  text:nil
             selection:NSMakeRange(NSNotFound, 0)
@@ -1139,7 +1159,7 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
   input(self.control, event, RZ_KEY_UP);
 }
 - (void)flagsChanged:(NSEvent *)event {
-  if (self.inputEnabled) {
+  if (self.inputEnabled && self.isAccessibilityFocused) {
     [self emitInput:14
                text:nil
           selection:NSMakeRange(NSNotFound, 0)
@@ -7430,6 +7450,8 @@ int32_t rinzu_macos_input_publish(void *raw, const uint8_t *bytes, size_t length
                    ? 0
                    : fail(RZ_ARGUMENT, @"conflicting text-input revision");
       NSDictionary *previous = view.inputSnapshot;
+      // Deactivate native focus under the previous producer epoch.
+      [view syncInputContext];
       BOOL contextChanged = epoch != view.inputEpoch || ![value[@"enabled"] boolValue];
       if (contextChanged) {
         view.inputPending = NO;

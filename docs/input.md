@@ -68,3 +68,10 @@ Consecutive pointer motion in one view and epoch coalesces to its latest
 position. Keyboard and editing proposals preserve their order. `unmodified`
 contains the key's text with modifiers removed through AppKit's keyboard layout
 API, rather than a guessed physical keyboard mapping.
+
+Window key changes, responder changes and hidden views update the input context
+synchronously. Focus loss is captured under the previous epoch before text-system
+deactivation. `enabled` is an application permission; the SDK independently
+checks actual focus. Consumers should revoke on focus loss, and keep the current
+epoch on focus gain so that keys captured in the same native event batch remain
+owned.
