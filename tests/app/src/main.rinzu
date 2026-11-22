@@ -67,6 +67,67 @@ fn core() {
         frame.x == 2.0 && frame.y == 3.0 && frame.width == 20.0 && frame.height == 30.0,
         "native geometry"
     );
+    let input = view.publishInput(
+        {
+            epoch = 1,
+            revision = 1,
+            ack = 0,
+            text = "A日😀",
+            selectedStart = 2,
+            selectedLength = 2,
+            markedStart = -1,
+            markedLength = 0,
+            caretX = 10.0,
+            caretY = 20.0,
+            caretWidth = 1.0,
+            caretHeight = 18.0,
+            spans = [
+                {
+                    start = 0,
+                    length = 1,
+                    x = 0.0,
+                    y = 0.0,
+                    width = 10.0,
+                    height = 18.0,
+                    line = 0
+                },
+                {
+                    start = 1,
+                    length = 1,
+                    x = 10.0,
+                    y = 0.0,
+                    width = 20.0,
+                    height = 18.0,
+                    line = 0
+                },
+                {
+                    start = 2,
+                    length = 2,
+                    x = 30.0,
+                    y = 0.0,
+                    width = 20.0,
+                    height = 18.0,
+                    line = 0
+                }
+            ],
+            enabled = true,
+            focused = false,
+            raw = false,
+            rawModifiers = 0,
+            rawCodes = []
+        }
+    );
+    let inputState = view.inputState();
+    rinzu.testing.assertTrue(
+        inputState.epoch == 1 && inputState.selectedStart == 2 && inputState.selectedLength == 2,
+        "owned UTF-16 input projection"
+    );
+    let backing = view.convertRect(rinzu.macos.Rect(x: 0.0, y: 0.0, width: 1.0, height: 1.0), 0);
+    let logical = view.convertRect(backing, 1);
+    rinzu.testing.assertTrue(logical.width == 1.0 && logical.height == 1.0, "backing coordinate round trip");
+    let discarded = view.discardMarkedText();
+    let detached = view.detachInput();
+    rinzu.stdio.writeLine("SOURCE:input-ok:utf16:projection:geometry:detach");
     let child = session.view(rinzu.macos.Rect(x: 0.0, y: 0.0, width: 10.0, height: 10.0));
     let added = view.addSubview(child);
     var caught = false;

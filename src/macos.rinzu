@@ -1,4 +1,5 @@
 import rinzu.list;
+import "./input.rinzu" as inputValues;
 import "./text.rinzu" as textValues;
 import rinzu.timer;
 import "./document.rinzu" as documents;
@@ -659,6 +660,12 @@ class Sampler {
 class Session {
     const handle: SessionHandle
 
+    /// The owner validates allowed schemes and user intent before requesting OS dispatch.
+    fn openURL(self: Session, url: String) -> Int {
+        let bytes = textApi.encodeUtf8(url);
+        return checked(Int(rawOpenURL(self.handle, bytes, bytesApi.byteLength(bytes))), "macos.openURL");
+    }
+
     /// Owned absolute app-resource root; None in an ordinary JIT/console host.
     fn observeEnvironment(self: Session, enabled: Bool) -> Int {
         return checked(Int(rawEnvironmentWatch(self.handle, enabled)), "macos.environment.observe");
@@ -875,6 +882,61 @@ class Texture {
 class View {
     const handle: ViewHandle
 
+    /// 0 arrow, 1 text, 2 pointing hand, 3 crosshair; custom views only.
+    fn setCursor(self: View, cursor: Int) -> Int {
+        if cursor < 0 || cursor > 3 {
+            throw error(-7804, "macos.view.cursor");
+        }
+        return checked(Int(rawViewCursor(self.handle, CInt(cursor))), "macos.view.cursor");
+    }
+
+    fn publishInput(self: View, snapshot: inputValues.InputSnapshot) -> Int {
+        let bytes = inputValues.encodeInputSnapshot(snapshot);
+        return checked(Int(rawInputPublish(self.handle, bytes, bytesApi.byteLength(bytes))), "macos.input.publish");
+    }
+
+    fn detachInput(self: View) -> Int {
+        return checked(Int(rawInputDetach(self.handle)), "macos.input.detach");
+    }
+
+    fn discardMarkedText(self: View) -> Int {
+        return checked(Int(rawInputDiscard(self.handle)), "macos.input.discard");
+    }
+
+    fn acknowledgeInput(self: View, epoch: Int, sequence: Int) -> Int {
+        return checked(Int(rawInputAck(self.handle, epoch, sequence)), "macos.input.ack");
+    }
+
+    fn inputState(self: View) -> InputState {
+        let output = InputState(
+            epoch: 0,
+            selectedStart: 0,
+            selectedLength: 0,
+            markedStart: -1,
+            markedLength: 0,
+            x: 0.0,
+            y: 0.0,
+            width: 0.0,
+            height: 0.0,
+            enabled: false,
+            focused: false,
+            composing: false
+        );
+        let status = checked(Int(rawInputState(self.handle, output)), "macos.input.state");
+        return output;
+    }
+
+    fn inputPacket(self: View, event: UiEvent) -> inputValues.InputPacket {
+        if event.kind != eventInput || event.viewId != self.identity() {
+            throw error(-7804, "macos.input.event");
+        }
+        let value = inputValues.decodeInputPacket(event.text);
+        if value.epoch != event.action {
+            throw error(-7804, "macos.input.epoch");
+        }
+        return value;
+    }
+
     fn setAccessibility(self: View, label: String, help: String, identifier: String) -> Int {
         let a = textApi.encodeUtf8(label);
         let b = textApi.encodeUtf8(help);
@@ -907,6 +969,16 @@ class View {
     fn frame(self: View) -> Rect {
         let output = Rect(x: 0.0, y: 0.0, width: 0.0, height: 0.0);
         let status = checked(Int(rawViewFrame(self.handle, output)), "macos.view.frame");
+        return output;
+    }
+
+    /// AppKit view coordinates: 0 to backing, 1 from backing, 2 to screen, 3 from screen.
+    fn convertRect(self: View, rect: Rect, space: Int) -> Rect {
+        if space < 0 || space > 3 {
+            throw error(-7804, "macos.view.coordinateSpace");
+        }
+        let output = Rect(x: 0.0, y: 0.0, width: 0.0, height: 0.0);
+        let status = checked(Int(rawViewConvert(self.handle, rect, output, CInt(space))), "macos.view.convertRect");
         return output;
     }
 
@@ -4487,6 +4559,8 @@ export textValues.TextShape;
 /// Opt-in OS notifications and current accessibility display preferences.
 let eventEnvironment = 21;
 
+let eventInput = 22;
+
 let environmentFonts = 1;
 
 let environmentPreferences = 2;
@@ -4516,3 +4590,48 @@ export preferenceReduceMotion;
 export preferenceReduceTransparency;
 export preferenceIncreaseContrast;
 export preferenceDifferentiateWithoutColor;
+
+native {
+    record InputState {
+        epoch: Int,
+        selectedStart: Int,
+        selectedLength: Int,
+        markedStart: Int,
+        markedLength: Int,
+        x: Float,
+        y: Float,
+        width: Float,
+        height: Float,
+        enabled: CBool,
+        focused: CBool,
+        composing: CBool
+    }
+
+    fn rawInputPublish(view: ViewHandle, bytes: ByteArray, length: CSize) -> CInt symbol "rinzu_macos_input_publish";
+
+    fn rawInputDetach(view: ViewHandle) -> CInt symbol "rinzu_macos_input_detach";
+
+    fn rawInputDiscard(view: ViewHandle) -> CInt symbol "rinzu_macos_input_discard";
+
+    fn rawInputState(view: ViewHandle, output: InputState) -> CInt symbol "rinzu_macos_input_state";
+
+    fn rawInputAck(view: ViewHandle, epoch: Int, sequence: Int) -> CInt symbol "rinzu_macos_input_ack";
+}
+
+export inputValues.InputSpan;
+export inputValues.InputSnapshot;
+export inputValues.InputPacket;
+export inputValues.decodeInputPacket;
+export InputState;
+export eventInput;
+
+native {
+    fn rawViewConvert(view: ViewHandle, rect: Rect, output: Rect, space: CInt)
+        -> CInt symbol "rinzu_macos_view_convert";
+}
+
+native {
+    fn rawOpenURL(session: SessionHandle, bytes: ByteArray, length: CSize) -> CInt symbol "rinzu_macos_open_url";
+
+    fn rawViewCursor(view: ViewHandle, cursor: CInt) -> CInt symbol "rinzu_macos_view_cursor";
+}

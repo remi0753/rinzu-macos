@@ -72,6 +72,16 @@ struct MacStatistics {
 struct MacSelection {
   int64_t start, end;
 };
+struct MacInputState {
+  int64_t epoch, selectedStart, selectedLength, markedStart, markedLength;
+  double x, y, width, height;
+  _Bool enabled, focused, composing;
+};
+int32_t rinzu_macos_input_publish(void *view, const uint8_t *snapshot, size_t length);
+int32_t rinzu_macos_input_detach(void *view);
+int32_t rinzu_macos_input_discard(void *view);
+int32_t rinzu_macos_input_state(void *view, struct MacInputState *output);
+int32_t rinzu_macos_input_ack(void *view, int64_t epoch, int64_t sequence);
 struct MacWidgetState {
   double value;
   _Bool enabled, hidden;
@@ -176,6 +186,8 @@ int64_t rinzu_macos_view_create(void *session, const struct MacRect *rect);
 void *rinzu_macos_view(int64_t id);
 int64_t rinzu_macos_view_id(void *view);
 int32_t rinzu_macos_view_frame(void *view, struct MacRect *rect);
+int32_t rinzu_macos_view_convert(void *view, const struct MacRect *input, struct MacRect *output,
+                                 int32_t space);
 int32_t rinzu_macos_view_set_frame(void *view, const struct MacRect *rect);
 int32_t rinzu_macos_view_add(void *parent, void *child);
 int32_t rinzu_macos_view_remove(void *view);
@@ -218,6 +230,8 @@ int32_t rinzu_macos_clipboard_snapshot(void *session, int64_t token);
 _Bool rinzu_macos_clipboard_owned(void *session, int64_t token);
 const rinzu_native_byte_array_t *rinzu_macos_clipboard_bytes(void *session, int64_t token);
 int32_t rinzu_macos_clipboard_finish(void *session, int64_t token);
+int32_t rinzu_macos_open_url(void *session, const uint8_t *url, size_t length);
+int32_t rinzu_macos_view_cursor(void *view, int32_t cursor);
 
 _Bool rinzu_macos_metal_available(void);
 int32_t rinzu_macos_environment_watch(void *session, _Bool enabled);

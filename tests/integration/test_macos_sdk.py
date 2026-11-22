@@ -301,6 +301,7 @@ def main():
                         "srgb",
                     ]
                 if args.ui:
+                    probes["input"] = [""]
                     probes["data"].extend(["list", "large"])
                     if gpu:
                         probes["frames"] = ["fixture", "", "display"]
@@ -341,6 +342,19 @@ def main():
                                 [sanitized, "ui-metal"],
                                 timeout=45,
                             )
+                        input_probe = scratch / "input-sanitized"
+                        build_probe(
+                            "input-sanitizer-build",
+                            "input",
+                            input_probe,
+                            [
+                                "-O1",
+                                "-g",
+                                "-fsanitize=address,undefined",
+                                "-fno-omit-frame-pointer",
+                            ],
+                        )
+                        run("input-sanitizer", [input_probe], contains=["PASS:"])
                     shaped = scratch / "shaping-sanitized"
                     build_probe(
                         "shaping-sanitizer-build",

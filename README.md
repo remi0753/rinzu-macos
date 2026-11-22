@@ -4,12 +4,12 @@ AppKit, CoreText, and Metal SDK for Rinzu on Apple Silicon. It provides native w
 
 ## Install
 
-Use a macOS arm64 Rinzu toolchain with native SDK archive support. Run GUI applications from a desktop session. [v0.2.0 release](https://github.com/remi0753/rinzu-macos/releases/tag/v0.2.0)
+Use a macOS arm64 Rinzu toolchain with native SDK archive support. Run GUI applications from a desktop session. [v0.3.0 release](https://github.com/remi0753/rinzu-macos/releases/tag/v0.3.0)
 
 From your application directory, register the module and refresh the native build lock.
 
 ```sh
-rinzu modules add rinzu.macos https://github.com/remi0753/rinzu-macos/releases/download/v0.2.0/rinzu-macos-0.2.0.tar.gz
+rinzu modules add rinzu.macos https://github.com/remi0753/rinzu-macos/releases/download/v0.3.0/rinzu-macos-0.3.0.tar.gz
 rinzu lock .
 ```
 
@@ -34,7 +34,9 @@ The SDK includes labels, buttons, text fields/views, menus, checkboxes, layout h
 Occlusion-only transitions emit a state event, so applications can stop their own
 work without polling. Keep application save/close policies in managed handlers. Programmatic state updates do not automatically reproduce user events.
 
-Native views and Metal surfaces report raw key-down and key-up events. `UiEvent.text` owns the event's `NSEvent.characters` as UTF-8, including control characters and NUL. `keyCode` and `modifiers` retain the native values; `flags & keyRepeat` identifies repeats. The existing event queue limits apply to these snapshots. Applications interpret key meaning. Input-method composition is provided by native text controls.
+Native views and Metal surfaces report raw key-down and key-up events. `UiEvent.text` owns the event's `NSEvent.characters` as UTF-8, including control characters and NUL. `keyCode` and `modifiers` retain the native values; `flags & keyRepeat` identifies repeats. The existing event queue limits apply to these snapshots. Applications interpret key meaning.
+
+Custom drawn views can opt into `NSTextInputClient` with `View.publishInput`. An owned UTF-16 text and geometry projection supplies synchronous IME and accessibility queries. The SDK delivers marked text, replacement ranges, commits, commands, pointer and focus proposals as owned `eventInput` packets. The application owns editing, layout, authorization and routing. See the [custom input contract](docs/input.md).
 
 List/table/tree DataView models use stable row IDs, columns, selection, expansion, sorting, and owned cell values. Dataset limits are 100000 rows, 32 columns, 16 MiB UTF-8 content, and tree depth 64. Generation yields every 256 rows and commits a completed model; failed or stopped updates discard uncommitted state. Serialize competing async operations on a view. These are bounded copied models, not remote paging or unbounded lists.
 
@@ -81,7 +83,7 @@ Local candidates can be checked before publishing with `test_macos_distribution.
 
 | SDK tag  | Dependency                        | Rinzu                                     | Target      |
 | -------- | --------------------------------- | ----------------------------------------- | ----------- |
-| `v0.2.0` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
+| `v0.3.0` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.1.5` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.1.4` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.1.3` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
@@ -129,7 +131,7 @@ Session with `View.setDevice`. Its view identity and frame reader remain stable.
 `Device.isAvailable` exposes Metal's removal-request state. Clients recreate
 their pipelines, buffers and textures; the SDK does not retain application caches.
 
-The v0.2.0 API report flags one constructor change: Batch2D owns four additional
+The v0.3.0 API report flags one constructor change: Batch2D owns four additional
 sRGB pipelines. Use `Device.batch2D` to acquire batches; existing factory calls,
 legacy formats and examples remain supported. The new features are generic Metal
 and OS environment bindings; application color, layout and scheduling policy stay

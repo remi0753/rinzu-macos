@@ -1,0 +1,177 @@
+import rinzu.bytes;
+import rinzu.json;
+import rinzu.list;
+import rinzu.string;
+
+/// UTF-16 intervals and logical points with top-left view origin. Spans are
+/// nonoverlapping text clusters in document order; line is a visual line index.
+type InputSpan = {
+    start: Int,
+    length: Int,
+    x: Float,
+    y: Float,
+    width: Float,
+    height: Float,
+    line: Int
+};
+
+type InputSnapshot = {
+    epoch: Int,
+    revision: Int,
+    ack: Int,
+    text: String,
+    selectedStart: Int,
+    selectedLength: Int,
+    markedStart: Int,
+    markedLength: Int,
+    caretX: Float,
+    caretY: Float,
+    caretWidth: Float,
+    caretHeight: Float,
+    spans: List<InputSpan>,
+    enabled: Bool,
+    focused: Bool,
+    raw: Bool,
+    rawModifiers: Int,
+    rawCodes: List<Int>
+};
+
+/// The epoch is copied when AppKit produces the event, not when Rinzu reads it.
+/// kind: key-down/up 1/2, marked 3, insert 4, unmark 5, command 6, overflow 7,
+/// pointer down/up/move 8/9/10, scroll 11, focus 12, AX selection request 13,
+/// modifier change 14. Key flags: repeat=1, interpreted=2, replaced-mark=4.
+/// Scroll flags: precise=1. keyType preserves the original NSEvent type.
+type InputPacket = {
+    version: Int,
+    kind: Int,
+    epoch: Int,
+    keyCode: Int,
+    keyType: Int,
+    modifiers: Int,
+    flags: Int,
+    text: String,
+    unmodified: String,
+    source: String,
+    command: String,
+    selectionStart: Int,
+    selectionLength: Int,
+    replacementStart: Int,
+    replacementLength: Int,
+    x: Float,
+    y: Float,
+    button: Int,
+    buttons: Int,
+    clicks: Int,
+    deltaX: Float,
+    deltaY: Float,
+    phase: Int,
+    momentum: Int
+};
+
+fn decodeInputPacket(text: String) -> InputPacket {
+    let value = rinzu.json.parseStringWithTyAndLimits<InputPacket>(
+        text,
+        {
+            maxInputBytes = 1048576,
+            maxDepth = 4,
+            maxNodes = 128
+        }
+    );
+    if value.version != 1
+        || value.kind < 1
+        || value.kind > 14
+        || value.epoch < 1
+        || value.keyCode < -1
+        || value.keyCode > 65535
+        || value.modifiers < 0
+        || value.flags < 0
+        || value.flags > 7
+        || value.selectionStart < -1
+        || value.selectionLength < 0
+        || value.replacementStart < -1
+        || value.replacementLength < 0
+        || rinzu.string.utf8ByteLength(value.text) > 65536
+        || rinzu.string.utf8ByteLength(value.unmodified) > 65536 {
+        throw error(-7804, "macos.input.packet");
+    }
+    return value;
+}
+
+fn inputNumber(value: Float) -> rinzu.json.Value {
+    if !(value >= -1000000.0 && value <= 1000000.0) {
+        throw error(-7804, "macos.input.geometry");
+    }
+    return rinzu.json.floatValue(value);
+}
+
+fn encodeInputSnapshot(value: InputSnapshot) -> ByteArray {
+    if value.epoch < 1
+        || value.revision < 1
+        || value.ack < 0
+        || value.selectedStart < 0
+        || value.selectedLength < 0
+        || value.markedStart < -1
+        || value.markedLength < 0
+        || (value.markedStart == -1 && value.markedLength != 0)
+        || value.rawModifiers < 0
+        || value.rawModifiers > 4294967295
+        || rinzu.string.utf8ByteLength(value.text) > 1048576
+        || rinzu.list.length(value.spans) > 32768
+        || rinzu.list.length(value.rawCodes) > 256 {
+        throw error(-7804, "macos.input.snapshot");
+    }
+    var spans: List<rinzu.json.Value> = [];
+    for span in value.spans {
+        spans = rinzu.list.append(
+            spans,
+            rinzu.json.array(
+                [
+                    rinzu.json.intValue(span.start),
+                    rinzu.json.intValue(span.length),
+                    inputNumber(span.x),
+                    inputNumber(span.y),
+                    inputNumber(span.width),
+                    inputNumber(span.height),
+                    rinzu.json.intValue(span.line)
+                ]
+            )
+        );
+    }
+    var codes: List<rinzu.json.Value> = [];
+    for code in value.rawCodes {
+        codes = rinzu.list.append(codes, rinzu.json.intValue(code));
+    }
+    let result = rinzu.json.encode(
+        rinzu.json.object(
+            {
+                "version": rinzu.json.intValue(1), "epoch": rinzu.json.intValue(value.epoch), "revision":
+                    rinzu.json.intValue(value.revision), "ack": rinzu.json.intValue(value.ack), "text": rinzu.json.text(
+                        value.text
+                    ), "selectedStart": rinzu.json.intValue(value.selectedStart), "selectedLength": rinzu.json.intValue(
+                        value.selectedLength
+                    ), "markedStart": rinzu.json.intValue(value.markedStart), "markedLength": rinzu.json.intValue(
+                        value.markedLength
+                    ), "caret": rinzu.json.array(
+                        [
+                            inputNumber(value.caretX),
+                            inputNumber(value.caretY),
+                            inputNumber(value.caretWidth),
+                            inputNumber(value.caretHeight)
+                        ]
+                    ), "spans": rinzu.json.array(spans), "enabled": rinzu.json.boolean(value.enabled), "focused":
+                    rinzu.json.boolean(value.focused), "raw": rinzu.json.boolean(value.raw), "rawModifiers":
+                    rinzu.json.intValue(value.rawModifiers), "rawCodes": rinzu.json.array(codes)
+            }
+        )
+    );
+    if rinzu.bytes.length(result) > 8388608 {
+        throw error(-7804, "macos.input.snapshotLimit");
+    }
+    return result;
+}
+
+export InputSpan;
+export InputSnapshot;
+export InputPacket;
+export decodeInputPacket;
+export encodeInputSnapshot;
