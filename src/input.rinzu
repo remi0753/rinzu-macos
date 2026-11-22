@@ -1,6 +1,7 @@
 import rinzu.bytes;
 import rinzu.json;
 import rinzu.list;
+import rinzu.map;
 import rinzu.string;
 
 /// UTF-16 intervals and logical points with top-left view origin. Spans are
@@ -36,6 +37,17 @@ type InputSnapshot = {
     raw: Bool,
     rawModifiers: Int,
     rawCodes: List<Int>
+};
+
+/// Pixel edges at the given scale, with one immutable cluster sequence per
+/// visual line. Each pair of bytes gives a positive UTF-16 length and a
+/// width in cells. Clusters cover the text in order, starting at the first
+/// horizontal edge of each line. Zero-width clusters can describe newlines.
+type InputGrid = {
+    xEdges: List<Int>,
+    yEdges: List<Int>,
+    scale: Float,
+    lines: List<ByteArray>
 };
 
 /// The epoch is copied when AppKit produces the event, not when Rinzu reads it.
@@ -128,7 +140,7 @@ fn inputSpanBytes(span: InputSpan, comma: Bool) -> ByteArray {
     return rinzu.string.encodeUtf8(f"{delimiter}[{span.start},{span.length},{x},{y},{width},{height},{span.line}]");
 }
 
-fn encodeInputSnapshot(value: InputSnapshot) -> ByteArray {
+fn inputMetadata(value: InputSnapshot) -> Map<String, rinzu.json.Value> {
     if value.epoch < 1
         || value.revision < 1
         || value.ack < 0
@@ -150,33 +162,31 @@ fn encodeInputSnapshot(value: InputSnapshot) -> ByteArray {
     for code in value.rawCodes {
         codes = rinzu.list.append(codes, rinzu.json.intValue(code));
     }
-    let metadata = rinzu.json.encode(
-        rinzu.json.object(
-            {
-                "version": rinzu.json.intValue(1), "epoch": rinzu.json.intValue(value.epoch), "revision":
-                    rinzu.json.intValue(value.revision), "ack": rinzu.json.intValue(value.ack), "text": rinzu.json.text(
-                        value.text
-                    ), "selectedStart": rinzu.json.intValue(value.selectedStart), "selectedLength": rinzu.json.intValue(
-                        value.selectedLength
-                    ), "inputStart": rinzu.json.intValue(value.inputStart), "inputLength": rinzu.json.intValue(
-                        value.inputLength
-                    ), "markedStart": rinzu.json.intValue(value.markedStart), "markedLength": rinzu.json.intValue(
-                        value.markedLength
-                    ), "caret": rinzu.json.array(
-                        [
-                            inputNumber(value.caretX),
-                            inputNumber(value.caretY),
-                            inputNumber(value.caretWidth),
-                            inputNumber(value.caretHeight)
-                        ]
-                    ), "enabled": rinzu.json.boolean(value.enabled), "focused": rinzu.json.boolean(
-                        value.focused
-                    ), "raw": rinzu.json.boolean(value.raw), "rawModifiers": rinzu.json.intValue(
-                        value.rawModifiers
-                    ), "rawCodes": rinzu.json.array(codes)
-            }
-        )
-    );
+    return {
+        "version": rinzu.json.intValue(1), "epoch": rinzu.json.intValue(value.epoch), "revision": rinzu.json.intValue(
+            value.revision
+        ), "ack": rinzu.json.intValue(value.ack), "text": rinzu.json.text(value.text), "selectedStart":
+            rinzu.json.intValue(value.selectedStart), "selectedLength": rinzu.json.intValue(
+                value.selectedLength
+            ), "inputStart": rinzu.json.intValue(value.inputStart), "inputLength": rinzu.json.intValue(
+                value.inputLength
+            ), "markedStart": rinzu.json.intValue(value.markedStart), "markedLength": rinzu.json.intValue(
+                value.markedLength
+            ), "caret": rinzu.json.array(
+                [
+                    inputNumber(value.caretX),
+                    inputNumber(value.caretY),
+                    inputNumber(value.caretWidth),
+                    inputNumber(value.caretHeight)
+                ]
+            ), "enabled": rinzu.json.boolean(value.enabled), "focused": rinzu.json.boolean(value.focused), "raw":
+            rinzu.json.boolean(value.raw), "rawModifiers": rinzu.json.intValue(value.rawModifiers), "rawCodes":
+            rinzu.json.array(codes)
+    };
+}
+
+fn encodeInputSnapshot(value: InputSnapshot) -> ByteArray {
+    let metadata = rinzu.json.encode(rinzu.json.object(inputMetadata(value)));
     var prefix = rinzu.bytes.from(b"");
     switch rinzu.bytes.slice(metadata, 0, rinzu.bytes.length(metadata) - 1) {
         case Option.Some(bytes): {
@@ -214,8 +224,52 @@ fn encodeInputSnapshot(value: InputSnapshot) -> ByteArray {
     return result;
 }
 
+fn inputIntegers(values: List<Int>) -> rinzu.json.Value {
+    return rinzu.json.array(
+        rinzu.list.map(
+            values,
+            fn (value: Int) -> rinzu.json.Value {
+                return rinzu.json.intValue(value);
+            }
+        )
+    );
+}
+
+fn encodeInputGrid(value: InputSnapshot, grid: InputGrid) -> ByteArray {
+    let lines = rinzu.list.length(grid.lines);
+    let columns = rinzu.list.length(grid.xEdges);
+    if !(grid.scale > 0.0 && grid.scale <= 8.0)
+        || columns < 2
+        || columns > 32769
+        || lines < 1
+        || lines > 32768
+        || rinzu.list.length(grid.yEdges) != lines + 1
+        || rinzu.list.length(value.spans) != 0 {
+        throw error(-7804, "macos.input.grid");
+    }
+    var sizes: List<Int> = [];
+    var bytes = 0;
+    for line in grid.lines {
+        let size = rinzu.bytes.length(line);
+        if size % 2 != 0 || size > 65536 - bytes {
+            throw error(-7804, "macos.input.grid");
+        }
+        bytes = bytes + size;
+        sizes = rinzu.list.append(sizes, size);
+    }
+    var fields = inputMetadata(value);
+    fields = rinzu.map.insert(fields, "spans", rinzu.json.array([]));
+    fields = rinzu.map.insert(fields, "xEdges", inputIntegers(grid.xEdges));
+    fields = rinzu.map.insert(fields, "yEdges", inputIntegers(grid.yEdges));
+    fields = rinzu.map.insert(fields, "scale", inputNumber(grid.scale));
+    fields = rinzu.map.insert(fields, "lineSizes", inputIntegers(sizes));
+    return rinzu.json.encode(rinzu.json.object(fields));
+}
+
 export InputSpan;
 export InputSnapshot;
 export InputPacket;
 export decodeInputPacket;
 export encodeInputSnapshot;
+export InputGrid;
+export encodeInputGrid;

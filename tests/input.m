@@ -52,6 +52,27 @@ static int publish_projection(void *view, NSDictionary *value) {
   NSData *data = [NSJSONSerialization dataWithJSONObject:value options:0 error:NULL];
   return rinzu_macos_input_publish(view, data.bytes, data.length);
 }
+static void test_grid_spans(void) {
+  NSMutableDictionary *value = [projection(1, 1, 0) mutableCopy];
+  NSArray *expected = @[
+    @[ @0, @1, @0.0, @0.0, @10.4, @20.0, @0 ], @[ @1, @1, @10.4, @0.0, @20.0, @20.0, @0 ],
+    @[ @2, @2, @30.4, @0.0, @20.0, @20.0, @0 ], @[ @4, @1, @50.4, @0.0, @0.0, @20.0, @0 ],
+    @[ @5, @1, @0.0, @20.0, @10.4, @20.8, @1 ]
+  ];
+  value[@"spans"] = @[];
+  value[@"scale"] = @1.25;
+  value[@"xEdges"] = @[ @0, @13, @25, @38, @50, @63 ];
+  value[@"yEdges"] = @[ @0, @25, @51 ];
+  value[@"lineSizes"] = @[ @8, @2 ];
+  const uint8_t pairs[] = {1, 1, 1, 2, 2, 2, 1, 0, 1, 1};
+  NSData *data = [NSData dataWithBytes:pairs length:sizeof(pairs)];
+  assert([input_grid_spans(value, data) isEqualToArray:expected]);
+  value[@"lineSizes"] = @[ @6, @2 ];
+  assert(!input_grid_spans(value, data));
+  value[@"lineSizes"] = @[ @8, @2 ];
+  value[@"xEdges"] = @[ @0, @13, @25, @38, @64, @63 ];
+  assert(!input_grid_spans(value, data));
+}
 static NSDictionary *last_packet(RZMacSession *session) {
   int64_t sequence = session->sequence;
   NSData *data = session.payloads[@(sequence)];
@@ -64,6 +85,7 @@ static NSDictionary *last_packet(RZMacSession *session) {
 }
 int main(void) {
   @autoreleasepool {
+    test_grid_spans();
     void *session_raw = rinzu_macos_session(rinzu_macos_open());
     assert(session_raw);
     RZMacSession *session = (RZMacSession *)lookup(session_raw, RZ_SESSION);

@@ -7,6 +7,15 @@ with a top-left view origin. The SDK converts candidate rectangles to screen
 coordinates, including window movement and backing scale. Cluster spans carry
 visual line indices and never split surrogate pairs.
 
+Use `View.publishGridInput` when the text is laid out on shared pixel edges.
+Pass an empty `InputSnapshot.spans` and an `InputGrid` with monotonically
+ordered horizontal and vertical edges, the backing scale, and one cluster
+sequence per visual line. Each pair in a line contains a positive UTF-16
+length and a cell width. Zero cell width represents a cluster with no
+horizontal extent, such as a line break. The pairs cover the text in order.
+The SDK validates the geometry and exposes the same AppKit queries and
+acknowledgement rules as an explicit span snapshot.
+
 `View.inputPacket(event)` decodes an owned `eventInput`. The packet preserves the
 capture epoch, native key code, modifiers, repeat and interpreted flags, input
 source, original event type, command selector, replacement/selection ranges and

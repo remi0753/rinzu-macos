@@ -69,58 +69,84 @@ fn core() {
         frame.x == 2.0 && frame.y == 3.0 && frame.width == 20.0 && frame.height == 30.0,
         "native geometry"
     );
-    let input = view.publishInput(
-        {
-            epoch = 1,
-            revision = 1,
-            ack = 0,
-            text = "A日😀",
-            selectedStart = 2,
-            selectedLength = 2,
-            inputStart = 2,
-            inputLength = 2,
-            markedStart = -1,
-            markedLength = 0,
-            caretX = 10.0,
-            caretY = 20.0,
-            caretWidth = 1.0,
-            caretHeight = 18.0,
-            spans = [
-                {
-                    start = 0,
-                    length = 1,
-                    x = 0.0,
-                    y = 0.0,
-                    width = 10.0,
-                    height = 18.0,
-                    line = 0
-                },
-                {
-                    start = 1,
-                    length = 1,
-                    x = 10.0,
-                    y = 0.0,
-                    width = 20.0,
-                    height = 18.0,
-                    line = 0
-                },
-                {
-                    start = 2,
-                    length = 2,
-                    x = 30.0,
-                    y = 0.0,
-                    width = 20.0,
-                    height = 18.0,
-                    line = 0
-                }
-            ],
-            enabled = true,
-            focused = false,
-            raw = false,
-            rawModifiers = 0,
-            rawCodes = []
-        }
-    );
+    let snapshot: rinzu.macos.InputSnapshot = {
+        epoch = 1,
+        revision = 1,
+        ack = 0,
+        text = "A日😀",
+        selectedStart = 2,
+        selectedLength = 2,
+        inputStart = 2,
+        inputLength = 2,
+        markedStart = -1,
+        markedLength = 0,
+        caretX = 10.0,
+        caretY = 20.0,
+        caretWidth = 1.0,
+        caretHeight = 18.0,
+        spans = [
+            {
+                start = 0,
+                length = 1,
+                x = 0.0,
+                y = 0.0,
+                width = 10.0,
+                height = 18.0,
+                line = 0
+            },
+            {
+                start = 1,
+                length = 1,
+                x = 10.0,
+                y = 0.0,
+                width = 20.0,
+                height = 18.0,
+                line = 0
+            },
+            {
+                start = 2,
+                length = 2,
+                x = 30.0,
+                y = 0.0,
+                width = 20.0,
+                height = 18.0,
+                line = 0
+            }
+        ],
+        enabled = true,
+        focused = false,
+        raw = false,
+        rawModifiers = 0,
+        rawCodes = []
+    };
+    let input = view.publishInput(snapshot);
+    let grid: rinzu.macos.InputGrid = {
+        xEdges = [0, 15, 31, 46, 62, 77],
+        yEdges = [0, 27],
+        scale = 1.5,
+        lines = [bytesApi.from(b"\x01\x01\x01\x02\x02\x02")]
+    };
+    let compact: rinzu.macos.InputSnapshot = {
+        ...snapshot,
+        revision = 2,
+        spans = []
+    };
+    let published = view.publishGridInput(compact, grid);
+    let again = view.publishGridInput(compact, grid);
+    var rejected = false;
+    try {
+        let changed = view.publishGridInput(
+            { ...compact, revision = 3 },
+            {
+                ...grid,
+                lines = [bytesApi.from(b"\x01\x01\x01\x02\x01\x01\x01\x01")]
+            }
+        );
+    }
+    catch [problem: Error, ...rest] {
+        rejected = err.nativeStatus(problem) == Option<Int>.Some(value: -7804);
+    }
+    rinzu.testing.assertTrue(rejected, "grid clusters cannot split a UTF-16 surrogate pair");
     let inputState = view.inputState();
     rinzu.testing.assertTrue(
         inputState.epoch == 1 && inputState.selectedStart == 2 && inputState.selectedLength == 2,

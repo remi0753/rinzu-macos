@@ -895,6 +895,25 @@ class View {
         return checked(Int(rawInputPublish(self.handle, bytes, bytesApi.byteLength(bytes))), "macos.input.publish");
     }
 
+    /// Publish an input snapshot with grid geometry. The snapshot's spans
+    /// list must be empty; the grid supplies all cluster positions.
+    fn publishGridInput(self: View, snapshot: inputValues.InputSnapshot, grid: inputValues.InputGrid) -> Int {
+        let metadata = inputValues.encodeInputGrid(snapshot, grid);
+        let clusters = bytesApi.concatAll(grid.lines);
+        return checked(
+            Int(
+                rawInputPublishGrid(
+                    self.handle,
+                    metadata,
+                    bytesApi.byteLength(metadata),
+                    clusters,
+                    bytesApi.byteLength(clusters)
+                )
+            ),
+            "macos.input.publishGrid"
+        );
+    }
+
     fn detachInput(self: View) -> Int {
         return checked(Int(rawInputDetach(self.handle)), "macos.input.detach");
     }
@@ -4607,6 +4626,14 @@ native {
         composing: CBool
     }
 
+    fn rawInputPublishGrid(
+        view: ViewHandle,
+        metadata: ByteArray,
+        length: CSize,
+        clusters: ByteArray,
+        clusterLength: CSize
+    ) -> CInt symbol "rinzu_macos_input_publish_grid";
+
     fn rawInputPublish(view: ViewHandle, bytes: ByteArray, length: CSize) -> CInt symbol "rinzu_macos_input_publish";
 
     fn rawInputDetach(view: ViewHandle) -> CInt symbol "rinzu_macos_input_detach";
@@ -4619,6 +4646,7 @@ native {
 }
 
 export inputValues.InputSpan;
+export inputValues.InputGrid;
 export inputValues.InputSnapshot;
 export inputValues.InputPacket;
 export inputValues.decodeInputPacket;

@@ -205,7 +205,7 @@ enum {
 @interface RZMacNativeView : NSView <NSTextInputClient>
 @property(nonatomic, weak) RZMacView *control;
 @property(nonatomic, strong) NSDictionary *inputSnapshot;
-@property(nonatomic, strong) NSData *inputData;
+@property(nonatomic, strong) NSData *inputData, *inputGridData;
 @property(nonatomic, strong) NSTextInputContext *ownedInputContext;
 @property(nonatomic, strong) NSString *inputMarked, *inputCommand;
 @property(nonatomic, strong) NSEvent *inputKey;
@@ -704,6 +704,7 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
   self.inputSnapshot = nil;
   self.inputPending = NO;
   self.inputData = nil;
+  self.inputGridData = nil;
   self.inputMarked = nil;
   self.inputKey = nil;
   self.inputCommand = nil;
@@ -7464,7 +7465,65 @@ static BOOL input_snapshot_valid(NSDictionary *value) {
       return NO;
   return YES;
 }
-int32_t rinzu_macos_input_publish(void *raw, const uint8_t *bytes, size_t length) {
+static BOOL input_grid_edges(NSArray *edges, double scale) {
+  int64_t previous = -8000000;
+  for (id edge in edges) {
+    if (!input_integer(edge, previous, 8000000) || fabs([edge longLongValue] / scale) > 1000000.0)
+      return NO;
+    previous = [edge longLongValue];
+  }
+  return YES;
+}
+
+static NSArray *input_grid_spans(NSDictionary *value, NSData *data) {
+  NSArray *xs = value[@"xEdges"], *ys = value[@"yEdges"], *sizes = value[@"lineSizes"];
+  id scaleNumber = value[@"scale"];
+  if (![xs isKindOfClass:NSArray.class] || xs.count < 2 || xs.count > 32769 ||
+      ![ys isKindOfClass:NSArray.class] || ![sizes isKindOfClass:NSArray.class] ||
+      sizes.count == 0 || sizes.count > 32768 || ys.count != sizes.count + 1 ||
+      !input_real(scaleNumber) ||
+      CFGetTypeID((__bridge CFTypeRef)scaleNumber) == CFBooleanGetTypeID() ||
+      [value[@"spans"] count] != 0)
+    return nil;
+  double scale = [scaleNumber doubleValue];
+  if (!(scale > 0.0 && scale <= 8.0) || !input_grid_edges(xs, scale) ||
+      !input_grid_edges(ys, scale))
+    return nil;
+
+  NSString *text = value[@"text"];
+  NSMutableArray *spans = [NSMutableArray arrayWithCapacity:data.length / 2];
+  const uint8_t *pairs = data.bytes;
+  NSUInteger position = 0, start = 0;
+  for (NSUInteger line = 0; line < sizes.count; ++line) {
+    if (!input_integer(sizes[line], 0, data.length - position))
+      return nil;
+    NSUInteger size = [sizes[line] unsignedIntegerValue];
+    if (size % 2 != 0)
+      return nil;
+    NSUInteger end = position + size, column = 0;
+    int64_t y = [ys[line] longLongValue];
+    double height = ([ys[line + 1] longLongValue] - y) / scale;
+    if (height > 1000000.0)
+      return nil;
+    NSNumber *top = @(y / scale), *spanHeight = @(height), *row = @(line);
+    for (; position < end; position += 2) {
+      NSUInteger units = pairs[position], next = column + pairs[position + 1];
+      if (!units || next >= xs.count || !input_range(text, NSMakeRange(start, units)))
+        return nil;
+      int64_t x = [xs[column] longLongValue];
+      double width = ([xs[next] longLongValue] - x) / scale;
+      if (width > 1000000.0)
+        return nil;
+      [spans addObject:@[ @(start), @(units), @(x / scale), top, @(width), spanHeight, row ]];
+      start += units;
+      column = next;
+    }
+  }
+  return position == data.length && start == text.length ? spans : nil;
+}
+
+static int32_t input_publish(void *raw, const uint8_t *bytes, size_t length,
+                             const uint8_t *clusters, size_t cluster_length, BOOL grid) {
   @autoreleasepool {
     @try {
       RZMacView *control = (RZMacView *)lookup(raw, RZ_VIEW);
@@ -7474,7 +7533,11 @@ int32_t rinzu_macos_input_publish(void *raw, const uint8_t *bytes, size_t length
         return fail(RZ_ARGUMENT, @"text input requires a live custom view");
       if (!bytes || !length || length > RZ_EVENT_BYTES_LIMIT)
         return fail(RZ_ARGUMENT, @"invalid input snapshot size");
+      if (grid &&
+          (cluster_length > 65536 || cluster_length % 2 != 0 || (cluster_length && !clusters)))
+        return fail(RZ_ARGUMENT, @"invalid input grid size");
       NSData *data = [NSData dataWithBytes:bytes length:length];
+      NSData *gridData = grid ? [NSData dataWithBytes:clusters length:cluster_length] : nil;
       NSDictionary *value = [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL];
       if (!input_snapshot_valid(value))
         return fail(RZ_ARGUMENT, @"invalid text/geometry snapshot");
@@ -7487,9 +7550,18 @@ int32_t rinzu_macos_input_publish(void *raw, const uint8_t *bytes, size_t length
                                   ack < view.inputAcknowledged)))
         return fail(RZ_ARGUMENT, @"stale text-input snapshot");
       if (view.inputSnapshot && revision == [view.inputSnapshot[@"revision"] longLongValue])
-        return [data isEqualToData:view.inputData]
+        return [data isEqualToData:view.inputData] && (gridData == view.inputGridData ||
+                                                       [gridData isEqualToData:view.inputGridData])
                    ? 0
                    : fail(RZ_ARGUMENT, @"conflicting text-input revision");
+      if (grid) {
+        NSArray *spans = input_grid_spans(value, gridData);
+        if (!spans)
+          return fail(RZ_ARGUMENT, @"invalid input grid geometry");
+        NSMutableDictionary *projection = [value mutableCopy];
+        projection[@"spans"] = spans;
+        value = projection;
+      }
       NSDictionary *previous = view.inputSnapshot;
       // Deactivate native focus under the previous producer epoch.
       [view syncInputContext];
@@ -7504,6 +7576,7 @@ int32_t rinzu_macos_input_publish(void *raw, const uint8_t *bytes, size_t length
       }
       view.inputSnapshot = [value copy];
       view.inputData = [data copy];
+      view.inputGridData = gridData;
       view.inputEpoch = epoch;
       view.inputAcknowledged = ack;
       [view syncInputContext];
@@ -7530,7 +7603,8 @@ int32_t rinzu_macos_input_publish(void *raw, const uint8_t *bytes, size_t length
         }
       }
       view.window.acceptsMouseMovedEvents = YES;
-      [view updateTrackingAreas];
+      if (!view.inputTracking)
+        [view updateTrackingAreas];
       if (![previous[@"text"] isEqual:value[@"text"]])
         NSAccessibilityPostNotification(view, NSAccessibilityValueChangedNotification);
       if (![previous[@"selectedStart"] isEqual:value[@"selectedStart"]] ||
@@ -7545,6 +7619,13 @@ int32_t rinzu_macos_input_publish(void *raw, const uint8_t *bytes, size_t length
       return caught(exception);
     }
   }
+}
+int32_t rinzu_macos_input_publish(void *raw, const uint8_t *snapshot, size_t length) {
+  return input_publish(raw, snapshot, length, NULL, 0, NO);
+}
+int32_t rinzu_macos_input_publish_grid(void *raw, const uint8_t *snapshot, size_t length,
+                                       const uint8_t *clusters, size_t cluster_length) {
+  return input_publish(raw, snapshot, length, clusters, cluster_length, YES);
 }
 int32_t rinzu_macos_input_detach(void *raw) {
   @autoreleasepool {

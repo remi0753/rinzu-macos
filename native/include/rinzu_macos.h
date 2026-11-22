@@ -78,6 +78,8 @@ struct MacInputState {
   _Bool enabled, focused, composing;
 };
 int32_t rinzu_macos_input_publish(void *view, const uint8_t *snapshot, size_t length);
+int32_t rinzu_macos_input_publish_grid(void *view, const uint8_t *snapshot, size_t length,
+                                       const uint8_t *clusters, size_t cluster_length);
 int32_t rinzu_macos_input_detach(void *view);
 int32_t rinzu_macos_input_discard(void *view);
 int32_t rinzu_macos_input_state(void *view, struct MacInputState *output);
