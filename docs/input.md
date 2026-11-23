@@ -54,6 +54,10 @@ snapshots and nonfinite geometry fail explicitly. An oversized native input
 proposal becomes an overflow packet. Applications define recovery and must
 not replay stale or duplicate proposals.
 
+When Session event overflow recovery is enabled, eventOverflow also reports loss
+from the shared queue. Treat it as a resynchronization boundary. Take a fresh
+application snapshot and advance the input epoch if pending edits were lost.
+
 `tests/input.m` exercises actual AppKit protocol queries, native proposals,
 UTF-16 clusters, dead-key-plus-command dispatch, screen-coordinate movement,
 epoch revocation and resource cleanup. The source core fixture exercises the

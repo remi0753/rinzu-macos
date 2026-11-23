@@ -87,11 +87,27 @@ async fn results(app: rinzu.macos.UiApplication) {
     require(await window.alert("Unsaved", "Choose discard", "Save", "Discard", "Cancel") == 2, "second button");
     let third = rinzu.macos.testSheetReply(window, 3, "");
     require(await window.alert("Unsaved", "Choose cancel", "Save", "Discard", "Cancel") == 3, "third button");
+    let alertOptions = rinzu.macos.AlertOptions.create("Confirm", "Choose a role", ["Cancel", "OK"]);
+    alertOptions.cancelButton = 1;
+    alertOptions.defaultButton = 2;
+    let configured = rinzu.macos.testSheetReply(window, 2, "");
+    require(await window.alertWithOptions(alertOptions) == 2, "configured alert keeps button numbering");
     let cancelled = rinzu.macos.testSheetReply(window, 0, "");
     switch await window.openFile("Open cancel", "") {
         case Option.None: {}
         case Option.Some(unexpected): {
             rinzu.core.panic("cancel returned path");
+        }
+    }
+    let panelOptions = rinzu.macos.OpenPanelOptions.create("Select files or folders", "");
+    panelOptions.canChooseDirectories = true;
+    panelOptions.allowsMultipleSelection = true;
+    panelOptions.contentTypes = ["public.plain-text"];
+    let cancelledMultiple = rinzu.macos.testSheetReply(window, 0, "");
+    switch await window.openFiles(panelOptions) {
+        case Option.None: {}
+        case Option.Some(unexpectedPaths): {
+            rinzu.core.panic("cancelled multiple selection returned paths");
         }
     }
     let chosen = rinzu.macos.testSheetReply(window, 1, path);
@@ -116,7 +132,9 @@ async fn results(app: rinzu.macos.UiApplication) {
         }
         case Option.None: {}
     }
-    switch await window.saveFile("Save file", directory, name) {
+    let saveOptions = rinzu.macos.SavePanelOptions.create("Save file", directory, name);
+    saveOptions.canCreateDirectories = false;
+    switch await window.saveFileWithOptions(saveOptions) {
         case Option.Some(saved): {
             require(saved == savePath, f"save destination: {saved} != {savePath}");
         }

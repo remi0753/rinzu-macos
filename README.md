@@ -33,6 +33,10 @@ archive does not include this API.
 
 ## Controls and events
 
+The [configuration guide](docs/guide.md#configure-application-controls)
+covers window and activation policies, file and alert options, native text and
+data settings, Canvas lifecycle, and recoverable event overflow.
+
 The SDK includes labels, buttons, text fields/views, menus, checkboxes, layout helpers, accessibility, tooltips, themes, focus/scroll state, and owned window events. `windowOccluded` in `Window.state()` and
 `eventWindowState.flags` reports AppKit occlusion separately from window visibility.
 Occlusion-only transitions emit a state event, so applications can stop their own

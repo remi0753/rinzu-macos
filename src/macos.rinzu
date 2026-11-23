@@ -8,6 +8,7 @@ import "./image_files.rinzu" as imageFiles;
 import rinzu.shutdown;
 import rinzu.bytes as bytesApi;
 import rinzu.error as err;
+import rinzu.json as jsonApi;
 import rinzu.native as bridge;
 import rinzu.string as textApi;
 
@@ -721,6 +722,11 @@ class Session {
         return runEvents(self);
     }
 
+    /// On overflow, keep intake active and deliver eventOverflow. Configure before starting the run loop.
+    fn setEventOverflowRecovery(self: Session, enabled: Bool) -> Int {
+        return checked(Int(rawEventOverflowRecovery(self.handle, enabled)), "macos.event.overflowRecovery");
+    }
+
     async fn nextEvent(self: Session) -> UiEvent {
         return await nextEvent(self);
     }
@@ -732,6 +738,25 @@ class Session {
                 checked(rawWindowCreate(self.handle, bytes, bytesApi.byteLength(bytes), width, height), "macos.window")
             )
         );
+    }
+
+    fn windowWithOptions(self: Session, title: String, options: WindowOptions) -> Window {
+        let window = configuredWindow(self, 0, title, options);
+        try {
+            if options.visible {
+                let shown = window.show();
+            }
+            return window;
+        }
+        catch errors {
+            let destroyed = window.destroy();
+            rethrow errors;
+        }
+    }
+
+    /// Set the process activation policy used for this session's windows.
+    fn setActivationPolicy(self: Session, policy: Int) -> Int {
+        return checked(Int(rawActivationPolicy(self.handle, policy)), "macos.application.activationPolicy");
     }
 
     fn view(self: Session, rect: Rect) -> View {
@@ -772,6 +797,10 @@ class Session {
 
     fn textView(self: Session, title: String, frame: Rect) -> TextView {
         return TextView(view: newWidget(self, 5, title, frame, 0));
+    }
+
+    fn textViewWithOptions(self: Session, title: String, frame: Rect, options: TextViewOptions) -> TextView {
+        return configuredTextView(self.textView(title, frame), options);
     }
 
     fn scrollView(self: Session, frame: Rect) -> ScrollView {
@@ -1119,6 +1148,126 @@ class View {
     }
 }
 
+let windowStyleBorderless = 0;
+
+let windowStyleTitled = 1;
+
+let windowStyleClosable = 2;
+
+let windowStyleMiniaturizable = 4;
+
+let windowStyleResizable = 8;
+
+let activationKeepCurrent = -1;
+
+let activationRegular = 0;
+
+let activationAccessory = 1;
+
+/// The frame is a content rectangle in AppKit screen points.
+class WindowOptions {
+    frame: Rect,
+    style: Int,
+    centered: Bool,
+    visible: Bool,
+    activateOnShow: Bool
+
+    fn create(width: Float, height: Float) -> WindowOptions {
+        return WindowOptions(
+            frame: Rect(x: 0.0, y: 0.0, width: width, height: height),
+            style: windowStyleTitled + windowStyleClosable + windowStyleMiniaturizable + windowStyleResizable,
+            centered: true,
+            visible: true,
+            activateOnShow: true
+        );
+    }
+}
+
+fn configuredWindow(session: Session, token: Int, title: String, options: WindowOptions) -> Window {
+    let bytes = textApi.encodeUtf8(title);
+    let identity = checked(
+        rawWindowConfigured(
+            session.handle,
+            token,
+            bytes,
+            bytesApi.byteLength(bytes),
+            options.frame,
+            options.style,
+            options.centered,
+            options.activateOnShow
+        ),
+        "macos.window.configure"
+    );
+    return Window(handle: rawWindow(identity));
+}
+
+class OpenPanelOptions {
+    title: String,
+    directory: String,
+    contentTypes: List<String>,
+    canChooseFiles: Bool,
+    canChooseDirectories: Bool,
+    allowsMultipleSelection: Bool,
+    canCreateDirectories: Bool
+
+    fn create(title: String, directory: String) -> OpenPanelOptions {
+        return OpenPanelOptions(
+            title: title,
+            directory: directory,
+            contentTypes: [],
+            canChooseFiles: true,
+            canChooseDirectories: false,
+            allowsMultipleSelection: false,
+            canCreateDirectories: false
+        );
+    }
+}
+
+class SavePanelOptions {
+    title: String,
+    directory: String,
+    name: String,
+    contentTypes: List<String>,
+    canCreateDirectories: Bool
+
+    fn create(title: String, directory: String, name: String) -> SavePanelOptions {
+        return SavePanelOptions(
+            title: title,
+            directory: directory,
+            name: name,
+            contentTypes: [],
+            canCreateDirectories: true
+        );
+    }
+}
+
+let alertWarning = 0;
+
+let alertInformational = 1;
+
+let alertCritical = 2;
+
+/// Button roles are one-based. Use zero to omit a role.
+class AlertOptions {
+    title: String,
+    message: String,
+    buttons: List<String>,
+    style: Int,
+    defaultButton: Int,
+    cancelButton: Int
+
+    fn create(title: String, message: String, buttons: List<String>) -> AlertOptions {
+        return AlertOptions(
+            title: title,
+            message: message,
+            buttons: buttons,
+            style: alertWarning,
+            defaultButton: 1,
+            cancelButton: 0
+        );
+    }
+}
+
 class Window {
     const handle: WindowHandle
 
@@ -1172,6 +1321,47 @@ class Window {
         return filePanel(self, true, title, directory, name);
     }
 
+    /// Choose files, directories or both. A successful result owns up to 1024 absolute paths.
+    async fn openFiles(self: Window, options: OpenPanelOptions) -> Option<List<String>> {
+        var flags = 0;
+        if options.canChooseFiles {
+            flags = flags + 1;
+        }
+        if options.canChooseDirectories {
+            flags = flags + 2;
+        }
+        if options.allowsMultipleSelection {
+            flags = flags + 4;
+        }
+        if options.canCreateDirectories {
+            flags = flags + 8;
+        }
+        switch await configuredPanel(self, false, options.title, options.directory, "", options.contentTypes, flags) {
+            case Option.None: {
+                return Option<List<String>>.None();
+            }
+            case Option.Some(encoded): {
+                let paths = jsonApi.parseStringWithTyAndLimits<List<String>>(
+                    encoded,
+                    {
+                        maxInputBytes = 1048576,
+                        maxDepth = 4,
+                        maxNodes = 2048
+                    }
+                );
+                return Option<List<String>>.Some(value: paths);
+            }
+        }
+    }
+
+    fn saveFileWithOptions(self: Window, options: SavePanelOptions) -> Future<Option<String>> {
+        var flags = 0;
+        if options.canCreateDirectories {
+            flags = 8;
+        }
+        return configuredPanel(self, true, options.title, options.directory, options.name, options.contentTypes, flags);
+    }
+
     /// One to three buttons, numbered 1..3. Empty optional titles omit buttons. Dismissal returns 0.
     async fn alert(self: Window, title: String, message: String, first: String, second: String, third: String) -> Int {
         await sheetReady(self);
@@ -1205,15 +1395,41 @@ class Window {
             return checked(Int(rawSheetResult(self.handle, token)), "macos.alert.result");
         }
         finally {
-            if rawSheetOwned(self.handle, token) {
-                try {
-                    let dismissed = checked(Int(rawSheetCancel(self.handle, token)), "macos.sheet.cancel");
-                }
-                finally {
-                    await bridge.completed(rawSheetCompletion(self.handle, token));
-                    let finished = checked(Int(rawSheetFinish(self.handle, token)), "macos.sheet.finish");
-                }
-            }
+            await settleSheet(self, token);
+        }
+    }
+
+    /// Present up to sixteen buttons with explicit Return and Escape roles.
+    async fn alertWithOptions(self: Window, options: AlertOptions) -> Int {
+        await sheetReady(self);
+        let token = checked(rawWaitToken(), "macos.sheet.token");
+        try {
+            let heading = textApi.encodeUtf8(options.title);
+            let message = textApi.encodeUtf8(options.message);
+            let buttons = encodeStrings(options.buttons);
+            let admitted = checked(
+                Int(
+                    rawConfiguredAlert(
+                        self.handle,
+                        token,
+                        heading,
+                        bytesApi.byteLength(heading),
+                        message,
+                        bytesApi.byteLength(message),
+                        buttons,
+                        bytesApi.byteLength(buttons),
+                        options.style,
+                        options.defaultButton,
+                        options.cancelButton
+                    )
+                ),
+                "macos.alert.begin"
+            );
+            await bridge.completed(rawSheetCompletion(self.handle, token));
+            return checked(Int(rawSheetResult(self.handle, token)), "macos.alert.result");
+        }
+        finally {
+            await settleSheet(self, token);
         }
     }
 
@@ -1582,6 +1798,9 @@ native {
 
     fn rawPrepareEvents(session: SessionHandle) -> CInt symbol "rinzu_macos_prepare_events";
 
+    fn rawEventOverflowRecovery(session: SessionHandle, enabled: CBool)
+        -> CInt symbol "rinzu_macos_event_overflow_recovery";
+
     fn rawRequestStop(session: SessionHandle) -> CInt symbol "rinzu_macos_request_stop";
 
     fn rawHasRun(session: SessionHandle) -> CBool symbol "rinzu_macos_has_run";
@@ -1616,8 +1835,18 @@ native {
 
     fn rawEventSequence(session: SessionHandle) -> Int symbol "rinzu_macos_event_sequence";
 
-    fn rawWindowScoped(session: SessionHandle, token: Int, title: ByteArray, length: CSize, width: Float, height: Float)
-        -> Int symbol "rinzu_macos_window_scoped";
+    fn rawWindowConfigured(
+        session: SessionHandle,
+        token: Int,
+        title: ByteArray,
+        length: CSize,
+        frame: Rect,
+        style: Int,
+        centered: CBool,
+        activateOnShow: CBool
+    ) -> Int symbol "rinzu_macos_window_configured";
+
+    fn rawActivationPolicy(session: SessionHandle, policy: Int) -> CInt symbol "rinzu_macos_activation_policy";
 
     fn rawWindowScopeClose(session: SessionHandle, token: Int) -> CInt symbol "rinzu_macos_window_scope_close";
 
@@ -1662,6 +1891,21 @@ native {
         nameLength: CSize
     ) -> CInt symbol "rinzu_macos_panel_begin";
 
+    fn rawConfiguredPanel(
+        window: WindowHandle,
+        token: Int,
+        save: CBool,
+        title: ByteArray,
+        titleLength: CSize,
+        directory: ByteArray,
+        directoryLength: CSize,
+        name: ByteArray,
+        nameLength: CSize,
+        types: ByteArray,
+        typesLength: CSize,
+        flags: Int
+    ) -> CInt symbol "rinzu_macos_panel_configured";
+
     fn rawAlertBegin(
         window: WindowHandle,
         token: Int,
@@ -1676,6 +1920,20 @@ native {
         third: ByteArray,
         thirdLength: CSize
     ) -> CInt symbol "rinzu_macos_alert_begin";
+
+    fn rawConfiguredAlert(
+        window: WindowHandle,
+        token: Int,
+        title: ByteArray,
+        titleLength: CSize,
+        message: ByteArray,
+        messageLength: CSize,
+        buttons: ByteArray,
+        buttonsLength: CSize,
+        style: Int,
+        defaultButton: Int,
+        cancelButton: Int
+    ) -> CInt symbol "rinzu_macos_alert_configured";
 
     fn rawSheetOwned(window: WindowHandle, token: Int) -> CBool symbol "rinzu_macos_sheet_owned";
 
@@ -1694,6 +1952,9 @@ native {
     fn rawSheetStop(window: WindowHandle) -> CInt symbol "rinzu_macos_sheet_stop";
 
     fn rawTextComposing(view: ViewHandle) -> CInt symbol "rinzu_macos_text_composing";
+
+    fn rawTextViewOptions(view: ViewHandle, font: ByteArray, length: CSize, size: Float, flags: Int)
+        -> CInt symbol "rinzu_macos_text_view_options";
 
     fn rawScrollTo(scroll: ViewHandle, x: Float, y: Float) -> CInt symbol "rinzu_macos_scroll_to";
 
@@ -2253,6 +2514,12 @@ async fn closeOwnerSessions() -> Int {
 
 export Session;
 export Window;
+export OpenPanelOptions;
+export SavePanelOptions;
+export AlertOptions;
+export alertWarning;
+export alertInformational;
+export alertCritical;
 export View;
 export Device;
 export Buffer;
@@ -2344,23 +2611,31 @@ class UiScope {
     const control: UiControl
 
     fn start(self: UiScope, work: fn (UiJob) -> Future<Unit>) -> Int {
-        {
-            if self.control.closed || self.control.stopping {
-                throw err.create(-7803, "UI scope is stopping");
-            }
-            self.tasks = rinzu.list.filter(
-                self.tasks,
-                fn (job: UiTask) -> Bool {
-                    return !job.done;
-                }
-            );
-            if rinzu.list.length(self.tasks) >= 256 {
-                throw err.create(-7803, "UI scope job limit");
-            }
-            let job = UiTask(pending: Option<Future<Unit>>.None(), done: false, started: false);
-            self.tasks = rinzu.list.append(self.tasks, job);
-            job.pending = Option<Future<Unit>>.Some(value: uiRunJob(self, job, work));
+        return self.admitJob(work, Option<Canvas2D>.None());
+    }
+
+    private fn admitJob(self: UiScope, work: fn (UiJob) -> Future<Unit>, canvas: Option<Canvas2D>) -> Int {
+        if self.control.closed || self.control.stopping {
+            throw err.create(-7803, "UI scope is stopping");
         }
+        self.tasks = rinzu.list.filter(
+            self.tasks,
+            fn (job: UiTask) -> Bool {
+                return !job.done;
+            }
+        );
+        if rinzu.list.length(self.tasks) >= 256 {
+            throw err.create(-7803, "UI scope job limit");
+        }
+        let job = UiTask(pending: Option<Future<Unit>>.None(), done: false, started: false);
+        self.tasks = rinzu.list.append(self.tasks, job);
+        switch canvas {
+            case Option.None: {}
+            case Option.Some(owner): {
+                owner.task = Option<UiTask>.Some(value: job);
+            }
+        }
+        job.pending = Option<Future<Unit>>.Some(value: uiRunJob(self, job, work));
         return 0;
     }
 
@@ -2428,15 +2703,34 @@ class UiScope {
     }
 
     fn listView(self: UiScope, frame: Rect, action: Int) -> DataView {
-        return createDataView(self, 1, [DataColumn(title: "", width: 160.0, sortable: false)], frame, action);
+        return self.listViewWithOptions(frame, action, DataViewOptions.create());
     }
 
     fn tableView(self: UiScope, columns: List<DataColumn>, frame: Rect, action: Int) -> DataView {
-        return createDataView(self, 2, columns, frame, action);
+        return self.tableViewWithOptions(columns, frame, action, DataViewOptions.create());
     }
 
     fn treeView(self: UiScope, columns: List<DataColumn>, frame: Rect, action: Int) -> DataView {
-        return createDataView(self, 3, columns, frame, action);
+        return self.treeViewWithOptions(columns, frame, action, DataViewOptions.create());
+    }
+
+    fn listViewWithOptions(self: UiScope, frame: Rect, action: Int, options: DataViewOptions) -> DataView {
+        return createDataView(self, 1, [DataColumn(title: "", width: 160.0, sortable: false)], frame, action, options);
+    }
+
+    fn tableViewWithOptions(
+        self: UiScope,
+        columns: List<DataColumn>,
+        frame: Rect,
+        action: Int,
+        options: DataViewOptions
+    ) -> DataView {
+        return createDataView(self, 2, columns, frame, action, options);
+    }
+
+    fn treeViewWithOptions(self: UiScope, columns: List<DataColumn>, frame: Rect, action: Int, options: DataViewOptions)
+        -> DataView {
+        return createDataView(self, 3, columns, frame, action, options);
     }
 
     /// A scope-owned drawing job. Draw callbacks stay in Source, never in AppKit.
@@ -2449,12 +2743,22 @@ class UiScope {
         clear: Color,
         draw: fn (Frame2D) -> Future<Unit>
     ) -> Canvas2D {
+        return self.canvas2DWithOptions(device, frame, CanvasOptions.create(capacity, fps, clear), draw);
+    }
+
+    fn canvas2DWithOptions(
+        self: UiScope,
+        device: Device,
+        frame: Rect,
+        options: CanvasOptions,
+        draw: fn (Frame2D) -> Future<Unit>
+    ) -> Canvas2D {
         if self.control.stopping || rinzu.list.length(self.canvases) >= 256 {
             throw err.create(-7803, "macos.canvas.limitOrStopping");
         }
         var result: Option<Canvas2D> = Option<Canvas2D>.None();
         // Native-only acquisition is masked. The scope owns the canvas before
-        // the ordinary job-admission call, including an unreceived return.
+        // job admission, including an unreceived return.
         try {}
         finally {
             let surface = self.surface(device, frame);
@@ -2462,15 +2766,20 @@ class UiScope {
             var batch: Option<Batch2D> = Option<Batch2D>.None();
             var retained = false;
             try {
-                let acquiredClock = surface.frameClock(fps);
+                if options.pixelFormat != pixelBGRA8 {
+                    let formatted = surface.setPixelFormat(options.pixelFormat);
+                }
+                let acquiredClock = canvasClock(surface, options);
                 clock = Option<FrameClock>.Some(value: acquiredClock);
-                let acquiredBatch = device.batch2D(capacity);
+                let acquiredBatch = device.batch2D(options.capacity);
                 batch = Option<Batch2D>.Some(value: acquiredBatch);
                 let canvas = Canvas2D(
                     view: surface,
+                    viewId: surface.identity(),
                     clock: acquiredClock,
                     batch: acquiredBatch,
-                    clear: clear,
+                    task: Option<UiTask>.None(),
+                    clear: options.clear,
                     frames: 0,
                     drawing: false,
                     stopped: false,
@@ -2511,15 +2820,17 @@ class UiScope {
         switch result {
             case Option.Some(created): {
                 try {
-                    let started = self.start(
+                    let started = self.admitJob(
                         async fn (job: UiJob) {
                             await canvasLoop(job, created, draw);
-                        }
+                        },
+                        Option<Canvas2D>.Some(value: created)
                     );
                 }
-                catch [problem: Error, ...rest] {
+                catch errors {
                     uiDisposeCanvas(created);
-                    rethrow [problem];
+                    self.removeCanvas(created.viewId);
+                    rethrow errors;
                 }
                 return created;
             }
@@ -2527,6 +2838,48 @@ class UiScope {
                 throw err.create(-7804, "macos.canvas.creation");
             }
         }
+    }
+
+    private fn removeCanvas(self: UiScope, viewId: Int) {
+        self.canvases = rinzu.list.filter(
+            self.canvases,
+            fn (candidate: Canvas2D) -> Bool {
+                return candidate.viewId != viewId;
+            }
+        );
+    }
+
+    /// Stop and settle an owned canvas, then release its drawable and drawing resources.
+    /// Call from outside the canvas's draw callback. The draw callback may call Canvas2D.stop.
+    async fn closeCanvas(self: UiScope, canvas: Canvas2D) -> Int {
+        if canvas.disposed {
+            return 0;
+        }
+        if !rinzu.list.any(
+            self.canvases,
+            fn (candidate: Canvas2D) -> Bool {
+                return candidate.viewId == canvas.viewId;
+            }
+        ) {
+            throw err.create(-7804, "macos.canvas.ownership");
+        }
+        try {}
+        finally {
+            canvas.stop();
+            try {
+                switch canvas.task {
+                    case Option.None: {}
+                    case Option.Some(task): {
+                        await uiJoinJobs([task], 0);
+                    }
+                }
+            }
+            finally {
+                uiDisposeCanvas(canvas);
+                self.removeCanvas(canvas.viewId);
+            }
+        }
+        return 0;
     }
 
     async fn dispatchActions(self: UiScope, actions: UiActions) {
@@ -2555,6 +2908,10 @@ class UiScope {
 
     fn textView(self: UiScope, title: String, frame: Rect) -> TextView {
         return TextView(view: scopedWidget(self, 5, title, frame, 0));
+    }
+
+    fn textViewWithOptions(self: UiScope, title: String, frame: Rect, options: TextViewOptions) -> TextView {
+        return configuredTextView(self.textView(title, frame), options);
     }
 
     fn scrollView(self: UiScope, frame: Rect) -> ScrollView {
@@ -2694,19 +3051,18 @@ async fn closeWindowScope(session: Session, token: Int) -> Int {
 /// A Window scope within the running Application. The application has one event reader.
 async fn withWindow(session: Session, title: String, width: Float, height: Float, body: fn (UiScope) -> Future<Unit>)
     -> Int {
+    return await withWindowOptions(session, title, WindowOptions.create(width, height), body);
+}
+
+async fn withWindowOptions(session: Session, title: String, options: WindowOptions, body: fn (UiScope) -> Future<Unit>)
+    -> Int {
     let token = checked(rawWaitToken(), "macos.window.scopeToken");
     try {
-        let bytes = textApi.encodeUtf8(title);
-        let window = Window(
-            handle: rawWindow(
-                checked(
-                    rawWindowScoped(session.handle, token, bytes, bytesApi.byteLength(bytes), width, height),
-                    "macos.window.scope"
-                )
-            )
-        );
+        let window = configuredWindow(session, token, title, options);
         let scope = uiScope(session, window);
-        let shown = window.show();
+        if options.visible {
+            let shown = window.show();
+        }
         try {
             await body(scope);
         }
@@ -2771,31 +3127,48 @@ class UiApplication {
     const primary: UiScope
 }
 
-async fn uiApplication(
-    title: String,
-    width: Float,
-    height: Float,
-    body: fn (UiApplication) -> Future<Unit>,
-    signals: Bool
-) -> Int {
+class ApplicationOptions {
+    const window: WindowOptions,
+    activationPolicy: Int,
+    signals: Bool,
+    recoverEventOverflow: Bool
+
+    fn create(width: Float, height: Float) -> ApplicationOptions {
+        return ApplicationOptions(
+            window: WindowOptions.create(width, height),
+            activationPolicy: activationRegular,
+            signals: false,
+            recoverEventOverflow: false
+        );
+    }
+}
+
+/// Own an application session and apply its settings before running the body.
+async fn applicationWithOptions(title: String, options: ApplicationOptions, body: fn (UiApplication) -> Future<Unit>)
+    -> Int {
     let token = checked(rawWaitToken(), "macos.application.scopeToken");
+    var signalsOwned = false;
     try {
         let session = Session(handle: rawSession(checked(rawOpenScoped(token), "macos.open")));
+        if options.signals {
+            // Record ownership before cancellation can cross the native admission.
+            try {}
+            finally {
+                let enabled = rinzu.shutdown.enableSignals();
+                signalsOwned = true;
+            }
+        }
+        let activation = session.setActivationPolicy(options.activationPolicy);
+        let recovery = session.setEventOverflowRecovery(options.recoverEventOverflow);
         try {
-            let bytes = textApi.encodeUtf8(title);
-            let window = Window(
-                handle: rawWindow(
-                    checked(
-                        rawWindowScoped(session.handle, token, bytes, bytesApi.byteLength(bytes), width, height),
-                        "macos.application.window"
-                    )
-                )
-            );
+            let window = configuredWindow(session, token, title, options.window);
             let scope = uiScope(session, window);
-            let shown = window.show();
+            if options.window.visible {
+                let shown = window.show();
+            }
             let running = uiObserveOsLoop(scope);
             try {
-                if signals {
+                if signalsOwned {
                     let watcher = scope.start(uiSignals);
                 }
                 await body(UiApplication(session: session, primary: scope));
@@ -2820,15 +3193,22 @@ async fn uiApplication(
         }
     }
     finally {
-        // Recover native acquisition even if cancellation prevented its managed return.
-        let identity = rawSessionScopeId(token);
-        if identity > 0 {
-            let acquiredSession = Session(handle: rawSession(identity));
-            try {
-                await stopAndDrain(acquiredSession);
+        try {
+            // Recover native acquisition even if cancellation prevented its managed return.
+            let identity = rawSessionScopeId(token);
+            if identity > 0 {
+                let acquiredSession = Session(handle: rawSession(identity));
+                try {
+                    await stopAndDrain(acquiredSession);
+                }
+                finally {
+                    let sessionClosed = await acquiredSession.close();
+                }
             }
-            finally {
-                let sessionClosed = await acquiredSession.close();
+        }
+        finally {
+            if signalsOwned {
+                let disabled = rinzu.shutdown.disableSignals();
             }
         }
     }
@@ -2837,26 +3217,34 @@ async fn uiApplication(
 
 /// Own the OS loop, Window, jobs and GPU resources; body runs entirely in Rinzu.
 async fn application(title: String, width: Float, height: Float, body: fn (UiApplication) -> Future<Unit>) -> Int {
-    return await uiApplication(title, width, height, body, false);
+    return await applicationWithOptions(title, ApplicationOptions.create(width, height), body);
 }
 
 /// Opt into cooperative process signals, including rinzu dev cooperative restart.
 async fn applicationWithSignals(title: String, width: Float, height: Float, body: fn (UiApplication) -> Future<Unit>)
     -> Int {
-    try {
-        let enabled = rinzu.shutdown.enableSignals();
-        return await uiApplication(title, width, height, body, true);
-    }
-    finally {
-        let disabled = rinzu.shutdown.disableSignals();
-    }
+    let options = ApplicationOptions.create(width, height);
+    options.signals = true;
+    return await applicationWithOptions(title, options, body);
 }
 
 export UiTask;
 export UiScope;
+export WindowOptions;
+export ApplicationOptions;
+export windowStyleBorderless;
+export windowStyleTitled;
+export windowStyleClosable;
+export windowStyleMiniaturizable;
+export windowStyleResizable;
+export activationKeepCurrent;
+export activationRegular;
+export activationAccessory;
 export withWindow;
+export withWindowOptions;
 export application;
 export applicationWithSignals;
+export applicationWithOptions;
 export eventTaskFinished;
 
 let eventInputLimit = 19;
@@ -3050,6 +3438,39 @@ class TextField {
 
 export TextField;
 
+class TextViewOptions {
+    fontName: String,
+    fontSize: Float,
+    monospacedSystemFont: Bool,
+    allowsUndo: Bool,
+    automaticQuoteSubstitution: Bool,
+    automaticDashSubstitution: Bool,
+    automaticTextReplacement: Bool
+
+    fn create() -> TextViewOptions {
+        return TextViewOptions(
+            fontName: "",
+            fontSize: 13.0,
+            monospacedSystemFont: true,
+            allowsUndo: false,
+            automaticQuoteSubstitution: false,
+            automaticDashSubstitution: false,
+            automaticTextReplacement: false
+        );
+    }
+}
+
+fn configuredTextView(input: TextView, options: TextViewOptions) -> TextView {
+    try {
+        let applied = input.configure(options);
+        return input;
+    }
+    catch errors {
+        let destroyed = input.destroy();
+        rethrow errors;
+    }
+}
+
 class TextView {
     const view: View
 
@@ -3063,6 +3484,31 @@ class TextView {
 
     fn setEnabled(self: TextView, enabled: Bool) -> Int {
         return self.view.setEnabled(enabled);
+    }
+
+    /// An empty font name selects a system font.
+    fn configure(self: TextView, options: TextViewOptions) -> Int {
+        let font = textApi.encodeUtf8(options.fontName);
+        var flags = 0;
+        if options.monospacedSystemFont {
+            flags = flags + 1;
+        }
+        if options.allowsUndo {
+            flags = flags + 2;
+        }
+        if options.automaticQuoteSubstitution {
+            flags = flags + 4;
+        }
+        if options.automaticDashSubstitution {
+            flags = flags + 8;
+        }
+        if options.automaticTextReplacement {
+            flags = flags + 16;
+        }
+        return checked(
+            Int(rawTextViewOptions(self.view.handle, font, bytesApi.byteLength(font), options.fontSize, flags)),
+            "macos.textView.configure"
+        );
     }
 
     fn text(self: TextView) -> String {
@@ -3087,6 +3533,7 @@ class TextView {
 }
 
 export TextView;
+export TextViewOptions;
 
 class ScrollView {
     const view: View
@@ -3434,6 +3881,40 @@ async fn sheetReady(window: Window) {
     }
 }
 
+async fn settleSheet(window: Window, token: Int) {
+    if rawSheetOwned(window.handle, token) {
+        try {
+            let dismissed = checked(Int(rawSheetCancel(window.handle, token)), "macos.sheet.cancel");
+        }
+        finally {
+            await bridge.completed(rawSheetCompletion(window.handle, token));
+            let finished = checked(Int(rawSheetFinish(window.handle, token)), "macos.sheet.finish");
+        }
+    }
+}
+
+fn encodeStrings(values: List<String>) -> ByteArray {
+    return jsonApi.encode(
+        jsonApi.array(
+            rinzu.list.map(
+                values,
+                fn (value: String) -> jsonApi.Value {
+                    return jsonApi.text(value);
+                }
+            )
+        )
+    );
+}
+
+async fn readPanelResult(window: Window, token: Int) -> Option<String> {
+    await bridge.completed(rawSheetCompletion(window.handle, token));
+    let result = checked(Int(rawSheetResult(window.handle, token)), "macos.panel.result");
+    if result == 1 {
+        return Option<String>.Some(value: textApi.decodeUtf8(rawSheetBytes(window.handle, token)));
+    }
+    return Option<String>.None();
+}
+
 async fn filePanel(window: Window, save: Bool, title: String, directory: String, name: String) -> Option<String> {
     await sheetReady(window);
     let token = checked(rawWaitToken(), "macos.sheet.token");
@@ -3461,23 +3942,52 @@ async fn filePanel(window: Window, save: Bool, title: String, directory: String,
             ),
             "macos.panel.begin"
         );
-        await bridge.completed(rawSheetCompletion(window.handle, token));
-        let result = checked(Int(rawSheetResult(window.handle, token)), "macos.panel.result");
-        if result == 1 {
-            return Option<String>.Some(value: textApi.decodeUtf8(rawSheetBytes(window.handle, token)));
-        }
-        return Option<String>.None();
+        return await readPanelResult(window, token);
     }
     finally {
-        if rawSheetOwned(window.handle, token) {
-            try {
-                let dismissed = checked(Int(rawSheetCancel(window.handle, token)), "macos.sheet.cancel");
-            }
-            finally {
-                await bridge.completed(rawSheetCompletion(window.handle, token));
-                let finished = checked(Int(rawSheetFinish(window.handle, token)), "macos.sheet.finish");
-            }
-        }
+        await settleSheet(window, token);
+    }
+}
+
+async fn configuredPanel(
+    window: Window,
+    save: Bool,
+    title: String,
+    directory: String,
+    name: String,
+    contentTypes: List<String>,
+    flags: Int
+) -> Option<String> {
+    await sheetReady(window);
+    let token = checked(rawWaitToken(), "macos.sheet.token");
+    try {
+        let heading = textApi.encodeUtf8(title);
+        let folder = textApi.encodeUtf8(directory);
+        let filename = textApi.encodeUtf8(name);
+        let types = encodeStrings(contentTypes);
+        let admitted = checked(
+            Int(
+                rawConfiguredPanel(
+                    window.handle,
+                    token,
+                    save,
+                    heading,
+                    bytesApi.byteLength(heading),
+                    folder,
+                    bytesApi.byteLength(folder),
+                    filename,
+                    bytesApi.byteLength(filename),
+                    types,
+                    bytesApi.byteLength(types),
+                    flags
+                )
+            ),
+            "macos.panel.begin"
+        );
+        return await readPanelResult(window, token);
+    }
+    finally {
+        await settleSheet(window, token);
     }
 }
 
@@ -4010,10 +4520,32 @@ class Frame2D {
     }
 }
 
+class CanvasOptions {
+    capacity: Int,
+    fps: Int,
+    clear: Color,
+    displayPaced: Bool,
+    /// Metal surface format. Use pixelBGRA8 or pixelBGRA8Srgb.
+    pixelFormat: Int
+
+    fn create(capacity: Int, fps: Int, clear: Color) -> CanvasOptions {
+        return CanvasOptions(capacity: capacity, fps: fps, clear: clear, displayPaced: false, pixelFormat: pixelBGRA8);
+    }
+}
+
+fn canvasClock(surface: View, options: CanvasOptions) -> FrameClock {
+    if options.displayPaced {
+        return surface.displayClock(options.fps);
+    }
+    return surface.frameClock(options.fps);
+}
+
 class Canvas2D {
     const view: View,
+    const viewId: Int,
     const clock: FrameClock,
     const batch: Batch2D,
+    task: Option<UiTask>,
     clear: Color,
     frames: Int,
     drawing: Bool,
@@ -4273,6 +4805,7 @@ fn weightedColumn(parent: View, items: List<LayoutItem>, padding: Float, gap: Fl
 
 export Frame2D;
 export Canvas2D;
+export CanvasOptions;
 export UiAction;
 export UiActions;
 export actions;
@@ -4289,8 +4822,14 @@ fn uiDisposeCanvas(canvas: Canvas2D) {
         canvas.batch.destroy();
     }
     finally {
-        let closed = canvas.clock.destroy();
-        canvas.disposed = true;
+        try {
+            let closed = canvas.clock.destroy();
+        }
+        finally {
+            let destroyed = canvas.view.destroy();
+            canvas.task = Option<UiTask>.None();
+            canvas.disposed = true;
+        }
     }
 }
 
@@ -4322,8 +4861,17 @@ native {
         pendingRows: Int
     }
 
-    fn rawDataCreate(window: WindowHandle, kind: Int, columns: Int, frame: Rect, action: Int)
-        -> Int symbol "rinzu_macos_data_create";
+    fn rawDataConfigured(
+        window: WindowHandle,
+        kind: Int,
+        columns: Int,
+        frame: Rect,
+        action: Int,
+        rowHeight: Float,
+        multiple: CBool,
+        alternating: CBool,
+        applicationSort: CBool
+    ) -> Int symbol "rinzu_macos_data_configured";
 
     fn rawDataColumn(view: ViewHandle, column: Int, title: ByteArray, length: CSize, width: Float, sortable: CBool)
         -> CInt symbol "rinzu_macos_data_column";
@@ -4342,6 +4890,11 @@ native {
     fn rawDataState(view: ViewHandle, output: DataState) -> CInt symbol "rinzu_macos_data_state";
 
     fn rawDataSelect(view: ViewHandle, id: Int, reveal: CBool) -> CInt symbol "rinzu_macos_data_select";
+
+    fn rawDataSelectIds(view: ViewHandle, ids: ByteArray, length: CSize, reveal: CBool)
+        -> CInt symbol "rinzu_macos_data_select_ids";
+
+    fn rawDataSelectedIds(view: ViewHandle, token: Int) -> CInt symbol "rinzu_macos_data_selected_ids";
 
     fn rawDataScroll(view: ViewHandle, id: Int) -> CInt symbol "rinzu_macos_data_scroll";
 
@@ -4374,6 +4927,22 @@ class DataColumn {
     const title: String,
     const width: Float,
     const sortable: Bool
+}
+
+class DataViewOptions {
+    rowHeight: Float,
+    allowsMultipleSelection: Bool,
+    alternatingRowColors: Bool,
+    applicationSort: Bool
+
+    fn create() -> DataViewOptions {
+        return DataViewOptions(
+            rowHeight: 24.0,
+            allowsMultipleSelection: false,
+            alternatingRowColors: true,
+            applicationSort: false
+        );
+    }
 }
 
 /// IDs are positive and unique. A tree parent must precede its children; zero is a root.
@@ -4414,9 +4983,13 @@ class DataView {
         return result;
     }
 
+    /// Sort requests address a column. Row events must match the current model revision.
     fn accepts(self: DataView, event: UiEvent) -> Bool {
         if event.kind != eventData || event.viewId != self.identity() {
             return false;
+        }
+        if event.flags == dataSorted {
+            return true;
         }
         let state = self.state();
         return event.value == Float(state.revision);
@@ -4424,6 +4997,52 @@ class DataView {
 
     fn select(self: DataView, id: Int, reveal: Bool) -> Int {
         return checked(Int(rawDataSelect(self.view.handle, id, reveal)), "macos.data.select");
+    }
+
+    /// Replace the selection with stable row IDs. An empty list clears it.
+    fn selectIds(self: DataView, ids: List<Int>, reveal: Bool) -> Int {
+        if rinzu.list.length(ids) > 100000 {
+            throw err.create(-7804, "macos.data.selectionLimit");
+        }
+        let bytes = jsonApi.encode(
+            jsonApi.array(
+                rinzu.list.map(
+                    ids,
+                    fn (id: Int) -> jsonApi.Value {
+                        return jsonApi.intValue(id);
+                    }
+                )
+            )
+        );
+        return checked(
+            Int(rawDataSelectIds(self.view.handle, bytes, bytesApi.byteLength(bytes), reveal)),
+            "macos.data.selectIds"
+        );
+    }
+
+    /// Owned selected IDs in visible row order.
+    fn selectedIds(self: DataView) -> List<Int> {
+        let token = checked(rawWaitToken(), "macos.data.selectionToken");
+        try {
+            let ready = checked(Int(rawDataSelectedIds(self.view.handle, token)), "macos.data.selectedIds");
+            let encoded = textApi.decodeUtf8(rawWidgetBytes(self.view.handle, token));
+            return jsonApi.parseStringWithTyAndLimits<List<Int>>(
+                encoded,
+                {
+                    maxInputBytes = 8388608,
+                    maxDepth = 4,
+                    maxNodes = 100002
+                }
+            );
+        }
+        finally {
+            if rawWidgetSnapshotOwned(self.view.handle, token) {
+                let finished = checked(
+                    Int(rawWidgetSnapshotFinish(self.view.handle, token)),
+                    "macos.data.selection.finish"
+                );
+            }
+        }
     }
 
     fn scrollTo(self: DataView, id: Int) -> Int {
@@ -4526,7 +5145,14 @@ fn dataCells(cells: List<String>, columns: Int) -> ByteArray {
     return bytes;
 }
 
-fn createDataView(scope: UiScope, kind: Int, columns: List<DataColumn>, frame: Rect, action: Int) -> DataView {
+fn createDataView(
+    scope: UiScope,
+    kind: Int,
+    columns: List<DataColumn>,
+    frame: Rect,
+    action: Int,
+    options: DataViewOptions
+) -> DataView {
     if scope.control.closed
         || scope.control.stopping
         || rinzu.list.length(columns) < 1
@@ -4547,7 +5173,17 @@ fn createDataView(scope: UiScope, kind: Int, columns: List<DataColumn>, frame: R
     let view = View(
         handle: rawView(
             checked(
-                rawDataCreate(scope.window.handle, kind, rinzu.list.length(columns), frame, action),
+                rawDataConfigured(
+                    scope.window.handle,
+                    kind,
+                    rinzu.list.length(columns),
+                    frame,
+                    action,
+                    options.rowHeight,
+                    options.allowsMultipleSelection,
+                    options.alternatingRowColors,
+                    options.applicationSort
+                ),
                 "macos.data.create"
             )
         )
@@ -4608,6 +5244,7 @@ let themeDark = 2;
 
 export DataState;
 export DataColumn;
+export DataViewOptions;
 export DataRow;
 export DataView;
 export eventData;
@@ -4649,6 +5286,9 @@ export textValues.TextShape;
 let eventEnvironment = 21;
 
 let eventInput = 22;
+
+/// Session-wide loss notice. UiEvent.action counts the dropped events represented by this notice.
+let eventOverflow = 23;
 
 let environmentFonts = 1;
 
@@ -4723,6 +5363,7 @@ export inputValues.decodeInputPacket;
 export inputValues.encodeInputSnapshot;
 export InputState;
 export eventInput;
+export eventOverflow;
 
 native {
     fn rawViewConvert(view: ViewHandle, rect: Rect, output: Rect, space: CInt)

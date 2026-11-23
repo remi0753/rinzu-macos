@@ -11,4 +11,4 @@ toolchain = "0.3.0"
 sources = ["native/src/macos.m"]
 headers = ["native/include/rinzu_macos.h"]
 include-dirs = ["native/include"]
-frameworks = ["AppKit", "Foundation", "Metal", "QuartzCore", "ImageIO", "CoreGraphics", "CoreText"]
+frameworks = ["AppKit", "Foundation", "Metal", "QuartzCore", "ImageIO", "CoreGraphics", "CoreText", "UniformTypeIdentifiers"]

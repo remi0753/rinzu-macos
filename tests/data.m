@@ -111,6 +111,43 @@ static void model(void) {
   assert(!released);
   puts("PASS:data:model:unicode:nul:int64-id:atomic:bounds:owner:1000-release");
 }
+static void configured(void) {
+  struct MacRect frame = {8, 8, 400, 240};
+  void *view = rinzu_macos_view(
+      rinzu_macos_data_configured(window, 2, 1, &frame, 201, 36, true, false, true));
+  RZMacDataController *data = data_control(view);
+  assert(data.table.rowHeight == 36 && data.table.allowsMultipleSelection &&
+         !data.table.usesAlternatingRowBackgroundColors);
+  assert(rinzu_macos_data_column(view, 0, (const uint8_t *)"Name", 4, 180, true) == 0);
+  int64_t update = rinzu_macos_wait_token();
+  assert(rinzu_macos_data_begin(view, update) == 0);
+  add(view, update, 1, 0, @[ @"Z" ]);
+  add(view, update, INT64_C(9007199254740993), 0, @[ @"A" ]);
+  assert(rinzu_macos_data_commit(view, update) == 0);
+  data.table.sortDescriptors = @[ [NSSortDescriptor sortDescriptorWithKey:@"0" ascending:YES] ];
+  assert([data nodeAtRow:0].identity == 1);
+  const char selected[] = "[1,9007199254740993]";
+  assert(rinzu_macos_data_select_ids(view, (const uint8_t *)selected, sizeof(selected) - 1,
+                                     false) == 0);
+  assert(rinzu_macos_data_select_ids(view, (const uint8_t *)"[1,2]", 5, false) == RZ_ARGUMENT);
+  assert(data.table.selectedRowIndexes.count == 2);
+  int64_t reader = rinzu_macos_wait_token();
+  assert(rinzu_macos_data_selected_ids(view, reader) == 0);
+  const rinzu_native_byte_array_t *bytes = rinzu_macos_widget_bytes(view, reader);
+  assert(bytes->length == sizeof(selected) - 1 && !memcmp(bytes->data, selected, bytes->length));
+  assert(rinzu_macos_widget_snapshot_finish(view, reader) == 0);
+  assert(rinzu_macos_data_sort(view, 0, true) == 0);
+  assert([data nodeAtRow:0].identity == INT64_C(9007199254740993));
+  update = rinzu_macos_wait_token();
+  assert(rinzu_macos_data_begin(view, update) == 0);
+  add(view, update, 1, 0, @[ @"Z" ]);
+  add(view, update, INT64_C(9007199254740993), 0, @[ @"A" ]);
+  assert(rinzu_macos_data_commit(view, update) == 0);
+  assert([data nodeAtRow:0].identity == 1);
+  assert(data.table.selectedRowIndexes.count == 2);
+  assert(rinzu_macos_view_destroy(view) == 0);
+  puts("PASS:data:configured-row-height:multiple-ids:application-sort");
+}
 static void tree(void) {
   data_view = make_view(3, 1);
   int64_t token = rinzu_macos_wait_token();
@@ -176,9 +213,10 @@ int main(int argc, const char **argv) {
     session = rinzu_macos_session(rinzu_macos_open());
     window = rinzu_macos_window(
         rinzu_macos_window_create(session, (const uint8_t *)"Data test", 9, 420, 260));
-    if (!strcmp(argv[1], "model"))
+    if (!strcmp(argv[1], "model")) {
       model();
-    else if (!strcmp(argv[1], "tree"))
+      configured();
+    } else if (!strcmp(argv[1], "tree"))
       tree();
     else if (!strcmp(argv[1], "list"))
       list();
@@ -234,8 +272,6 @@ int main(int argc, const char **argv) {
                                          assert(state(data_view).selectedId == 100000 &&
                                                 state(data_view).selectedRow == 0);
                                        }
-                                       [data.table selectRowIndexes:[NSIndexSet indexSetWithIndex:0]
-                                               byExtendingSelection:NO];
                                        NSEvent *key = [NSEvent keyEventWithType:NSEventTypeKeyDown
                                                                        location:NSZeroPoint
                                                                   modifierFlags:0
@@ -247,6 +283,14 @@ int main(int argc, const char **argv) {
                                                     charactersIgnoringModifiers:@"\r"
                                                                       isARepeat:NO
                                                                         keyCode:36];
+                                       [data.table deselectAll:nil];
+                                       [data.table keyDown:key];
+                                       [data.table selectRowIndexes:[NSIndexSet indexSetWithIndex:0]
+                                               byExtendingSelection:NO];
+                                       assert(data.table.clickedRow == -1);
+                                       [NSApp sendAction:data.table.doubleAction
+                                                      to:data.table.target
+                                                    from:data.table];
                                        [data.table keyDown:key];
                                        data.table.sortDescriptors =
                                            @[ [NSSortDescriptor sortDescriptorWithKey:@"0"

@@ -50,6 +50,7 @@ def main():
             "scope",
             "early",
             "cancel",
+            "signal-ownership",
             "failure",
             "overflow",
             "gpu-recording",
@@ -194,6 +195,8 @@ def main():
                     "CoreGraphics",
                     "-framework",
                     "CoreText",
+                    "-framework",
+                    "UniformTypeIdentifiers",
                 ]
                 for variant, extra in [
                     ("native", []),
@@ -213,7 +216,14 @@ def main():
                         variant + "-build",
                         ["xcrun", "clang", *flags, *extra, "-o", binary],
                     )
-                    for mode in ("stream", "overflow", "widgets", "menus", "keys"):
+                    for mode in (
+                        "stream",
+                        "overflow",
+                        "overflow-recovery",
+                        "widgets",
+                        "menus",
+                        "keys",
+                    ):
                         run(variant + "-" + mode, [binary, mode], timeout=20)
             if not args.native_only:
                 app = sdk / "tests/gui"
@@ -236,7 +246,15 @@ def main():
                         destination.read_bytes()
                     ).hexdigest()
                 modes = (
-                    ["events", "scope", "early", "cancel", "failure", "overflow"]
+                    [
+                        "events",
+                        "scope",
+                        "early",
+                        "cancel",
+                        "signal-ownership",
+                        "failure",
+                        "overflow",
+                    ]
                     if args.mode == "all"
                     else [args.mode]
                 )
@@ -324,9 +342,9 @@ def main():
                                 timeout=180 if backend == "jit" else 20,
                             )
                         )
-                    assert (
-                        sample_outputs[0]["stdout"] == sample_outputs[1]["stdout"]
-                    ), sample_outputs
+                    assert sample_outputs[0]["stdout"] == sample_outputs[1]["stdout"], (
+                        sample_outputs
+                    )
             evidence["passed"] = True
     finally:
         save()

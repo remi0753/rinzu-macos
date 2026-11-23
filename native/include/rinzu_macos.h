@@ -96,6 +96,9 @@ int64_t rinzu_macos_data_create(void *window, int64_t kind, int64_t columns,
                                 const struct MacRect *rect, int64_t action);
 int32_t rinzu_macos_data_column(void *view, int64_t column, const uint8_t *title, size_t length,
                                 double width, _Bool sortable);
+int64_t rinzu_macos_data_configured(void *window, int64_t kind, int64_t columns,
+                                    const struct MacRect *frame, int64_t action, double row_height,
+                                    _Bool multiple, _Bool alternating, _Bool application_sort);
 int32_t rinzu_macos_data_begin(void *view, int64_t token);
 _Bool rinzu_macos_data_owned(void *view, int64_t token);
 int32_t rinzu_macos_data_append(void *view, int64_t token, int64_t id, int64_t parent,
@@ -104,6 +107,8 @@ int32_t rinzu_macos_data_commit(void *view, int64_t token);
 int32_t rinzu_macos_data_cancel(void *view, int64_t token);
 int32_t rinzu_macos_data_state(void *view, struct MacDataState *output);
 int32_t rinzu_macos_data_select(void *view, int64_t id, _Bool reveal);
+int32_t rinzu_macos_data_select_ids(void *view, const uint8_t *ids, size_t length, _Bool reveal);
+int32_t rinzu_macos_data_selected_ids(void *view, int64_t token);
 int32_t rinzu_macos_data_scroll(void *view, int64_t id);
 int32_t rinzu_macos_data_expand(void *view, int64_t id, _Bool expanded);
 int32_t rinzu_macos_data_expanded(void *view, int64_t id);
@@ -136,6 +141,7 @@ int32_t rinzu_macos_stop(void *session);
 int32_t rinzu_macos_run_events(void *session);
 int32_t rinzu_macos_stream_state(void *session);
 int32_t rinzu_macos_prepare_events(void *session);
+int32_t rinzu_macos_event_overflow_recovery(void *session, _Bool enabled);
 int32_t rinzu_macos_request_stop(void *session);
 _Bool rinzu_macos_has_run(void *session);
 _Bool rinzu_macos_running(void *session);
@@ -161,6 +167,10 @@ void *rinzu_macos_window_scope_command(void *session, int64_t token);
 
 int64_t rinzu_macos_window_create(void *session, const uint8_t *title, size_t length, double width,
                                   double height);
+int64_t rinzu_macos_window_configured(void *session, int64_t token, const uint8_t *title,
+                                      size_t length, const struct MacRect *frame, int64_t style,
+                                      _Bool centered, _Bool activate_on_show);
+int32_t rinzu_macos_activation_policy(void *session, int64_t policy);
 void *rinzu_macos_window(int64_t id);
 int64_t rinzu_macos_window_id(void *window);
 int32_t rinzu_macos_window_show(void *window);
@@ -173,10 +183,20 @@ int32_t rinzu_macos_sheet_ready(void *window);
 int32_t rinzu_macos_panel_begin(void *window, int64_t token, int32_t save, const uint8_t *title,
                                 size_t title_length, const uint8_t *directory,
                                 size_t directory_length, const uint8_t *name, size_t name_length);
+int32_t rinzu_macos_panel_configured(void *window, int64_t token, _Bool save, const uint8_t *title,
+                                     size_t title_length, const uint8_t *directory,
+                                     size_t directory_length, const uint8_t *name,
+                                     size_t name_length, const uint8_t *types, size_t types_length,
+                                     int64_t flags);
 int32_t rinzu_macos_alert_begin(void *window, int64_t token, const uint8_t *title,
                                 size_t title_length, const uint8_t *message, size_t message_length,
                                 const uint8_t *first, size_t first_length, const uint8_t *second,
                                 size_t second_length, const uint8_t *third, size_t third_length);
+int32_t rinzu_macos_alert_configured(void *window, int64_t token, const uint8_t *title,
+                                     size_t title_length, const uint8_t *message,
+                                     size_t message_length, const uint8_t *buttons,
+                                     size_t buttons_length, int64_t style, int64_t default_button,
+                                     int64_t cancel_button);
 _Bool rinzu_macos_sheet_owned(void *window, int64_t token);
 void *rinzu_macos_sheet_completion(void *window, int64_t token);
 int32_t rinzu_macos_sheet_result(void *window, int64_t token);
@@ -215,6 +235,8 @@ int32_t rinzu_macos_view_focus(void *view);
 int32_t rinzu_macos_text_selection(void *view, struct MacSelection *output);
 int32_t rinzu_macos_text_select(void *view, int64_t start, int64_t end);
 int32_t rinzu_macos_text_composing(void *view);
+int32_t rinzu_macos_text_view_options(void *view, const uint8_t *font, size_t length, double size,
+                                      int64_t flags);
 int32_t rinzu_macos_scroll_content(void *scroll, void *view);
 int32_t rinzu_macos_scroll_to(void *scroll, double x, double y);
 int32_t rinzu_macos_scroll_rect(void *scroll, struct MacRect *output);

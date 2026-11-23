@@ -59,6 +59,55 @@ The low-level run handler is synchronous and receives a RunContext containing a 
 | GPU             | Device, buffers, textures, samplers, pipelines, command submission and waits |
 | 2D drawing      | Batch2D, images, shaped text, canvas jobs, frame clocks                      |
 
+## Configure application controls
+
+Use ApplicationOptions with applicationWithOptions to choose activation,
+cooperative signals, and the primary window's initial visibility. WindowOptions
+works with Session.windowWithOptions and withWindowOptions for additional
+windows. An uncentered frame is a content rectangle in AppKit screen points.
+The view inside it uses local coordinates. Window styles combine the exported
+style flags. Setting activateOnShow to false orders the window without asking
+AppKit to activate the application.
+
+Window.openFiles accepts OpenPanelOptions and returns an owned list of absolute
+paths or None on cancellation. Set canChooseDirectories, allowsMultipleSelection
+and the contentTypes list of uniform type identifiers to suit the workflow. The
+result holds up to 1,024 selections within the sheet's 1 MiB payload limit.
+SavePanelOptions adds file type and directory creation settings for saves.
+AlertOptions assigns Return and Escape to one-based button roles. Zero omits a
+role, and selected buttons still return their one-based number.
+
+TextViewOptions sets the font, native Undo and automatic substitutions. An empty
+font name selects a system font, with an option for the monospaced face. Use the
+textViewWithOptions factories or configure an existing TextView outside marked
+text composition. When allowsUndo is enabled, the standard Undo and Redo
+commands use the native text history. The default forwards those commands as
+actionUndo and actionRedo events for app-managed history.
+
+DataViewOptions configures row height, alternating backgrounds and multiple
+selection. selectedIds returns IDs in visible order, and selectIds replaces the
+selection. With applicationSort enabled, a sortable header emits dataSorted with
+the column in selectionStart and the ascending flag in modifiers. The application
+can publish its chosen row order with setRows. Selection is preserved by stable
+row ID when a new model is published. DataView.accepts recognizes sort requests
+across model updates and checks the revision on row events.
+
+CanvasOptions selects display-paced callbacks and the initial pixel format
+from pixelBGRA8 and pixelBGRA8Srgb. Display pacing uses AppKit on macOS 14 and
+later and falls back to the timer on older systems. Call UiScope.closeCanvas
+from outside the draw callback to stop the job, await its GPU work and release
+its resources while the window remains open.
+
+For applications that can recover from event loss, enable recoverEventOverflow
+in ApplicationOptions or call Session.setEventOverflowRecovery before starting
+the run loop. The Session preserves admitted events and reports eventOverflow at
+the position of a loss. UiEvent.action is the number of dropped events in that
+notice. Use a session event reader or UiScope.dispatch to handle it and rebuild
+the application's view and input state. The queue retains its bounded storage
+and the default policy stops the Session on overflow.
+
+## Drawing and data contracts
+
 Data models are bounded: datasets have at most 100000 rows, 32 columns, and 16 MiB of UTF-8 cell data; trees have at most 64 levels. Updates yield during generation and commit the complete model. Serialize competing async updates to one view in application code.
 
 Batch2D preserves draw order while batching compatible texture/filter/clip state. Surface rendering checks the captured pixel extent against the admitted drawable; a resize mismatch is retryable and holds no command or surface lease. Canvas2D obtains fresh frame geometry and retries. Low-level callers can use `Command.beginRenderMatching` for the same admission check.

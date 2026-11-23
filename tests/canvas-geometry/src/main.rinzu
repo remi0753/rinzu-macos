@@ -25,12 +25,14 @@ fn canvas(probe: Probe) -> macos.Canvas2D {
 async fn application(app: macos.UiApplication, probe: Probe) {
     let scope = app.primary;
     let device = app.session.device();
-    let output = scope.canvas2D(
+    let baseline = macos.statistics();
+    let options = macos.CanvasOptions.create(32, 60, macos.Color(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0));
+    options.displayPaced = true;
+    options.pixelFormat = macos.pixelBGRA8Srgb;
+    let output = scope.canvas2DWithOptions(
         device,
         macos.Rect(x: 10.0, y: 10.0, width: 240.0, height: 120.0),
-        32,
-        60,
-        macos.Color(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0),
+        options,
         async fn (frame: macos.Frame2D) {
             probe.draws = probe.draws + 1;
             if probe.draws == 1 {
@@ -51,6 +53,7 @@ async fn application(app: macos.UiApplication, probe: Probe) {
     let observing = scope.start(
         async fn (job: macos.UiJob) {
             let deadline = rinzu.io.monotonicMillis() + 10000;
+            // Display refresh and Metal completion determine how many waits are needed.
             while output.frames < 1 && !job.isStopping() {
                 rinzu.testing.assertTrue(rinzu.io.monotonicMillis() < deadline, "stale canvas frame did not recover");
                 await rinzu.timer.sleep(5);
@@ -60,6 +63,24 @@ async fn application(app: macos.UiApplication, probe: Probe) {
                 rinzu.testing.assertTrue(
                     probe.draws >= 2 && statistics.retries >= 1,
                     "canvas did not retry stale geometry"
+                );
+                rinzu.testing.assertEqual<Int>(
+                    output.view.pixelFormat(),
+                    macos.pixelBGRA8Srgb,
+                    "configured canvas format"
+                );
+                let closed = await scope.closeCanvas(output);
+                let repeated = await scope.closeCanvas(output);
+                let live = macos.statistics();
+                rinzu.testing.assertTrue(
+                    output.disposed
+                        && live.windows == baseline.windows
+                        && live.views == baseline.views
+                        && live.frameClocks == baseline.frameClocks
+                        && live.commands == baseline.commands
+                        && live.textures == baseline.textures
+                        && live.bufferBytes == baseline.bufferBytes,
+                    "canvas can be released before its window"
                 );
                 probe.recovered = true;
                 scope.requestStop();

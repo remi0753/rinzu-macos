@@ -3,6 +3,7 @@ import rinzu.timer;
 import rinzu.macos;
 import rinzu.option;
 import rinzu.process;
+import rinzu.shutdown;
 import rinzu.stdio;
 import rinzu.testing;
 import rinzu.bytes as bytesApi;
@@ -164,7 +165,25 @@ async fn scopeBody(app: rinzu.macos.UiApplication) {
     );
     let second = scope.start(
         async fn (owner: rinzu.macos.UiJob) {
-            let secondary = await rinzu.macos.withWindow(owner.session, "Secondary", 240.0, 160.0, earlyBody);
+            let options = rinzu.macos.WindowOptions.create(240.0, 160.0);
+            options.visible = false;
+            options.activateOnShow = false;
+            let secondary = await rinzu.macos.withWindowOptions(
+                owner.session,
+                "Secondary",
+                options,
+                async fn (child: rinzu.macos.UiScope) {
+                    rinzu.testing.assertTrue(child.window.state() % 2 == 0, "configured window starts hidden");
+                    let textOptions = rinzu.macos.TextViewOptions.create();
+                    textOptions.fontSize = 16.0;
+                    let editor = child.textViewWithOptions(
+                        "Configurable text",
+                        rinzu.macos.Rect(x: 0.0, y: 0.0, width: 160.0, height: 80.0),
+                        textOptions
+                    );
+                    rinzu.testing.assertEqual<String>(editor.text(), "Configurable text", "configured TextView");
+                }
+            );
             state.jobs = state.jobs + 1;
         }
     );
@@ -179,9 +198,35 @@ async fn scopeBody(app: rinzu.macos.UiApplication) {
     }
 }
 
-async fn earlyBody(scope: rinzu.macos.UiScope) {}
-
 async fn earlyApplication(app: rinzu.macos.UiApplication) {}
+
+async fn signalOwnership() {
+    let options = rinzu.macos.ApplicationOptions.create(320.0, 200.0);
+    options.window.visible = false;
+    options.signals = true;
+    let owned = rinzu.shutdown.enableSignals();
+    try {
+        var rejected = false;
+        try {
+            let ran = await rinzu.macos.applicationWithOptions("Signals already owned", options, earlyApplication);
+        }
+        catch [problem: Error, ...rest] {
+            rejected = err.nativeStatus(problem) == Option<Int>.Some(value: -8102);
+        }
+        rinzu.testing.assertTrue(rejected, "application rejected an already installed signal handler");
+        var stillOwned = false;
+        try {
+            let reacquired = rinzu.shutdown.enableSignals();
+        }
+        catch [problem: Error, ...rest] {
+            stillOwned = err.nativeStatus(problem) == Option<Int>.Some(value: -8102);
+        }
+        rinzu.testing.assertTrue(stillOwned, "failed application left existing signals installed");
+    }
+    finally {
+        let restored = rinzu.shutdown.disableSignals();
+    }
+}
 
 async fn gpuBody(app: rinzu.macos.UiApplication) {
     let scope = app.primary;
@@ -310,10 +355,17 @@ async fn main() {
         else {
             try {
                 if mode == "early" {
-                    let earlyDone = await rinzu.macos.application("Early return", 320.0, 200.0, earlyApplication);
+                    let options = rinzu.macos.ApplicationOptions.create(320.0, 200.0);
+                    options.window.visible = false;
+                    options.window.activateOnShow = false;
+                    options.recoverEventOverflow = true;
+                    let earlyDone = await rinzu.macos.applicationWithOptions("Early return", options, earlyApplication);
                 }
                 else if mode == "cancel" {
                     let cancelDone = await rinzu.macos.application("Reader cancel", 320.0, 200.0, cancelBody);
+                }
+                else if mode == "signal-ownership" {
+                    await signalOwnership();
                 }
                 else if mode == "failure" {
                     var observed = false;

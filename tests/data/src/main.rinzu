@@ -27,6 +27,30 @@ fn visibleCount(data: rinzu.macos.DataView) -> Int {
     return state.visibleRows;
 }
 
+fn staleDataEvent(data: rinzu.macos.DataView, kind: Int) -> rinzu.macos.UiEvent {
+    return rinzu.macos.UiEvent(
+        kind: rinzu.macos.eventData,
+        windowId: 0,
+        viewId: data.identity(),
+        sequence: 1,
+        x: 0.0,
+        y: 0.0,
+        width: 0.0,
+        height: 0.0,
+        scale: 0.0,
+        keyCode: 0,
+        modifiers: 1,
+        action: 42,
+        selectionStart: 0,
+        selectionEnd: -1,
+        flags: kind,
+        value: 0.0,
+        deltaX: 0.0,
+        deltaY: 0.0,
+        text: ""
+    );
+}
+
 fn row(index: Int) -> rinzu.macos.DataRow {
     return rinzu.macos.DataRow(id: index + 1, parent: 0, cells: [f"Item {index + 1}", "日本語 😀"]);
 }
@@ -51,13 +75,17 @@ async fn secondary(scope: rinzu.macos.UiScope) {
 
 async fn body(app: rinzu.macos.UiApplication) {
     let scope = app.primary;
-    let data = scope.tableView(
+    let options = rinzu.macos.DataViewOptions.create();
+    options.allowsMultipleSelection = true;
+    options.rowHeight = 28.0;
+    let data = scope.tableViewWithOptions(
         [
             rinzu.macos.DataColumn(title: "Name", width: 180.0, sortable: true),
             rinzu.macos.DataColumn(title: "Value", width: 180.0, sortable: true)
         ],
         rinzu.macos.Rect(x: 8.0, y: 8.0, width: 400.0, height: 220.0),
-        42
+        42,
+        options
     );
     let root = scope.window.contentView();
     let attached = root.addSubview(data.view);
@@ -72,11 +100,22 @@ async fn body(app: rinzu.macos.UiApplication) {
         return;
     }
     await data.generateRows(2, row);
+    rinzu.testing.assertTrue(
+        data.accepts(staleDataEvent(data, rinzu.macos.dataSorted)),
+        "sort intent survives a reload"
+    );
+    rinzu.testing.assertTrue(
+        !data.accepts(staleDataEvent(data, rinzu.macos.dataSelected)),
+        "stale row event is rejected"
+    );
     let original = data.cell(1, 1);
     rinzu.testing.assertEqual<String>(original, "日本語 😀", "owned Unicode cell");
     let selected = data.select(2, true);
     let sorted = data.sort(0, false);
     rinzu.testing.assertEqual<Int>(selectedId(data), 2, "sort preserves ID");
+    let multiple = data.selectIds([1, 2], false);
+    rinzu.testing.assertEqual<List<Int>>(data.selectedIds(), [2, 1], "selected stable IDs follow visible order");
+    let restored = data.select(2, false);
     var failed = false;
     try {
         await data.generateRows(

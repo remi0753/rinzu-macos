@@ -172,6 +172,8 @@ def main():
                     "CoreGraphics",
                     "-framework",
                     "CoreText",
+                    "-framework",
+                    "UniformTypeIdentifiers",
                 ]
                 variants = [("native", [])]
                 if args.sanitize:
@@ -188,7 +190,9 @@ def main():
                     )
                     for mode in (
                         "alert",
+                        "alert-options",
                         "open",
+                        "open-options",
                         "save",
                         "open-no-selection",
                         "save-accept",

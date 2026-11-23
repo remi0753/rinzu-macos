@@ -251,6 +251,7 @@ def main():
                     "ImageIO",
                     "CoreGraphics",
                     "CoreText",
+                    "UniformTypeIdentifiers",
                 ]
                 for framework in frameworks:
                     flags.extend(["-framework", framework])
@@ -608,6 +609,8 @@ def main():
                                 contains=["CANVAS:geometry-retry:closed"],
                             )
                         )
+                    # AppKit refresh and Metal completion can change how many
+                    # times the fixture waits for its first presented frame.
                     compare_live_runs("canvas-equivalence", runs)
             evidence["passed"] = True
     finally:

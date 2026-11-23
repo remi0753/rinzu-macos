@@ -4,6 +4,7 @@
 #import <QuartzCore/CADisplayLink.h>
 #import <ImageIO/ImageIO.h>
 #import <CoreText/CoreText.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #include "rinzu_macos.h"
 #include "rinzu/native_completion.h"
 #include <math.h>
@@ -61,7 +62,8 @@ enum {
   RZ_INPUT_LIMIT,
   RZ_DATA,
   RZ_ENVIRONMENT,
-  RZ_INPUT
+  RZ_INPUT,
+  RZ_EVENT_OVERFLOW
 };
 enum {
   RZ_EVENT_LIMIT = 256,
@@ -99,6 +101,8 @@ enum { RZ_ALPHA_DEFAULT, RZ_ALPHA_PREMULTIPLIED, RZ_ALPHA_STRAIGHT };
 }
 @property(nonatomic) BOOL running, stopping, overflow, closing, scheduled, delivering;
 @property(nonatomic) BOOL streaming, eventSelected, hasRun, streamPrepared, streamCancelled;
+@property(nonatomic) BOOL activationConfigured;
+@property(nonatomic) BOOL recoverEventOverflow;
 @property(nonatomic) int64_t eventWaitToken, runWaitToken, payloadBytes;
 @property(nonatomic) int64_t scopeToken;
 @property(nonatomic, strong) NSMutableDictionary<NSNumber *, NSData *> *payloads;
@@ -119,11 +123,14 @@ enum { RZ_ALPHA_DEFAULT, RZ_ALPHA_PREMULTIPLIED, RZ_ALPHA_STRAIGHT };
 - (void)enqueue:(struct MacEvent)event;
 - (void)enqueue:(struct MacEvent)event text:(NSData *)text;
 - (void)clearEvents;
+- (void)eventOverflow;
+- (void)deliverEvents;
 - (void)drain;
 - (void)started;
 @end
 @interface RZMacWindow : RZMacHandle <NSWindowDelegate>
 @property(nonatomic) int64_t scopeToken;
+@property(nonatomic) BOOL activateOnShow;
 @property(nonatomic) BOOL closing, sheetsStopping, stateKnown;
 @property(nonatomic) int32_t lastState;
 @property(nonatomic, strong) NSWindow *window;
@@ -180,6 +187,7 @@ enum { RZ_ALPHA_DEFAULT, RZ_ALPHA_PREMULTIPLIED, RZ_ALPHA_STRAIGHT };
 @property(nonatomic, weak) RZMacDataNode *parent;
 @property(nonatomic, strong) NSArray<NSString *> *cells;
 @property(nonatomic, strong) NSMutableArray<RZMacDataNode *> *children;
+@property(nonatomic) NSInteger flatRow;
 @end
 @interface RZMacDataModel : NSObject
 @property(nonatomic, strong) NSMutableArray<RZMacDataNode *> *rows, *roots;
@@ -195,13 +203,14 @@ enum { RZ_ALPHA_DEFAULT, RZ_ALPHA_PREMULTIPLIED, RZ_ALPHA_STRAIGHT };
 @property(nonatomic, strong) NSHashTable<NSTableCellView *> *cells;
 @property(nonatomic) int64_t token, revision, columnBytes;
 @property(nonatomic) NSInteger sortColumn;
-@property(nonatomic) BOOL tree, updating, ascending;
+@property(nonatomic) BOOL tree, updating, ascending, applicationSort;
 - (RZMacDataNode *)nodeAtRow:(NSInteger)row;
 - (NSInteger)rowForNode:(RZMacDataNode *)node;
 - (int64_t)selectedId;
-- (void)reloadKeeping:(int64_t)identity;
+- (NSArray<NSNumber *> *)selectedIds;
+- (void)reloadKeeping:(NSArray<NSNumber *> *)identities;
 - (void)sortModel;
-- (void)emit:(int64_t)kind;
+- (void)emit:(int64_t)kind row:(NSInteger)row;
 - (void)activated:(id)sender;
 @end
 struct RZInputSpan {
@@ -848,8 +857,7 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
   };
   NSData *data = [NSJSONSerialization dataWithJSONObject:packet options:0 error:NULL];
   if (!data) {
-    self.control.owner.overflow = YES;
-    rinzu_macos_stop(reference(self.control.owner));
+    [self.control.owner eventOverflow];
     return;
   }
   struct MacEvent event = view_event(self.control, RZ_INPUT);
@@ -1386,21 +1394,19 @@ static void application_input_focus(RZMacSession *session, BOOL active) {
   if ((!handler && !self.streaming) || self.stopping)
     return;
   if (text.length > RZ_TEXT_LIMIT) {
-    self.overflow = YES;
-    rinzu_macos_stop(reference(self));
+    [self eventOverflow];
     return;
   }
-  // A text replacement can notify selection before its edit. Preserve the edit
-  // and its resulting selection together, rather than an intermediate selection.
-  if (count && event.kind == RZ_TEXT_CHANGED) {
-    struct MacEvent last = events[(head + count - 1) % RZ_EVENT_LIMIT];
-    if (last.kind == RZ_SELECTION_CHANGED && last.viewId == event.viewId) {
-      self.payloadBytes -= (int64_t)self.payloads[@(last.sequence)].length;
-      [self.payloads removeObjectForKey:@(last.sequence)];
-      --count;
-    }
-  }
   struct MacEvent *last = count ? &events[(head + count - 1) % RZ_EVENT_LIMIT] : NULL;
+  // A text replacement can notify selection before its edit. Preserve the edit
+  // and its resulting selection together. Keep the selection if the edit cannot enter.
+  struct MacEvent *selection = last && event.kind == RZ_TEXT_CHANGED &&
+                                       last->kind == RZ_SELECTION_CHANGED &&
+                                       last->viewId == event.viewId
+                                   ? last
+                                   : NULL;
+  if (selection)
+    last = count > 1 ? &events[(head + count - 2) % RZ_EVENT_LIMIT] : NULL;
   BOOL replaceable = event.kind == RZ_DRAW || event.kind == RZ_RESIZED ||
                      event.kind == RZ_MOUSE_MOVED || event.kind == RZ_TEXT_CHANGED ||
                      event.kind == RZ_SELECTION_CHANGED || event.kind == RZ_TASK_FINISHED ||
@@ -1415,15 +1421,21 @@ static void application_input_focus(RZMacSession *session, BOOL active) {
     event.deltaY += last->deltaY;
   }
   int64_t previous = replace ? (int64_t)self.payloads[@(last->sequence)].length : 0;
-  if ((!replace && count == RZ_EVENT_LIMIT) || sequence == INT64_MAX ||
+  if (selection)
+    previous += (int64_t)self.payloads[@(selection->sequence)].length;
+  unsigned limit = self.recoverEventOverflow ? RZ_EVENT_LIMIT - 1 : RZ_EVENT_LIMIT;
+  if ((!replace && count - (selection != NULL) >= limit) || sequence == INT64_MAX ||
       self.payloadBytes - previous + (int64_t)text.length > RZ_EVENT_BYTES_LIMIT) {
-    self.overflow = YES;
-    rinzu_macos_stop(reference(self));
+    [self eventOverflow];
     return;
   }
   // A coalesced payload is still newer input. Snapshot barriers must distinguish
   // it from the previous contents of the same queue slot.
   event.sequence = ++sequence;
+  if (selection) {
+    [self.payloads removeObjectForKey:@(selection->sequence)];
+    --count;
+  }
   if (replace) {
     [self.payloads removeObjectForKey:@(last->sequence)];
     *last = event;
@@ -1433,6 +1445,28 @@ static void application_input_focus(RZMacSession *session, BOOL active) {
   if (text)
     self.payloads[@(event.sequence)] = [text copy];
   self.payloadBytes += (int64_t)text.length - previous;
+  [self deliverEvents];
+}
+- (void)eventOverflow {
+  if ((!handler && !self.streaming) || self.stopping)
+    return;
+  if (!self.recoverEventOverflow || sequence == INT64_MAX) {
+    self.overflow = YES;
+    rinzu_macos_stop(reference(self));
+    return;
+  }
+  struct MacEvent *last = count ? &events[(head + count - 1) % RZ_EVENT_LIMIT] : NULL;
+  if (last && last->kind == RZ_EVENT_OVERFLOW) {
+    ++last->action;
+    last->sequence = ++sequence;
+  } else {
+    // Normal admissions reserve one slot for a notice at the position of the loss.
+    events[(head + count++) % RZ_EVENT_LIMIT] =
+        (struct MacEvent){.kind = RZ_EVENT_OVERFLOW, .sequence = ++sequence, .action = 1};
+  }
+  [self deliverEvents];
+}
+- (void)deliverEvents {
   if (self.streaming) {
     complete_event_wait(self);
   } else if (!self.scheduled) {
@@ -1479,7 +1513,8 @@ static void application_input_focus(RZMacSession *session, BOOL active) {
   [self enqueue:(struct MacEvent){.kind = RZ_STARTED}];
   // A new app can receive its first show request before AppKit finishes launching.
   // Fulfil that request once the OS loop is running, without repeatedly stealing focus.
-  if (self.activeWindow.window.visible && !self.activeWindow.window.miniaturized) {
+  if (self.activeWindow.activateOnShow && self.activeWindow.window.visible &&
+      !self.activeWindow.window.miniaturized) {
     [self.activeWindow.window makeKeyAndOrderFront:nil];
     [NSApp activateIgnoringOtherApps:YES];
   }
@@ -2165,6 +2200,17 @@ int32_t rinzu_macos_prepare_events(void *raw) {
     return 0;
   }
 }
+int32_t rinzu_macos_event_overflow_recovery(void *raw, _Bool enabled) {
+  @autoreleasepool {
+    RZMacSession *session = (RZMacSession *)lookup(raw, RZ_SESSION);
+    if (!session)
+      return missing();
+    if (session.running || session.streamPrepared || session.closing)
+      return fail(RZ_BUSY, @"configure event overflow before starting the run loop");
+    session.recoverEventOverflow = enabled;
+    return 0;
+  }
+}
 int32_t rinzu_macos_request_stop(void *raw) {
   @autoreleasepool {
     RZMacSession *session = (RZMacSession *)lookup(raw, RZ_SESSION);
@@ -2335,8 +2381,9 @@ int32_t rinzu_macos_event_finish(void *raw, int64_t token) {
   }
 }
 
-static int64_t window_create(void *raw, int64_t token, const uint8_t *title, size_t length,
-                             double width, double height) {
+int64_t rinzu_macos_window_configured(void *raw, int64_t token, const uint8_t *title, size_t length,
+                                      const struct MacRect *rect, int64_t style, _Bool centered,
+                                      _Bool activate_on_show) {
   @autoreleasepool {
     @try {
       RZMacSession *session = (RZMacSession *)lookup(raw, RZ_SESSION);
@@ -2344,63 +2391,94 @@ static int64_t window_create(void *raw, int64_t token, const uint8_t *title, siz
         return missing();
       if (!accepting(session))
         return fail(RZ_BUSY, @"Session is closing");
-      struct MacRect rect = {0, 0, width, height};
       NSString *name = text(title, length);
-      if (!name || !rect_valid(&rect) || width == 0 || height == 0)
-        return fail(RZ_ARGUMENT, @"invalid window title or content size");
+      if (!name || !rect_valid(rect) || rect->width == 0 || rect->height == 0 || style < 0 ||
+          style > 15 || token < 0 || token > next_waiter)
+        return fail(RZ_ARGUMENT, @"invalid window title, frame, style or scope identity");
+      if (token)
+        for (RZMacHandle *handle in handles.allValues)
+          if (handle.kind == RZ_WINDOW && handle.owner == session &&
+              ((RZMacWindow *)handle).scopeToken == token)
+            return fail(RZ_BUSY, @"window scope is already active");
       NSApplication *application = [NSApplication sharedApplication];
-      [application setActivationPolicy:NSApplicationActivationPolicyRegular];
+      if (!session.activationConfigured)
+        [application setActivationPolicy:NSApplicationActivationPolicyRegular];
       RZMacWindow *window = [RZMacWindow new];
       window.scopeToken = token;
-      int64_t identity = publish(window, RZ_WINDOW, session);
-      window.window = [[RZMacNativeWindow alloc]
-          initWithContentRect:nsrect(&rect)
-                    styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
-                              NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable
-                      backing:NSBackingStoreBuffered
-                        defer:NO];
+      window.activateOnShow = activate_on_show;
+      window.window = [[RZMacNativeWindow alloc] initWithContentRect:nsrect(rect)
+                                                           styleMask:(NSWindowStyleMask)style
+                                                             backing:NSBackingStoreBuffered
+                                                               defer:NO];
       if (!window.window)
         _Exit(70);
       ((RZMacNativeWindow *)window.window).control = window;
       RZMacView *view = [RZMacView new];
       view.enabled = YES;
-      view.view = [[RZMacNativeView alloc] initWithFrame:nsrect(&rect)];
+      view.view =
+          [[RZMacNativeView alloc] initWithFrame:NSMakeRect(0, 0, rect->width, rect->height)];
       if (!view.view)
         _Exit(70);
       ((RZMacNativeView *)view.view).control = view;
       view.rootWindow = window;
       view.scopeWindow = window;
       window.content = view;
-      publish(view, RZ_VIEW, session);
       window.window.releasedWhenClosed = NO;
       window.window.title = name;
       window.window.contentView = view.view;
       window.window.delegate = window;
       window.window.acceptsMouseMovedEvents = YES;
-      [window.window center];
+      if (centered)
+        [window.window center];
+      else
+        [window.window setFrame:[window.window frameRectForContentRect:nsrect(rect)] display:NO];
+      int64_t identity = publish(window, RZ_WINDOW, session);
+      publish(view, RZ_VIEW, session);
       return identity;
     } @catch (NSException *exception) {
       return caught(exception);
     }
   }
 }
+static int64_t default_window(void *raw, int64_t token, const uint8_t *title, size_t length,
+                              double width, double height) {
+  struct MacRect frame = {0, 0, width, height};
+  return rinzu_macos_window_configured(raw, token, title, length, &frame,
+                                       NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
+                                           NSWindowStyleMaskResizable |
+                                           NSWindowStyleMaskMiniaturizable,
+                                       YES, YES);
+}
 int64_t rinzu_macos_window_create(void *raw, const uint8_t *title, size_t length, double width,
                                   double height) {
-  return window_create(raw, 0, title, length, width, height);
+  return default_window(raw, 0, title, length, width, height);
 }
 int64_t rinzu_macos_window_scoped(void *raw, int64_t token, const uint8_t *title, size_t length,
                                   double width, double height) {
   @autoreleasepool {
-    RZMacSession *session = (RZMacSession *)lookup(raw, RZ_SESSION);
-    if (!session)
-      return missing();
-    if (token <= 0 || token > next_waiter)
+    if (token <= 0)
       return fail(RZ_ARGUMENT, @"invalid window scope identity");
-    for (RZMacHandle *handle in handles.allValues)
-      if (handle.kind == RZ_WINDOW && handle.owner == session &&
-          ((RZMacWindow *)handle).scopeToken == token)
-        return fail(RZ_BUSY, @"window scope is already active");
-    return window_create(raw, token, title, length, width, height);
+    return default_window(raw, token, title, length, width, height);
+  }
+}
+int32_t rinzu_macos_activation_policy(void *raw, int64_t policy) {
+  @autoreleasepool {
+    @try {
+      RZMacSession *session = (RZMacSession *)lookup(raw, RZ_SESSION);
+      if (!session)
+        return missing();
+      if (policy < -1 || policy > NSApplicationActivationPolicyAccessory)
+        return fail(RZ_ARGUMENT, @"invalid application activation policy");
+      if (!accepting(session))
+        return fail(RZ_BUSY, @"Session is closing");
+      if (policy >= 0 && ![[NSApplication sharedApplication]
+                             setActivationPolicy:(NSApplicationActivationPolicy)policy])
+        return fail(RZ_BUSY, @"AppKit rejected the requested activation policy");
+      session.activationConfigured = YES;
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
   }
 }
 int32_t rinzu_macos_window_scope_close(void *raw, int64_t token) {
@@ -2455,10 +2533,14 @@ int32_t rinzu_macos_window_show(void *raw) {
       RZMacWindow *window = (RZMacWindow *)lookup(raw, RZ_WINDOW);
       if (!window)
         return missing();
-      [window.window makeKeyAndOrderFront:nil];
-      [NSApp activateIgnoringOtherApps:YES];
-      window.owner.activeWindow = window;
-      refresh_menu(window.owner);
+      if (window.activateOnShow) {
+        [window.window makeKeyAndOrderFront:nil];
+        [NSApp activateIgnoringOtherApps:YES];
+        window.owner.activeWindow = window;
+        refresh_menu(window.owner);
+      } else {
+        [window.window orderFront:nil];
+      }
       return 0;
     } @catch (NSException *exception) {
       return caught(exception);
@@ -3635,7 +3717,7 @@ static void widget_text_event(RZMacView *view, int kind) {
 }
 - (void)undo:(id)sender {
   (void)sender;
-  if (self.isFieldEditor) {
+  if (self.isFieldEditor || self.allowsUndo) {
     [self.undoManager undo];
     return;
   }
@@ -3645,7 +3727,7 @@ static void widget_text_event(RZMacView *view, int kind) {
 }
 - (void)redo:(id)sender {
   (void)sender;
-  if (self.isFieldEditor) {
+  if (self.isFieldEditor || self.allowsUndo) {
     [self.undoManager redo];
     return;
   }
@@ -4547,9 +4629,46 @@ int32_t rinzu_macos_sheet_ready(void *raw) {
     return window.owner.running ? 1 : 0;
   }
 }
-int32_t rinzu_macos_panel_begin(void *raw, int64_t token, int32_t save, const uint8_t *title,
-                                size_t title_length, const uint8_t *directory,
-                                size_t directory_length, const uint8_t *name, size_t name_length) {
+static NSArray<NSString *> *sheet_strings(const uint8_t *bytes, size_t length, NSUInteger max_count,
+                                          NSUInteger max_string) {
+  if (!bytes || !length || length > RZ_TEXT_LIMIT)
+    return nil;
+  id value = [NSJSONSerialization JSONObjectWithData:[NSData dataWithBytes:bytes length:length]
+                                             options:0
+                                               error:NULL];
+  if (![value isKindOfClass:NSArray.class] || [value count] > max_count)
+    return nil;
+  for (id item in value) {
+    NSString *string = [item isKindOfClass:NSString.class] ? item : nil;
+    if (!string.length || [string lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > max_string ||
+        [string rangeOfString:@"\0"].location != NSNotFound)
+      return nil;
+  }
+  return value;
+}
+
+static NSString *panel_selection(NSSavePanel *panel, BOOL list_result) {
+  if (!list_result)
+    return panel.URL.isFileURL ? panel.URL.path : nil;
+  NSArray<NSURL *> *urls = ((NSOpenPanel *)panel).URLs;
+  if (!urls.count || urls.count > 1024)
+    return nil;
+  NSMutableArray<NSString *> *paths = [NSMutableArray arrayWithCapacity:urls.count];
+  for (NSURL *url in urls) {
+    if (!url.isFileURL || !url.path)
+      return nil;
+    [paths addObject:url.path];
+  }
+  NSData *data = [NSJSONSerialization dataWithJSONObject:paths options:0 error:NULL];
+  return data ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : nil;
+}
+
+enum { RZ_PANEL_FILES = 1, RZ_PANEL_DIRECTORIES = 2, RZ_PANEL_MULTIPLE = 4, RZ_PANEL_CREATE = 8 };
+
+static int32_t panel_begin(void *raw, int64_t token, int32_t save, const uint8_t *title,
+                           size_t title_length, const uint8_t *directory, size_t directory_length,
+                           const uint8_t *name, size_t name_length, const uint8_t *types,
+                           size_t types_length, int64_t flags, BOOL list_result) {
   @autoreleasepool {
     RZMacWindow *window = (RZMacWindow *)lookup(raw, RZ_WINDOW);
     int32_t admission = sheet_admission(window, token);
@@ -4561,22 +4680,36 @@ int32_t rinzu_macos_panel_begin(void *raw, int64_t token, int32_t save, const ui
       NSString *heading = text(title, title_length);
       NSString *folder = text(directory, directory_length);
       NSString *filename = text(name, name_length);
-      if (!heading || !folder || !filename || title_length > 4096 ||
-          directory_length > RZ_TEXT_LIMIT || name_length > 4096 || (save != 0 && save != 1) ||
+      if (!heading || !folder || !filename || (save != 0 && save != 1) || flags < 0 || flags > 15 ||
+          (!save && !(flags & (RZ_PANEL_FILES | RZ_PANEL_DIRECTORIES))) ||
           (folder.length && !folder.isAbsolutePath) ||
           [folder rangeOfString:@"\0"].location != NSNotFound ||
           [filename rangeOfString:@"\0"].location != NSNotFound ||
           [filename rangeOfString:@"/"].location != NSNotFound || [filename isEqualToString:@"."] ||
           [filename isEqualToString:@".."])
         return fail(RZ_ARGUMENT, @"invalid panel text, absolute directory or suggested filename");
+      NSMutableArray<UTType *> *allowed_types = [NSMutableArray new];
+      if (types_length) {
+        NSArray<NSString *> *identifiers = sheet_strings(types, types_length, 32, 255);
+        if (!identifiers)
+          return fail(RZ_ARGUMENT, @"invalid allowed content types");
+        for (NSString *identifier in identifiers) {
+          UTType *type = [UTType typeWithIdentifier:identifier];
+          if (!type)
+            return fail(RZ_ARGUMENT, @"invalid content type identifier");
+          [allowed_types addObject:type];
+        }
+      }
       NSSavePanel *panel = save ? [NSSavePanel savePanel] : [NSOpenPanel openPanel];
       panel.title = heading;
-      panel.canCreateDirectories = save;
+      panel.canCreateDirectories = (flags & RZ_PANEL_CREATE) != 0;
+      if (types_length)
+        panel.allowedContentTypes = allowed_types;
       if (!save) {
         NSOpenPanel *open = (NSOpenPanel *)panel;
-        open.canChooseFiles = YES;
-        open.canChooseDirectories = NO;
-        open.allowsMultipleSelection = NO;
+        open.canChooseFiles = (flags & RZ_PANEL_FILES) != 0;
+        open.canChooseDirectories = (flags & RZ_PANEL_DIRECTORIES) != 0;
+        open.allowsMultipleSelection = (flags & RZ_PANEL_MULTIPLE) != 0;
       }
       if (folder.length)
         panel.directoryURL = [NSURL fileURLWithPath:folder isDirectory:YES];
@@ -4586,15 +4719,14 @@ int32_t rinzu_macos_panel_begin(void *raw, int64_t token, int32_t save, const ui
       [panel beginSheetModalForWindow:window.window
                     completionHandler:^(NSModalResponse response) {
                       @try {
-                        NSSavePanel *finished = sheet.payload;
-                        NSURL *url = finished.URL;
-                        if (response == NSModalResponseOK && url.isFileURL)
-                          finish_sheet(sheet, 1, url.path);
-                        else if (response == NSModalResponseOK) {
-                          sheet.failure = @"panel returned no file URL";
-                          finish_sheet(sheet, RZ_ARGUMENT, nil);
-                        } else
+                        if (response == NSModalResponseOK) {
+                          NSString *selection = panel_selection(sheet.payload, list_result);
+                          if (!selection)
+                            sheet.failure = @"panel returned no selection or too many paths";
+                          finish_sheet(sheet, selection ? 1 : RZ_ARGUMENT, selection);
+                        } else {
                           finish_sheet(sheet, 0, nil);
+                        }
                       } @catch (NSException *exception) {
                         sheet.failure = exception.reason ?: exception.name;
                         finish_sheet(sheet, caught(exception), nil);
@@ -4605,6 +4737,60 @@ int32_t rinzu_macos_panel_begin(void *raw, int64_t token, int32_t save, const ui
       return sheet_exception(window, exception);
     }
   }
+}
+int32_t rinzu_macos_panel_begin(void *raw, int64_t token, int32_t save, const uint8_t *title,
+                                size_t title_length, const uint8_t *directory,
+                                size_t directory_length, const uint8_t *name, size_t name_length) {
+  return panel_begin(raw, token, save, title, title_length, directory, directory_length, name,
+                     name_length, NULL, 0, save ? RZ_PANEL_CREATE : RZ_PANEL_FILES, NO);
+}
+int32_t rinzu_macos_panel_configured(void *raw, int64_t token, _Bool save, const uint8_t *title,
+                                     size_t title_length, const uint8_t *directory,
+                                     size_t directory_length, const uint8_t *name,
+                                     size_t name_length, const uint8_t *types, size_t types_length,
+                                     int64_t flags) {
+  return panel_begin(raw, token, save, title, title_length, directory, directory_length, name,
+                     name_length, types, types_length, flags, !save);
+}
+
+static void begin_alert(RZMacWindow *window, int64_t token, NSString *title, NSString *message,
+                        NSArray<NSString *> *titles, NSAlertStyle style, int64_t default_button,
+                        int64_t cancel_button) {
+  NSAlert *alert = [NSAlert new];
+  if (!alert)
+    _Exit(70);
+  alert.messageText = title;
+  alert.informativeText = message;
+  alert.alertStyle = style;
+  for (NSString *label in titles)
+    [alert addButtonWithTitle:label];
+  if (default_button >= 0) {
+    for (NSUInteger index = 0; index < alert.buttons.count; ++index) {
+      NSButton *button = alert.buttons[index];
+      int64_t number = (int64_t)index + 1;
+      button.keyEquivalent = number == default_button  ? @"\r"
+                             : number == cancel_button ? @"\e"
+                                                       : @"";
+    }
+    alert.window.defaultButtonCell =
+        default_button ? (NSButtonCell *)alert.buttons[(NSUInteger)default_button - 1].cell : nil;
+  } else if (alert.buttons.count > 1) {
+    alert.buttons.lastObject.keyEquivalent = @"\e";
+  }
+  RZMacSheet *sheet = new_sheet(window, token, alert.window, alert);
+  [alert beginSheetModalForWindow:window.window
+                completionHandler:^(NSModalResponse response) {
+                  @try {
+                    NSAlert *finished = sheet.payload;
+                    int32_t button = (int32_t)(response - NSAlertFirstButtonReturn + 1);
+                    finish_sheet(
+                        sheet,
+                        button >= 1 && button <= (int32_t)finished.buttons.count ? button : 0, nil);
+                  } @catch (NSException *exception) {
+                    sheet.failure = exception.reason ?: exception.name;
+                    finish_sheet(sheet, caught(exception), nil);
+                  }
+                }];
 }
 int32_t rinzu_macos_alert_begin(void *raw, int64_t token, const uint8_t *title, size_t title_length,
                                 const uint8_t *message, size_t message_length, const uint8_t *first,
@@ -4626,33 +4812,39 @@ int32_t rinzu_macos_alert_begin(void *raw, int64_t token, const uint8_t *title, 
           message_length > 65536 || first_length > 4096 || second_length > 4096 ||
           third_length > 4096 || (!two.length && three.length))
         return fail(RZ_ARGUMENT, @"alert requires one to three bounded button titles");
-      NSAlert *alert = [NSAlert new];
-      if (!alert)
-        _Exit(70);
-      alert.messageText = heading;
-      alert.informativeText = body;
-      [alert addButtonWithTitle:one];
+      NSMutableArray<NSString *> *titles = [NSMutableArray arrayWithObject:one];
       if (two.length)
-        [alert addButtonWithTitle:two];
+        [titles addObject:two];
       if (three.length)
-        [alert addButtonWithTitle:three];
-      if (alert.buttons.count > 1)
-        alert.buttons.lastObject.keyEquivalent = @"\e";
-      RZMacSheet *sheet = new_sheet(window, token, alert.window, alert);
-      [alert beginSheetModalForWindow:window.window
-                    completionHandler:^(NSModalResponse response) {
-                      @try {
-                        NSAlert *finished = sheet.payload;
-                        int32_t button = (int32_t)(response - NSAlertFirstButtonReturn + 1);
-                        finish_sheet(
-                            sheet,
-                            button >= 1 && button <= (int32_t)finished.buttons.count ? button : 0,
-                            nil);
-                      } @catch (NSException *exception) {
-                        sheet.failure = exception.reason ?: exception.name;
-                        finish_sheet(sheet, caught(exception), nil);
-                      }
-                    }];
+        [titles addObject:three];
+      begin_alert(window, token, heading, body, titles, NSAlertStyleWarning, -1, 0);
+      return 0;
+    } @catch (NSException *exception) {
+      return sheet_exception(window, exception);
+    }
+  }
+}
+int32_t rinzu_macos_alert_configured(void *raw, int64_t token, const uint8_t *title,
+                                     size_t title_length, const uint8_t *message,
+                                     size_t message_length, const uint8_t *buttons,
+                                     size_t buttons_length, int64_t style, int64_t default_button,
+                                     int64_t cancel_button) {
+  @autoreleasepool {
+    RZMacWindow *window = (RZMacWindow *)lookup(raw, RZ_WINDOW);
+    int32_t admission = sheet_admission(window, token);
+    if (admission)
+      return admission;
+    @try {
+      NSString *heading = title_length <= 4096 ? text(title, title_length) : nil;
+      NSString *body = message_length <= 65536 ? text(message, message_length) : nil;
+      NSArray<NSString *> *labels = sheet_strings(buttons, buttons_length, 16, 4096);
+      if (!heading || !body || !labels.count || style < (int64_t)NSAlertStyleWarning ||
+          style > (int64_t)NSAlertStyleCritical || default_button < 0 || cancel_button < 0 ||
+          (uint64_t)default_button > labels.count || (uint64_t)cancel_button > labels.count ||
+          (default_button > 0 && default_button == cancel_button))
+        return fail(RZ_ARGUMENT, @"invalid alert text, style or button role");
+      begin_alert(window, token, heading, body, labels, (NSAlertStyle)style, default_button,
+                  cancel_button);
       return 0;
     } @catch (NSException *exception) {
       return sheet_exception(window, exception);
@@ -4745,7 +4937,10 @@ int32_t rinzu_macos_window_visibility(void *raw, int32_t operation) {
         break;
       case 3:
         [window.window deminiaturize:nil];
-        [window.window makeKeyAndOrderFront:nil];
+        if (window.activateOnShow)
+          [window.window makeKeyAndOrderFront:nil];
+        else
+          [window.window orderFront:nil];
         break;
       default:
         return fail(RZ_ARGUMENT, @"invalid Window visibility operation");
@@ -4765,6 +4960,40 @@ int32_t rinzu_macos_text_composing(void *raw) {
     if (view.widgetKind != RZ_TEXT_VIEW && view.widgetKind != RZ_TEXT_FIELD)
       return fail(RZ_ARGUMENT, @"composition requires a text widget");
     return text_editor(view).hasMarkedText ? 1 : 0;
+  }
+}
+int32_t rinzu_macos_text_view_options(void *raw, const uint8_t *font, size_t length, double size,
+                                      int64_t flags) {
+  @autoreleasepool {
+    @try {
+      RZMacView *view = (RZMacView *)lookup(raw, RZ_VIEW);
+      if (!view)
+        return missing();
+      NSString *name = length <= 4096 ? text(font, length) : nil;
+      if (view.widgetKind != RZ_TEXT_VIEW || !name || !isfinite(size) || size < 1 || size > 512 ||
+          flags < 0 || flags > 31)
+        return fail(RZ_ARGUMENT, @"invalid TextView font, size or editing options");
+      NSTextView *editor = (NSTextView *)view.view;
+      if (!accepting(view) || editor.hasMarkedText)
+        return fail(RZ_BUSY, @"TextView is closing or composing text");
+      NSFont *face;
+      if (name.length)
+        face = [NSFont fontWithName:name size:size];
+      else if (flags & 1)
+        face = [NSFont monospacedSystemFontOfSize:size weight:NSFontWeightRegular];
+      else
+        face = [NSFont systemFontOfSize:size];
+      if (!face)
+        return fail(RZ_ARGUMENT, @"TextView font was not found");
+      editor.font = face;
+      editor.allowsUndo = (flags & 2) != 0;
+      editor.automaticQuoteSubstitutionEnabled = (flags & 4) != 0;
+      editor.automaticDashSubstitutionEnabled = (flags & 8) != 0;
+      editor.automaticTextReplacementEnabled = (flags & 16) != 0;
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
   }
 }
 int32_t rinzu_macos_scroll_to(void *raw, double x, double y) {
@@ -6721,7 +6950,7 @@ static BOOL data_key(RZMacDataController *data, NSEvent *event) {
     return YES;
   if ((event.keyCode == 36 || event.keyCode == 76) &&
       !(event.modifierFlags & (NSEventModifierFlagCommand | NSEventModifierFlagControl))) {
-    [data emit:2];
+    [data emit:2 row:data.table.selectedRow];
     return YES;
   }
   return NO;
@@ -6751,11 +6980,21 @@ static BOOL data_key(RZMacDataController *data, NSEvent *event) {
     return -1;
   if (self.tree)
     return [(NSOutlineView *)self.table rowForItem:node];
-  NSUInteger row = [self.model.roots indexOfObjectIdenticalTo:node];
-  return row == NSNotFound ? -1 : (NSInteger)row;
+  return node.flatRow;
 }
 - (int64_t)selectedId {
   return [self nodeAtRow:self.table.selectedRow].identity;
+}
+- (NSArray<NSNumber *> *)selectedIds {
+  NSIndexSet *selected = self.table.selectedRowIndexes;
+  NSMutableArray<NSNumber *> *ids = [NSMutableArray arrayWithCapacity:selected.count];
+  [selected enumerateIndexesUsingBlock:^(NSUInteger index, BOOL *stop) {
+    (void)stop;
+    RZMacDataNode *node = [self nodeAtRow:(NSInteger)index];
+    if (node)
+      [ids addObject:@(node.identity)];
+  }];
+  return ids;
 }
 - (NSInteger)numberOfRowsInTableView:(NSTableView *)table {
   (void)table;
@@ -6780,11 +7019,13 @@ static BOOL data_key(RZMacDataController *data, NSEvent *event) {
     return nil;
   NSTableCellView *cell = [self.table makeViewWithIdentifier:column.identifier owner:nil];
   if (!cell) {
-    cell = [[NSTableCellView alloc] initWithFrame:NSMakeRect(0, 0, column.width, 24)];
+    CGFloat height = self.table.rowHeight;
+    cell = [[NSTableCellView alloc] initWithFrame:NSMakeRect(0, 0, column.width, height)];
     cell.identifier = column.identifier;
     NSTextField *label = [NSTextField labelWithString:@""];
-    label.frame = NSMakeRect(4, 3, MAX(0, column.width - 8), 18);
-    label.autoresizingMask = NSViewWidthSizable;
+    label.frame =
+        NSMakeRect(4, MAX(0, (height - 18) / 2), MAX(0, column.width - 8), MIN(height, 18));
+    label.autoresizingMask = NSViewWidthSizable | NSViewMinYMargin | NSViewMaxYMargin;
     label.lineBreakMode = NSLineBreakByTruncatingTail;
     cell.textField = label;
     [cell addSubview:label];
@@ -6827,32 +7068,33 @@ static BOOL data_key(RZMacDataController *data, NSEvent *event) {
   (void)item;
   return self.updating || (self.view.enabled && accepting(self.view));
 }
-- (void)emit:(int64_t)kind {
+- (void)emit:(int64_t)kind row:(NSInteger)row {
   if (self.updating || !self.view || self.view.closed || !self.view.enabled ||
       !accepting(self.view))
     return;
-  RZMacDataNode *node = [self nodeAtRow:self.table.selectedRow];
+  RZMacDataNode *node = [self nodeAtRow:row];
+  if (kind == 2 && !node)
+    return;
   struct MacEvent event = view_event(self.view, RZ_DATA);
   event.action = self.view.action;
   event.flags = kind;
   event.selectionStart = node.identity;
-  event.selectionEnd = self.table.selectedRow;
+  event.selectionEnd = row;
   event.value = (double)self.revision;
   [self.view.owner enqueue:event
                       text:[node.cells.firstObject dataUsingEncoding:NSUTF8StringEncoding]];
 }
 - (void)tableViewSelectionDidChange:(NSNotification *)notification {
   (void)notification;
-  [self emit:1];
+  [self emit:1 row:self.table.selectedRow];
 }
 - (void)outlineViewSelectionDidChange:(NSNotification *)notification {
   (void)notification;
-  [self emit:1];
+  [self emit:1 row:self.table.selectedRow];
 }
 - (void)activated:(id)sender {
   (void)sender;
-  if (self.table.selectedRow >= 0)
-    [self emit:2];
+  [self emit:2 row:self.table.clickedRow];
 }
 - (void)outlineViewItemDidExpand:(NSNotification *)notification {
   RZMacDataNode *node = notification.userInfo[@"NSObject"];
@@ -6901,7 +7143,12 @@ static BOOL data_key(RZMacDataController *data, NSEvent *event) {
     for (RZMacDataNode *node in self.model.rows)
       [node.children sortUsingComparator:compare];
 }
-- (void)reloadKeeping:(int64_t)identity {
+- (void)reloadKeeping:(NSArray<NSNumber *> *)identities {
+  if (!self.tree) {
+    NSInteger row = 0;
+    for (RZMacDataNode *node in self.model.roots)
+      node.flatRow = row++;
+  }
   [self.table reloadData];
   if (self.tree) {
     // Parent-before-child insertion order restores only reachable expanded items.
@@ -6911,10 +7158,14 @@ static BOOL data_key(RZMacDataController *data, NSEvent *event) {
         [(NSOutlineView *)self.table expandItem:node];
     [self.expanded intersectSet:[NSSet setWithArray:self.model.byId.allKeys]];
   }
-  NSInteger row = [self rowForNode:self.model.byId[@(identity)]];
-  if (row >= 0)
-    [self.table selectRowIndexes:[NSIndexSet indexSetWithIndex:(NSUInteger)row]
-            byExtendingSelection:NO];
+  NSMutableIndexSet *rows = [NSMutableIndexSet indexSet];
+  for (NSNumber *identity in identities) {
+    NSInteger row = [self rowForNode:self.model.byId[identity]];
+    if (row >= 0)
+      [rows addIndex:(NSUInteger)row];
+  }
+  if (rows.count)
+    [self.table selectRowIndexes:rows byExtendingSelection:NO];
   else
     [self.table deselectAll:nil];
 }
@@ -6926,15 +7177,17 @@ static BOOL data_key(RZMacDataController *data, NSEvent *event) {
   NSInteger column = sort.key.integerValue;
   if (column < 0 || column >= (NSInteger)table.tableColumns.count)
     return;
-  int64_t selected = self.selectedId;
-  self.sortColumn = column;
-  self.ascending = sort.ascending;
-  self.updating = YES;
-  @try {
-    [self sortModel];
-    [self reloadKeeping:selected];
-  } @finally {
-    self.updating = NO;
+  if (!self.applicationSort) {
+    NSArray<NSNumber *> *selected = self.selectedIds;
+    self.sortColumn = column;
+    self.ascending = sort.ascending;
+    self.updating = YES;
+    @try {
+      [self sortModel];
+      [self reloadKeeping:selected];
+    } @finally {
+      self.updating = NO;
+    }
   }
   struct MacEvent event = view_event(self.view, RZ_DATA);
   event.action = self.view.action;
@@ -6954,8 +7207,10 @@ static BOOL data_key(RZMacDataController *data, NSEvent *event) {
 static RZMacDataController *data_control(void *raw) {
   return ((RZMacView *)lookup(raw, RZ_VIEW)).dataController;
 }
-int64_t rinzu_macos_data_create(void *raw, int64_t kind, int64_t columns,
-                                const struct MacRect *rect, int64_t action) {
+static BOOL input_integer(id value, int64_t minimum, int64_t maximum);
+int64_t rinzu_macos_data_configured(void *raw, int64_t kind, int64_t columns,
+                                    const struct MacRect *rect, int64_t action, double row_height,
+                                    _Bool multiple, _Bool alternating, _Bool application_sort) {
   @autoreleasepool {
     @try {
       RZMacWindow *window = (RZMacWindow *)lookup(raw, RZ_WINDOW);
@@ -6964,7 +7219,8 @@ int64_t rinzu_macos_data_create(void *raw, int64_t kind, int64_t columns,
       if (!accepting(window))
         return fail(RZ_BUSY, @"Window is closing");
       if (kind < 1 || kind > 3 || columns < 1 || columns > 32 || (kind == 1 && columns != 1) ||
-          !rect_valid(rect) || action < 0)
+          !rect_valid(rect) || action < 0 || !isfinite(row_height) || row_height < 12 ||
+          row_height > 256)
         return fail(RZ_ARGUMENT, @"invalid data view kind, columns, frame or action");
       RZMacView *view = [RZMacView new];
       view.enabled = YES;
@@ -6982,6 +7238,7 @@ int64_t rinzu_macos_data_create(void *raw, int64_t kind, int64_t columns,
       data.expanded = [NSMutableSet new];
       data.cells = [NSHashTable weakObjectsHashTable];
       data.sortColumn = -1;
+      data.applicationSort = application_sort;
       NSTableView *table;
       if (data.tree) {
         RZMacDataTree *tree = [[RZMacDataTree alloc] initWithFrame:scroll.bounds];
@@ -6995,12 +7252,12 @@ int64_t rinzu_macos_data_create(void *raw, int64_t kind, int64_t columns,
         table = flat;
       }
       data.table = table;
-      table.rowHeight = 24;
+      table.rowHeight = row_height;
       table.usesAutomaticRowHeights = NO;
-      table.allowsMultipleSelection = NO;
+      table.allowsMultipleSelection = multiple;
       table.allowsEmptySelection = YES;
       table.allowsColumnReordering = NO;
-      table.usesAlternatingRowBackgroundColors = YES;
+      table.usesAlternatingRowBackgroundColors = alternating;
       table.columnAutoresizingStyle = NSTableViewLastColumnOnlyAutoresizingStyle;
       table.autoresizingMask = NSViewWidthSizable;
       for (int64_t i = 0; i < columns; ++i) {
@@ -7028,6 +7285,10 @@ int64_t rinzu_macos_data_create(void *raw, int64_t kind, int64_t columns,
       return caught(exception);
     }
   }
+}
+int64_t rinzu_macos_data_create(void *raw, int64_t kind, int64_t columns,
+                                const struct MacRect *rect, int64_t action) {
+  return rinzu_macos_data_configured(raw, kind, columns, rect, action, 24, NO, YES, NO);
 }
 int32_t rinzu_macos_data_column(void *raw, int64_t index, const uint8_t *bytes, size_t length,
                                 double width, _Bool sortable) {
@@ -7147,14 +7408,15 @@ int32_t rinzu_macos_data_commit(void *raw, int64_t token) {
         return fail(RZ_BUSY, @"data update token mismatch");
       if (!accepting(data.view) || data.revision >= INT64_C(9007199254740991))
         return fail(RZ_BUSY, @"data view is closing or revision exhausted");
-      int64_t selected = data.selectedId;
+      NSArray<NSNumber *> *selected = data.selectedIds;
       data.updating = YES;
       @try {
         data.model = data.pending;
         data.pending = nil;
         data.token = 0;
         ++data.revision;
-        [data sortModel];
+        if (!data.applicationSort)
+          [data sortModel];
         [data reloadKeeping:selected];
       } @finally {
         data.updating = NO;
@@ -7206,6 +7468,55 @@ int32_t rinzu_macos_data_select(void *raw, int64_t identity, _Bool reveal) {
                   byExtendingSelection:NO];
           if (reveal)
             [data.table scrollRowToVisible:row];
+        }
+      } @finally {
+        data.updating = NO;
+      }
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+int32_t rinzu_macos_data_select_ids(void *raw, const uint8_t *ids, size_t length, _Bool reveal) {
+  @autoreleasepool {
+    @try {
+      RZMacDataController *data = data_control(raw);
+      if (!data)
+        return missing();
+      if (!ids || !length || length > RZ_EVENT_BYTES_LIMIT)
+        return fail(RZ_ARGUMENT, @"invalid selection payload");
+      id value = [NSJSONSerialization JSONObjectWithData:[NSData dataWithBytes:ids length:length]
+                                                 options:0
+                                                   error:NULL];
+      if (![value isKindOfClass:NSArray.class] || [value count] > 100000 ||
+          ([value count] > 1 && !data.table.allowsMultipleSelection))
+        return fail(RZ_ARGUMENT, @"invalid or unsupported selection size");
+      NSMutableArray<RZMacDataNode *> *nodes = [NSMutableArray arrayWithCapacity:[value count]];
+      for (id identity in value) {
+        RZMacDataNode *node =
+            input_integer(identity, 1, INT64_MAX) ? data.model.byId[identity] : nil;
+        if (!node || (!reveal && [data rowForNode:node] < 0))
+          return fail(RZ_ARGUMENT, @"selected row is missing or collapsed");
+        [nodes addObject:node];
+      }
+      data.updating = YES;
+      @try {
+        NSMutableIndexSet *rows = [NSMutableIndexSet indexSet];
+        for (RZMacDataNode *node in nodes) {
+          if (reveal)
+            data_reveal(data, node);
+          NSInteger row = [data rowForNode:node];
+          if (row < 0)
+            return fail(RZ_ARGUMENT, @"could not reveal selected row");
+          [rows addIndex:(NSUInteger)row];
+        }
+        if (rows.count) {
+          [data.table selectRowIndexes:rows byExtendingSelection:NO];
+          if (reveal)
+            [data.table scrollRowToVisible:(NSInteger)rows.firstIndex];
+        } else {
+          [data.table deselectAll:nil];
         }
       } @finally {
         data.updating = NO;
@@ -7282,7 +7593,7 @@ int32_t rinzu_macos_data_sort(void *raw, int64_t column, _Bool ascending) {
         return missing();
       if (column < 0 || (uint64_t)column >= data.table.tableColumns.count)
         return fail(RZ_ARGUMENT, @"sort column not found");
-      int64_t selected = data.selectedId;
+      NSArray<NSNumber *> *selected = data.selectedIds;
       data.updating = YES;
       @try {
         data.sortColumn = (NSInteger)column;
@@ -7326,6 +7637,33 @@ int32_t rinzu_macos_data_state(void *raw, struct MacDataState *output) {
     }
   }
 }
+static int32_t data_snapshot(RZMacView *view, int64_t token, NSData *bytes) {
+  if (token <= 0 || token > next_waiter || !bytes || bytes.length > RZ_EVENT_BYTES_LIMIT)
+    return fail(RZ_ARGUMENT, @"invalid data snapshot or token");
+  if (view.snapshotToken)
+    return fail(RZ_BUSY, @"data view has an active snapshot reader");
+  view.snapshotData = bytes;
+  view.snapshotToken = token;
+  ++view.leases;
+  view->textSnapshot =
+      (rinzu_native_byte_array_t){.data = (uint8_t *)bytes.bytes, .length = bytes.length};
+  return 0;
+}
+int32_t rinzu_macos_data_selected_ids(void *raw, int64_t token) {
+  @autoreleasepool {
+    @try {
+      RZMacDataController *data = data_control(raw);
+      if (!data)
+        return missing();
+      NSData *bytes = [NSJSONSerialization dataWithJSONObject:data.selectedIds
+                                                      options:0
+                                                        error:NULL];
+      return data_snapshot(data.view, token, bytes);
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
 int32_t rinzu_macos_data_cell(void *raw, int64_t token, int64_t identity, int64_t column) {
   @autoreleasepool {
     @try {
@@ -7333,21 +7671,12 @@ int32_t rinzu_macos_data_cell(void *raw, int64_t token, int64_t identity, int64_
       if (!data)
         return missing();
       RZMacDataNode *node = data.model.byId[@(identity)];
-      if (!node || column < 0 || (uint64_t)column >= node.cells.count || token <= 0 ||
-          token > next_waiter)
-        return fail(RZ_ARGUMENT, @"invalid row, column or text token");
-      RZMacView *view = data.view;
-      if (view.snapshotToken)
-        return fail(RZ_BUSY, @"data cell has an active reader");
+      if (!node || column < 0 || (uint64_t)column >= node.cells.count)
+        return fail(RZ_ARGUMENT, @"invalid row or column");
       NSData *bytes = [node.cells[(NSUInteger)column] dataUsingEncoding:NSUTF8StringEncoding];
       if (!bytes)
         _Exit(70);
-      view.snapshotData = bytes;
-      view.snapshotToken = token;
-      ++view.leases;
-      view->textSnapshot =
-          (rinzu_native_byte_array_t){.data = (uint8_t *)bytes.bytes, .length = bytes.length};
-      return 0;
+      return data_snapshot(data.view, token, bytes);
     } @catch (NSException *exception) {
       return caught(exception);
     }

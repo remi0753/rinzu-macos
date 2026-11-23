@@ -91,6 +91,8 @@ static void exercise(const char *mode) {
   BOOL open = strncmp(mode, "open", 4) == 0, save = strncmp(mode, "save", 4) == 0;
   BOOL accept = strstr(mode, "accept") != NULL;
   BOOL no_selection = strstr(mode, "no-selection") != NULL;
+  BOOL open_options = strcmp(mode, "open-options") == 0;
+  BOOL alert_options = strcmp(mode, "alert-options") == 0;
   NSError *error = nil;
   assert([[NSFileManager defaultManager] createDirectoryAtPath:directory
                                    withIntermediateDirectories:YES
@@ -138,6 +140,29 @@ static void exercise(const char *mode) {
                                                (void)response;
                                                finish_sheet(sheet, 0, nil);
                                              }];
+                            } else if (open_options) {
+                              const char types[] = "[\"public.plain-text\"]";
+                              assert(rinzu_macos_panel_configured(
+                                         window, token, false, (const uint8_t *)"Choose", 6, NULL,
+                                         0, NULL, 0, (const uint8_t *)types, sizeof(types) - 1,
+                                         RZ_PANEL_FILES | RZ_PANEL_DIRECTORIES | RZ_PANEL_MULTIPLE |
+                                             RZ_PANEL_CREATE) == 0);
+                              NSOpenPanel *panel = parent.sheet.payload;
+                              assert(panel.canChooseFiles && panel.canChooseDirectories &&
+                                     panel.allowsMultipleSelection && panel.canCreateDirectories);
+                              assert([panel.allowedContentTypes.firstObject.identifier
+                                  isEqualToString:@"public.plain-text"]);
+                            } else if (alert_options) {
+                              const char labels[] = "[\"Cancel\",\"Keep\",\"Confirm\"]";
+                              assert(rinzu_macos_alert_configured(
+                                         window, token, (const uint8_t *)"Confirm", 7, NULL, 0,
+                                         (const uint8_t *)labels, sizeof(labels) - 1,
+                                         NSAlertStyleInformational, 3, 1) == 0);
+                              NSAlert *native = parent.sheet.payload;
+                              assert(native.alertStyle == NSAlertStyleInformational &&
+                                     [native.buttons[0].keyEquivalent isEqualToString:@"\e"] &&
+                                     [native.buttons[2].keyEquivalent isEqualToString:@"\r"] &&
+                                     native.buttons[1].keyEquivalent.length == 0);
                             } else if (open || save) {
                               NSData *folder = [directory dataUsingEncoding:NSUTF8StringEncoding];
                               NSData *name = [filename dataUsingEncoding:NSUTF8StringEncoding];
@@ -170,7 +195,8 @@ static void exercise(const char *mode) {
                             }
                             if (!parent.sheet.window.visible)
                               return;
-                            if (strcmp(mode, "alert") == 0 || strcmp(mode, "two") == 0) {
+                            if (alert_options || strcmp(mode, "alert") == 0 ||
+                                strcmp(mode, "two") == 0) {
                               NSAlert *native = parent.sheet.payload;
                               [native.buttons[1] performClick:nil];
                             } else if (accept || no_selection) {
@@ -213,7 +239,8 @@ static void exercise(const char *mode) {
                             return;
                           int expected = no_selection ? RZ_ARGUMENT
                                          : accept     ? 1
-                                         : strcmp(mode, "alert") == 0 || strcmp(mode, "two") == 0
+                                         : alert_options || strcmp(mode, "alert") == 0 ||
+                                                 strcmp(mode, "two") == 0
                                              ? 2
                                              : 0;
                           assert(rinzu_macos_sheet_result(window, token) == expected);

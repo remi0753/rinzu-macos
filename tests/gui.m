@@ -12,6 +12,54 @@ static void clean(void) {
 }
 static const uint8_t expected[] = {'A',  0,    0xf0, 0x9f, 0x98, 0x80,
                                    0xe6, 0x97, 0xa5, 0xe6, 0x9c, 0xac};
+static struct MacEvent take_event(void *scope) {
+  int64_t token = rinzu_macos_wait_token();
+  assert(rinzu_macos_event_wait_begin(scope, token) == 0);
+  struct MacEvent event;
+  assert(rinzu_macos_event_take(scope, token, &event) == 1);
+  assert(rinzu_macos_event_finish(scope, token) == 0);
+  return event;
+}
+
+static void recovery(void) {
+  void *scope = rinzu_macos_session(rinzu_macos_open());
+  void *window = rinzu_macos_window(
+      rinzu_macos_window_create(scope, (const uint8_t *)"Event recovery", 14, 240, 150));
+  assert(window && rinzu_macos_event_overflow_recovery(scope, true) == 0);
+  assert(rinzu_macos_prepare_events(scope) == 0);
+  assert(rinzu_macos_event_overflow_recovery(scope, false) == RZ_BUSY);
+  NSTimer *timer = [NSTimer
+      scheduledTimerWithTimeInterval:0.01
+                             repeats:NO
+                               block:^(NSTimer *tick) {
+                                 (void)tick;
+                                 RZMacSession *owner = (RZMacSession *)lookup(scope, RZ_SESSION);
+                                 [owner clearEvents];
+                                 for (int64_t i = 0; i < RZ_EVENT_LIMIT + 4; ++i)
+                                   [owner
+                                       enqueue:(struct MacEvent){.kind = RZ_ACTION, .action = i}];
+                                 assert(owner->count == RZ_EVENT_LIMIT && !owner.stopping);
+                                 for (int64_t i = 0; i < RZ_EVENT_LIMIT - 1; ++i) {
+                                   struct MacEvent event = take_event(scope);
+                                   assert(event.kind == RZ_ACTION && event.action == i);
+                                 }
+                                 struct MacEvent loss = take_event(scope);
+                                 assert(loss.kind == RZ_EVENT_OVERFLOW && loss.action == 5 &&
+                                        !loss.windowId && !loss.viewId);
+                                 [owner
+                                     enqueue:(struct MacEvent){.kind = RZ_ACTION, .action = 999}];
+                                 struct MacEvent next = take_event(scope);
+                                 assert(next.kind == RZ_ACTION && next.action == 999 &&
+                                        next.sequence > loss.sequence);
+                                 assert(rinzu_macos_stop(scope) == 0);
+                               }];
+  assert(rinzu_macos_run_events(scope) == 0);
+  [timer invalidate];
+  assert(rinzu_macos_close(scope) == 0);
+  clean();
+  puts("PASS:gui-stream:recoverable-overflow:ordered-loss:resume:cleanup");
+}
+
 static void stream(BOOL overflow) {
   void *scope = rinzu_macos_session(rinzu_macos_open());
   void *window = rinzu_macos_window(
@@ -149,9 +197,19 @@ static void widgets(void) {
   int64_t first = rinzu_macos_wait_token(), second = rinzu_macos_wait_token();
   void *window = rinzu_macos_window(
       rinzu_macos_window_scoped(scope, first, (const uint8_t *)"Widgets", 7, 520, 360));
-  void *other = rinzu_macos_window(
-      rinzu_macos_window_scoped(scope, second, (const uint8_t *)"Other", 5, 320, 200));
+  NSRect screen = NSScreen.mainScreen.visibleFrame;
+  struct MacRect initial = {NSMinX(screen) + 32, NSMinY(screen) + 48, 320, 200};
+  NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable;
+  void *other = rinzu_macos_window(rinzu_macos_window_configured(
+      scope, second, (const uint8_t *)"Other", 5, &initial, style, false, false));
   assert(window && other);
+  RZMacWindow *configured = (RZMacWindow *)lookup(other, RZ_WINDOW);
+  assert(configured.window.styleMask == style && !configured.activateOnShow);
+  NSRect positioned = [configured.window contentRectForFrameRect:configured.window.frame];
+  if (!NSEqualRects(positioned, nsrect(&initial)))
+    fprintf(stderr, "configured window frame %s, expected %s\n",
+            NSStringFromRect(positioned).UTF8String, NSStringFromRect(nsrect(&initial)).UTF8String);
+  assert(NSEqualRects(positioned, nsrect(&initial)));
   void *root = rinzu_macos_window_content(window);
   struct MacRect frame = {10, 10, 240, 100};
   void *items[6];
@@ -166,8 +224,32 @@ static void widgets(void) {
       assert(rinzu_macos_view_add(root, items[kind - 1]) == 0);
   }
   void *text = items[RZ_TEXT_VIEW - 1];
+  assert(rinzu_macos_text_view_options(text, NULL, 0, 18, 2 | 4 | 16) == 0);
+  NSTextView *configured_editor = (NSTextView *)((RZMacView *)lookup(text, RZ_VIEW)).view;
+  assert(configured_editor.font.pointSize == 18 && configured_editor.allowsUndo &&
+         configured_editor.automaticQuoteSubstitutionEnabled &&
+         configured_editor.automaticTextReplacementEnabled &&
+         !configured_editor.automaticDashSubstitutionEnabled);
   assert(rinzu_macos_scroll_content(items[RZ_SCROLL_VIEW - 1], text) == 0);
   assert(rinzu_macos_scroll_content(items[RZ_SCROLL_VIEW - 1], root) == RZ_ARGUMENT);
+  assert(rinzu_macos_view_focus(text) == 0);
+  NSString *original = [configured_editor.string copy];
+  NSUndoManager *history = configured_editor.undoManager;
+  assert(history);
+  history.groupsByEvent = NO;
+  [history beginUndoGrouping];
+  [configured_editor insertText:@"!" replacementRange:NSMakeRange(original.length, 0)];
+  [configured_editor breakUndoCoalescing];
+  [history endUndoGrouping];
+  NSString *edited = [original stringByAppendingString:@"!"];
+  assert([configured_editor.string isEqualToString:edited] && history.canUndo);
+  assert(rinzu_macos_window_command(window, 5) == 0);
+  assert([configured_editor.string isEqualToString:original] && history.canRedo);
+  assert(rinzu_macos_window_command(window, 6) == 0);
+  assert([configured_editor.string isEqualToString:edited]);
+  assert(rinzu_macos_window_command(window, 5) == 0);
+  assert([configured_editor.string isEqualToString:original]);
+  assert(rinzu_macos_text_view_options(text, NULL, 0, 13, 1) == 0);
   int64_t snapshot = rinzu_macos_wait_token(), wrong = rinzu_macos_wait_token();
   assert(rinzu_macos_widget_snapshot(text, snapshot) == 0);
   assert(rinzu_macos_widget_snapshot(text, wrong) == RZ_BUSY);
@@ -510,6 +592,8 @@ int main(int argc, char **argv) {
       menus();
     else if (!strcmp(argv[1], "widgets"))
       widgets();
+    else if (!strcmp(argv[1], "overflow-recovery"))
+      recovery();
     else
       stream(!strcmp(argv[1], "overflow"));
   }
