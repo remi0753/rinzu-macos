@@ -28,9 +28,8 @@ offline restoration, all eight unchanged examples, JIT and relocated signed
 AOT bundles, and modified-asset rejection. Archive SHA-256:
 `e9dd3ebe214c4022a269902037bdafeaa13e38c981ed2f7382d7b8ba797ff382`.
 
-Publication is held at the user's request. No v0.3.0 tag or release is created;
-consumers use a locally committed development checkout. The stable public
-release remains v0.2.0.
+This checksum identifies a development snapshot. See
+[v0.3.0 release validation](#v030-release-validation) for the published archive.
 
 These SDK probes exercise real AppKit protocol implementations and synthetic
 proposals. Human Japanese input-method, hardware keyboard and assistive
@@ -57,7 +56,7 @@ additions and no breaking candidates. The eight unchanged examples and archive
 registration, offline, moved signed AOT and tamper checks passed. The updated
 nine-file candidate archive SHA-256 is
 `fa87e91154232c8bdb6f4d66e9aa4866025df68f33cabce34c7e345d3410b1d9`.
-Publication remains held; these are local qualification results.
+This checksum identifies the snapshot-encoding follow-up.
 
 ### Bounded span fragments
 
@@ -72,5 +71,25 @@ The grouped implementation passed the source core JIT/AOT precision and bounds
 checks, API comparison, eight unchanged examples and local distribution probes.
 Its nine-file archive SHA-256 is
 `47cbf303c5c2d1e862617346b4f52562063435a1337c1731dc356a692a4cfcb4`.
-The native implementation and its qualified 49 cases are unchanged. Publication
-remains held. These codec measurements do not replace application latency tests.
+The native implementation and its qualified 49 cases are unchanged. These
+measurements cover SDK snapshot encoding.
+
+## v0.3.0 release validation
+
+The release adds custom-view input and accessibility snapshots, application and
+control options, display-paced Canvas configuration, and opt-in recovery from
+event overflow. The SDK regression tests cover session ownership, IME replacement
+ranges, sRGB compositing, document save state, Undo and Redo, and data-view events.
+
+The release qualification covers AppKit and Metal on macOS arm64, Source JIT and
+AOT, GUI and sheets, ASan and UBSan, and signal inheritance and interrupts.
+The nine-file archive was checked with the released Rinzu v0.4.0 toolchain for
+module installation, checksum locking, offline restoration, all eight examples,
+relocated signed AOT bundles, and rejection of modified bundle assets.
+
+The SDK tests use real AppKit interfaces with synthetic input and accessibility
+proposals. Applications validate operator input and assistive technology with
+their own workflows.
+
+Archive SHA-256 is
+`da468d630a6fe075d3111d6d5d91a93e21ac52ece74bb486f27b86188d3e2223`.
