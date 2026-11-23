@@ -54,11 +54,11 @@ static int publish_projection(void *view, NSDictionary *value) {
 }
 static void test_grid_spans(void) {
   NSMutableDictionary *value = [projection(1, 1, 0) mutableCopy];
-  NSArray *expected = @[
-    @[ @0, @1, @0.0, @0.0, @10.4, @20.0, @0 ], @[ @1, @1, @10.4, @0.0, @20.0, @20.0, @0 ],
-    @[ @2, @2, @30.4, @0.0, @20.0, @20.0, @0 ], @[ @4, @1, @50.4, @0.0, @0.0, @20.0, @0 ],
-    @[ @5, @1, @0.0, @20.0, @10.4, @20.8, @1 ]
-  ];
+  const struct RZInputSpan expected[] = {{{0, 1}, {{0, 0}, {10.4, 20}}, 0},
+                                         {{1, 1}, {{10.4, 0}, {20, 20}}, 0},
+                                         {{2, 2}, {{30.4, 0}, {20, 20}}, 0},
+                                         {{4, 1}, {{50.4, 0}, {0, 20}}, 0},
+                                         {{5, 1}, {{0, 20}, {10.4, 20.8}}, 1}};
   value[@"spans"] = @[];
   value[@"scale"] = @1.25;
   value[@"xEdges"] = @[ @0, @13, @25, @38, @50, @63 ];
@@ -66,7 +66,22 @@ static void test_grid_spans(void) {
   value[@"lineSizes"] = @[ @8, @2 ];
   const uint8_t pairs[] = {1, 1, 1, 2, 2, 2, 1, 0, 1, 1};
   NSData *data = [NSData dataWithBytes:pairs length:sizeof(pairs)];
-  assert([input_grid_spans(value, data) isEqualToArray:expected]);
+  NS_VALID_UNTIL_END_OF_SCOPE NSData *geometry = input_grid_spans(value, data);
+  assert(geometry.length == sizeof(expected));
+  const struct RZInputSpan *actual = geometry.bytes;
+  for (NSUInteger index = 0; index < sizeof(expected) / sizeof(*expected); ++index) {
+    assert(NSEqualRanges(actual[index].range, expected[index].range));
+    assert(NSEqualRects(actual[index].rect, expected[index].rect));
+    assert(actual[index].line == expected[index].line);
+  }
+  assert(NSEqualRanges(input_index_span(geometry, 3).range, NSMakeRange(2, 2)));
+  assert(input_index_span(geometry, 6).range.location == NSNotFound);
+  // A shorter transient composition can end at the next committed row's start.
+  assert(input_first_rect_span(actual, 5, NSMakeRange(5, 0), 5) == 3);
+  assert(input_first_rect_span(actual, 5, NSMakeRange(5, 0), 6) == 4);
+  const uint8_t splitSurrogate[] = {1, 1, 1, 2, 1, 2, 2, 0, 1, 1};
+  NSData *invalid = [NSData dataWithBytes:splitSurrogate length:sizeof(splitSurrogate)];
+  assert(!input_grid_spans(value, invalid));
   value[@"lineSizes"] = @[ @6, @2 ];
   assert(!input_grid_spans(value, data));
   value[@"lineSizes"] = @[ @8, @2 ];

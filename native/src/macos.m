@@ -202,10 +202,15 @@ enum {
 - (void)emit:(int64_t)kind;
 - (void)activated:(id)sender;
 @end
+struct RZInputSpan {
+  NSRange range;
+  NSRect rect;
+  NSInteger line;
+};
 @interface RZMacNativeView : NSView <NSTextInputClient>
 @property(nonatomic, weak) RZMacView *control;
 @property(nonatomic, strong) NSDictionary *inputSnapshot;
-@property(nonatomic, strong) NSData *inputData, *inputGridData;
+@property(nonatomic, strong) NSData *inputData, *inputGridData, *inputSpans;
 @property(nonatomic, strong) NSTextInputContext *ownedInputContext;
 @property(nonatomic, strong) NSString *inputMarked, *inputCommand;
 @property(nonatomic, strong) NSEvent *inputKey;
@@ -617,9 +622,38 @@ static NSRange input_pair(NSDictionary *snapshot, NSString *prefix) {
 static NSRange input_selection(NSDictionary *snapshot) {
   return input_pair(snapshot, snapshot[@"inputStart"] ? @"input" : @"selected");
 }
-static NSRect input_local_rect(RZMacNativeView *view, NSArray *span) {
-  NSRect rect = NSMakeRect([span[2] doubleValue], [span[3] doubleValue], [span[4] doubleValue],
-                           [span[5] doubleValue]);
+static NSUInteger input_first_span(const struct RZInputSpan *spans, NSUInteger count,
+                                   NSUInteger index) {
+  NSUInteger low = 0, high = count;
+  while (low < high) {
+    NSUInteger middle = low + (high - low) / 2;
+    if (NSMaxRange(spans[middle].range) <= index)
+      low = middle + 1;
+    else
+      high = middle;
+  }
+  return low;
+}
+static NSUInteger input_first_rect_span(const struct RZInputSpan *spans, NSUInteger count,
+                                        NSRange range, NSUInteger textLength) {
+  NSUInteger first = input_first_span(spans, count, range.location);
+  // At the end of transient text, keep the preceding span's trailing edge.
+  if (!range.length && range.location == textLength && first &&
+      NSMaxRange(spans[first - 1].range) == range.location)
+    --first;
+  return first;
+}
+static struct RZInputSpan input_index_span(NSData *data, NSInteger index) {
+  if (index >= 0) {
+    const struct RZInputSpan *spans = data.bytes;
+    NSUInteger count = data.length / sizeof(*spans);
+    NSUInteger position = input_first_span(spans, count, (NSUInteger)index);
+    if (position < count && NSLocationInRange((NSUInteger)index, spans[position].range))
+      return spans[position];
+  }
+  return (struct RZInputSpan){.range = NSMakeRange(NSNotFound, 0), .line = NSNotFound};
+}
+static NSRect input_local_rect(RZMacNativeView *view, NSRect rect) {
   if (!view.isFlipped)
     rect.origin.y = NSHeight(view.bounds) - NSMaxY(rect);
   return rect;
@@ -628,7 +662,8 @@ static NSRect input_caret(RZMacNativeView *view) {
   NSArray *value = view.inputSnapshot[@"caret"];
   if (value.count != 4)
     return NSZeroRect;
-  return input_local_rect(view, @[ @0, @0, value[0], value[1], value[2], value[3] ]);
+  return input_local_rect(view, NSMakeRect([value[0] doubleValue], [value[1] doubleValue],
+                                           [value[2] doubleValue], [value[3] doubleValue]));
 }
 static NSRect input_screen_rect(RZMacNativeView *view, NSRect rect) {
   NSRect window = [view convertRect:rect toView:nil];
@@ -651,15 +686,20 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
       *actual = range;
     return input_screen_rect(view, input_caret(view));
   }
+  NS_VALID_UNTIL_END_OF_SCOPE NSData *data = view.inputSpans;
+  const struct RZInputSpan *spans = data.bytes;
+  NSUInteger count = data.length / sizeof(*spans);
+  NSUInteger first = input_first_rect_span(spans, count, range, text.length);
   NSRect rect = NSZeroRect;
   NSRange covered = NSMakeRange(NSNotFound, 0);
   NSInteger line = -1;
-  for (NSArray *span in view.inputSnapshot[@"spans"]) {
-    NSRange candidate = NSMakeRange([span[0] unsignedIntegerValue], [span[1] unsignedIntegerValue]);
-    NSRect next = input_local_rect(view, span);
+  for (NSUInteger index = first; index < count; ++index) {
+    const struct RZInputSpan *span = spans + index;
+    NSRange candidate = span->range;
     if (!range.length) {
       if (NSLocationInRange(range.location, candidate) ||
           (range.location == text.length && NSMaxRange(candidate) == text.length)) {
+        NSRect next = input_local_rect(view, span->rect);
         if (range.location == NSMaxRange(candidate))
           next.origin.x = NSMaxX(next);
         next.size.width = 0;
@@ -668,15 +708,14 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
               NSMakeRange(range.location == text.length ? text.length : candidate.location, 0);
         return input_screen_rect(view, next);
       }
-      continue;
-    }
-    if (!NSIntersectionRange(range, candidate).length)
-      continue;
-    if (line >= 0 && line != [span[6] integerValue])
       break;
+    }
+    if (candidate.location >= NSMaxRange(range) || (line >= 0 && line != span->line))
+      break;
+    NSRect next = input_local_rect(view, span->rect);
     rect = line < 0 ? next : NSUnionRect(rect, next);
     covered = line < 0 ? candidate : NSUnionRange(covered, candidate);
-    line = [span[6] integerValue];
+    line = span->line;
   }
   if (actual)
     *actual = covered;
@@ -705,6 +744,7 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
   self.inputPending = NO;
   self.inputData = nil;
   self.inputGridData = nil;
+  self.inputSpans = nil;
   self.inputMarked = nil;
   self.inputKey = nil;
   self.inputCommand = nil;
@@ -958,9 +998,12 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
   if (!self.window || !self.inputSnapshot)
     return NSNotFound;
   point = [self convertPoint:[self.window convertPointFromScreen:point] fromView:nil];
-  for (NSArray *span in self.inputSnapshot[@"spans"])
-    if (NSPointInRect(point, input_local_rect(self, span)))
-      return [span[0] unsignedIntegerValue];
+  NS_VALID_UNTIL_END_OF_SCOPE NSData *data = self.inputSpans;
+  const struct RZInputSpan *spans = data.bytes;
+  NSUInteger count = data.length / sizeof(*spans);
+  for (NSUInteger index = 0; index < count; ++index)
+    if (NSPointInRect(point, input_local_rect(self, spans[index].rect)))
+      return spans[index].range.location;
   return NSNotFound;
 }
 - (BOOL)drawsVerticallyForCharacterAtIndex:(NSUInteger)index {
@@ -988,12 +1031,10 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
   return (NSInteger)[self.inputSnapshot[@"text"] length];
 }
 - (NSRange)accessibilityVisibleCharacterRange {
-  NSRange result = NSMakeRange(NSNotFound, 0);
-  for (NSArray *span in self.inputSnapshot[@"spans"]) {
-    NSRange next = NSMakeRange([span[0] unsignedIntegerValue], [span[1] unsignedIntegerValue]);
-    result = result.location == NSNotFound ? next : NSUnionRange(result, next);
-  }
-  return result.location == NSNotFound ? NSMakeRange(0, 0) : result;
+  NSData *data = self.inputSpans;
+  const struct RZInputSpan *spans = data.bytes;
+  NSUInteger count = data.length / sizeof(*spans);
+  return count ? NSUnionRange(spans[0].range, spans[count - 1].range) : NSMakeRange(0, 0);
 }
 - (NSRange)accessibilitySelectedTextRange {
   return input_pair(self.inputSnapshot, @"selected");
@@ -1033,29 +1074,30 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
   return [self accessibilityRangeForIndex:(NSInteger)index];
 }
 - (NSRange)accessibilityRangeForIndex:(NSInteger)index {
-  for (NSArray *span in self.inputSnapshot[@"spans"])
-    if (index >= [span[0] longLongValue] &&
-        index < [span[0] longLongValue] + [span[1] longLongValue])
-      return NSMakeRange([span[0] unsignedIntegerValue], [span[1] unsignedIntegerValue]);
+  struct RZInputSpan span = input_index_span(self.inputSpans, index);
+  if (span.range.location != NSNotFound)
+    return span.range;
   NSString *text = self.inputSnapshot[@"text"] ?: @"";
   return index >= 0 && (NSUInteger)index < text.length
              ? [text rangeOfComposedCharacterSequenceAtIndex:(NSUInteger)index]
              : NSMakeRange(NSNotFound, 0);
 }
 - (NSInteger)accessibilityLineForIndex:(NSInteger)index {
-  for (NSArray *span in self.inputSnapshot[@"spans"])
-    if (index >= [span[0] longLongValue] &&
-        index < [span[0] longLongValue] + [span[1] longLongValue])
-      return [span[6] integerValue];
-  return NSNotFound;
+  return input_index_span(self.inputSpans, index).line;
 }
 - (NSRange)accessibilityRangeForLine:(NSInteger)line {
   NSRange range = NSMakeRange(NSNotFound, 0);
-  for (NSArray *span in self.inputSnapshot[@"spans"])
-    if ([span[6] integerValue] == line) {
-      NSRange next = NSMakeRange([span[0] unsignedIntegerValue], [span[1] unsignedIntegerValue]);
+  NSData *data = self.inputSpans;
+  const struct RZInputSpan *spans = data.bytes;
+  NSUInteger count = data.length / sizeof(*spans);
+  for (NSUInteger index = 0; index < count; ++index) {
+    if (spans[index].line > line)
+      break;
+    if (spans[index].line == line) {
+      NSRange next = spans[index].range;
       range = range.location == NSNotFound ? next : NSUnionRange(range, next);
     }
+  }
   return range;
 }
 - (NSInteger)accessibilityInsertionPointLineNumber {
@@ -5396,12 +5438,10 @@ static NSDictionary *font_value(CTFontRef font) {
     @"axes" : values
   };
 }
-static NSData *text_json(id value) {
+static NSData *text_json(id value, NSJSONWritingOptions options) {
   if (!value || ![NSJSONSerialization isValidJSONObject:value])
     return nil;
-  NSData *data = [NSJSONSerialization dataWithJSONObject:value
-                                                 options:NSJSONWritingSortedKeys
-                                                   error:NULL];
+  NSData *data = [NSJSONSerialization dataWithJSONObject:value options:options error:NULL];
   return data.length <= 16777216 ? data : nil;
 }
 int32_t rinzu_macos_font_catalog(void *raw) {
@@ -5440,7 +5480,7 @@ int32_t rinzu_macos_font_catalog(void *raw) {
                     ((bits & kCTFontColorGlyphsTrait) ? 8 : 0);
         [faces addObject:@{@"postscriptName" : name, @"family" : family, @"traits" : @(flags)}];
       }
-      NSData *data = text_json(@{@"version" : @1, @"faces" : faces});
+      NSData *data = text_json(@{@"version" : @1, @"faces" : faces}, NSJSONWritingSortedKeys);
       if (!data)
         return fail(RZ_ARGUMENT, @"font catalog snapshot exceeds bounds");
       session.fontCatalogData = data;
@@ -5465,7 +5505,7 @@ int32_t rinzu_macos_font_info_snapshot(void *raw) {
       if (!font)
         return missing();
       if (!font.infoData) {
-        font.infoData = text_json(font_value(font->font));
+        font.infoData = text_json(font_value(font->font), NSJSONWritingSortedKeys);
         if (!font.infoData)
           return fail(RZ_ARGUMENT, @"invalid font metadata");
         font->infoSnapshot =
@@ -5724,12 +5764,15 @@ int64_t rinzu_macos_text_shape(void *raw, const uint8_t *bytes, size_t length, _
         }];
         total += count;
       }
-      NSData *data = text_json(@{
-        @"version" : @1,
-        @"utf16Length" : @(plain.length),
-        @"advance" : @(advance),
-        @"runs" : runValues
-      });
+      // Preserve array order. Sorting every glyph's object keys adds work to shaping.
+      NSData *data = text_json(
+          @{
+            @"version" : @1,
+            @"utf16Length" : @(plain.length),
+            @"advance" : @(advance),
+            @"runs" : runValues
+          },
+          0);
       if (!data)
         return fail(RZ_ARGUMENT, @"shape snapshot exceeds 16 MiB or has non-finite geometry");
       layout.shapeData = data;
@@ -7405,7 +7448,7 @@ static BOOL input_real(id value) {
   return [value isKindOfClass:NSNumber.class] && isfinite([value doubleValue]) &&
          fabs([value doubleValue]) <= 1000000.0;
 }
-static BOOL input_snapshot_valid(NSDictionary *value) {
+static NSData *input_snapshot_spans(NSDictionary *value) {
   if (![value isKindOfClass:NSDictionary.class] || !input_integer(value[@"version"], 1, 1) ||
       !input_integer(value[@"epoch"], 1, INT64_MAX) ||
       !input_integer(value[@"revision"], 1, INT64_MAX) ||
@@ -7423,59 +7466,67 @@ static BOOL input_snapshot_valid(NSDictionary *value) {
       ![value[@"focused"] isKindOfClass:NSNumber.class] ||
       ![value[@"raw"] isKindOfClass:NSNumber.class] ||
       !input_integer(value[@"rawModifiers"], 0, UINT32_MAX))
-    return NO;
+    return nil;
   NSString *text = value[@"text"];
   NSRange selected = input_pair(value, @"selected"), marked = input_pair(value, @"marked");
   if (!input_range(text, selected) || !input_range(text, input_selection(value)) ||
       (marked.location != NSNotFound && !input_range(text, marked)) ||
       (marked.location == NSNotFound && marked.length))
-    return NO;
+    return nil;
   NSArray *caret = value[@"caret"], *spans = value[@"spans"], *codes = value[@"rawCodes"];
   if (![caret isKindOfClass:NSArray.class] || caret.count != 4 ||
       ![spans isKindOfClass:NSArray.class] || spans.count > 32768 ||
       ![codes isKindOfClass:NSArray.class] || codes.count > 256)
-    return NO;
+    return nil;
   for (id number in caret)
     if (!input_real(number))
-      return NO;
+      return nil;
   if ([caret[2] doubleValue] < 0 || [caret[3] doubleValue] < 0)
-    return NO;
+    return nil;
+  NSMutableData *data = [NSMutableData dataWithLength:spans.count * sizeof(struct RZInputSpan)];
+  struct RZInputSpan *output = data.mutableBytes;
   NSUInteger end = 0;
   int64_t line = 0;
   for (id item in spans) {
     if (![item isKindOfClass:NSArray.class] || [item count] != 7)
-      return NO;
+      return nil;
     NSArray *span = item;
     if (!input_integer(span[0], 0, RZ_TEXT_LIMIT) || !input_integer(span[1], 1, RZ_TEXT_LIMIT) ||
         !input_integer(span[6], line, 32768))
-      return NO;
+      return nil;
     NSRange range = NSMakeRange([span[0] unsignedIntegerValue], [span[1] unsignedIntegerValue]);
     if (!input_range(text, range) || range.location < end)
-      return NO;
+      return nil;
     for (NSUInteger index = 2; index < 6; ++index)
       if (!input_real(span[index]))
-        return NO;
-    if ([span[4] doubleValue] < 0 || [span[5] doubleValue] < 0)
-      return NO;
+        return nil;
+    NSRect rect = NSMakeRect([span[2] doubleValue], [span[3] doubleValue], [span[4] doubleValue],
+                             [span[5] doubleValue]);
+    if (rect.size.width < 0 || rect.size.height < 0)
+      return nil;
     end = NSMaxRange(range);
     line = [span[6] longLongValue];
+    *output++ = (struct RZInputSpan){range, rect, line};
   }
   for (id code in codes)
     if (!input_integer(code, 0, 65535))
-      return NO;
-  return YES;
+      return nil;
+  return data;
 }
-static BOOL input_grid_edges(NSArray *edges, double scale) {
+static NSData *input_grid_edges(NSArray *edges, double scale) {
+  NSMutableData *data = [NSMutableData dataWithLength:edges.count * sizeof(int64_t)];
+  int64_t *output = data.mutableBytes;
   int64_t previous = -8000000;
   for (id edge in edges) {
     if (!input_integer(edge, previous, 8000000) || fabs([edge longLongValue] / scale) > 1000000.0)
-      return NO;
+      return nil;
     previous = [edge longLongValue];
+    *output++ = previous;
   }
-  return YES;
+  return data;
 }
 
-static NSArray *input_grid_spans(NSDictionary *value, NSData *data) {
+static NSData *input_grid_spans(NSDictionary *value, NSData *data) {
   NSArray *xs = value[@"xEdges"], *ys = value[@"yEdges"], *sizes = value[@"lineSizes"];
   id scaleNumber = value[@"scale"];
   if (![xs isKindOfClass:NSArray.class] || xs.count < 2 || xs.count > 32769 ||
@@ -7486,40 +7537,59 @@ static NSArray *input_grid_spans(NSDictionary *value, NSData *data) {
       [value[@"spans"] count] != 0)
     return nil;
   double scale = [scaleNumber doubleValue];
-  if (!(scale > 0.0 && scale <= 8.0) || !input_grid_edges(xs, scale) ||
-      !input_grid_edges(ys, scale))
+  if (!(scale > 0.0 && scale <= 8.0))
+    return nil;
+  NS_VALID_UNTIL_END_OF_SCOPE NSData *horizontal = input_grid_edges(xs, scale);
+  NS_VALID_UNTIL_END_OF_SCOPE NSData *vertical = input_grid_edges(ys, scale);
+  if (!horizontal || !vertical)
     return nil;
 
   NSString *text = value[@"text"];
-  NSMutableArray *spans = [NSMutableArray arrayWithCapacity:data.length / 2];
+  NSUInteger textLength = text.length;
+  NSUInteger columns = xs.count - 1;
+  NSUInteger lines = sizes.count;
+  const int64_t *xEdges = horizontal.bytes, *yEdges = vertical.bytes;
+  NS_VALID_UNTIL_END_OF_SCOPE NSMutableData *utf16 =
+      [NSMutableData dataWithLength:textLength * sizeof(unichar)];
+  unichar *characters = utf16.mutableBytes;
+  if (textLength)
+    [text getCharacters:characters range:NSMakeRange(0, textLength)];
+  NSMutableData *spans =
+      [NSMutableData dataWithLength:data.length / 2 * sizeof(struct RZInputSpan)];
+  struct RZInputSpan *output = spans.mutableBytes;
   const uint8_t *pairs = data.bytes;
   NSUInteger position = 0, start = 0;
-  for (NSUInteger line = 0; line < sizes.count; ++line) {
-    if (!input_integer(sizes[line], 0, data.length - position))
+  for (NSUInteger line = 0; line < lines; ++line) {
+    id lineSize = sizes[line];
+    if (!input_integer(lineSize, 0, data.length - position))
       return nil;
-    NSUInteger size = [sizes[line] unsignedIntegerValue];
+    NSUInteger size = [lineSize unsignedIntegerValue];
     if (size % 2 != 0)
       return nil;
     NSUInteger end = position + size, column = 0;
-    int64_t y = [ys[line] longLongValue];
-    double height = ([ys[line + 1] longLongValue] - y) / scale;
+    double y = yEdges[line] / scale;
+    double height = (yEdges[line + 1] - yEdges[line]) / scale;
     if (height > 1000000.0)
       return nil;
-    NSNumber *top = @(y / scale), *spanHeight = @(height), *row = @(line);
     for (; position < end; position += 2) {
       NSUInteger units = pairs[position], next = column + pairs[position + 1];
-      if (!units || next >= xs.count || !input_range(text, NSMakeRange(start, units)))
+      NSUInteger finish = start + units;
+      // The previous span already verified the current start.
+      if (!units || next > columns || finish > textLength ||
+          (finish < textLength && CFStringIsSurrogateHighCharacter(characters[finish - 1]) &&
+           CFStringIsSurrogateLowCharacter(characters[finish])))
         return nil;
-      int64_t x = [xs[column] longLongValue];
-      double width = ([xs[next] longLongValue] - x) / scale;
+      int64_t x = xEdges[column];
+      double width = (xEdges[next] - x) / scale;
       if (width > 1000000.0)
         return nil;
-      [spans addObject:@[ @(start), @(units), @(x / scale), top, @(width), spanHeight, row ]];
-      start += units;
+      *output++ = (struct RZInputSpan){NSMakeRange(start, units),
+                                       NSMakeRect(x / scale, y, width, height), (NSInteger)line};
+      start = finish;
       column = next;
     }
   }
-  return position == data.length && start == text.length ? spans : nil;
+  return position == data.length && start == textLength ? spans : nil;
 }
 
 static int32_t input_publish(void *raw, const uint8_t *bytes, size_t length,
@@ -7539,7 +7609,8 @@ static int32_t input_publish(void *raw, const uint8_t *bytes, size_t length,
       NSData *data = [NSData dataWithBytes:bytes length:length];
       NSData *gridData = grid ? [NSData dataWithBytes:clusters length:cluster_length] : nil;
       NSDictionary *value = [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL];
-      if (!input_snapshot_valid(value))
+      NSData *spans = input_snapshot_spans(value);
+      if (!spans)
         return fail(RZ_ARGUMENT, @"invalid text/geometry snapshot");
       RZMacNativeView *view = (RZMacNativeView *)control.view;
       int64_t epoch = [value[@"epoch"] longLongValue],
@@ -7555,12 +7626,9 @@ static int32_t input_publish(void *raw, const uint8_t *bytes, size_t length,
                    ? 0
                    : fail(RZ_ARGUMENT, @"conflicting text-input revision");
       if (grid) {
-        NSArray *spans = input_grid_spans(value, gridData);
+        spans = input_grid_spans(value, gridData);
         if (!spans)
           return fail(RZ_ARGUMENT, @"invalid input grid geometry");
-        NSMutableDictionary *projection = [value mutableCopy];
-        projection[@"spans"] = spans;
-        value = projection;
       }
       NSDictionary *previous = view.inputSnapshot;
       // Deactivate native focus under the previous producer epoch.
@@ -7575,6 +7643,7 @@ static int32_t input_publish(void *raw, const uint8_t *bytes, size_t length,
         view.suppressInput = NO;
       }
       view.inputSnapshot = [value copy];
+      view.inputSpans = spans;
       view.inputData = [data copy];
       view.inputGridData = gridData;
       view.inputEpoch = epoch;
