@@ -63,7 +63,12 @@ enum {
   RZ_DATA,
   RZ_ENVIRONMENT,
   RZ_INPUT,
-  RZ_EVENT_OVERFLOW
+  RZ_EVENT_OVERFLOW,
+  RZ_WINDOW_PLACEMENT,
+  RZ_WINDOW_TABS,
+  RZ_DIVIDER,
+  RZ_REOPEN,
+  RZ_NEW_TAB
 };
 enum {
   RZ_EVENT_LIMIT = 256,
@@ -110,10 +115,12 @@ enum { RZ_ALPHA_DEFAULT, RZ_ALPHA_PREMULTIPLIED, RZ_ALPHA_STRAIGHT };
 @property(nonatomic, strong) id previousDelegate;
 @property(nonatomic, strong) NSMenu *previousMenu;
 @property(nonatomic, strong) NSMenu *fallbackMenu;
+@property(nonatomic, strong) RZMacMenu *sharedMenu;
 @property(nonatomic, strong) NSPasteboard *pasteboard;
 @property(nonatomic, strong) NSData *clipboardData;
 @property(nonatomic, strong) NSData *resourceRootData;
 @property(nonatomic, strong) NSData *fontCatalogData;
+@property(nonatomic) BOOL fontCatalogValid;
 @property(nonatomic) int64_t clipboardToken;
 @property(nonatomic) int64_t environmentGeneration, fontGeneration;
 @property(nonatomic, strong) NSMutableArray *environmentObservers;
@@ -131,7 +138,11 @@ enum { RZ_ALPHA_DEFAULT, RZ_ALPHA_PREMULTIPLIED, RZ_ALPHA_STRAIGHT };
 @interface RZMacWindow : RZMacHandle <NSWindowDelegate>
 @property(nonatomic) int64_t scopeToken;
 @property(nonatomic) BOOL activateOnShow;
-@property(nonatomic) BOOL closing, sheetsStopping, stateKnown;
+@property(nonatomic) BOOL closing, sheetsStopping, stateKnown, inFullScreenTransition;
+@property(nonatomic) BOOL placementKnown;
+@property(nonatomic) NSRect lastFrame;
+@property(nonatomic) int64_t lastDisplay;
+@property(nonatomic) struct MacWindowTabs lastTabs;
 @property(nonatomic) int32_t lastState;
 @property(nonatomic, strong) NSWindow *window;
 @property(nonatomic, strong) RZMacView *content;
@@ -510,36 +521,96 @@ static NSUInteger pixel_bytes(int64_t format);
 static void refresh_frame(RZMacFrameClock *clock, BOOL dirty);
 static void stop_frame(RZMacFrameClock *clock);
 static void stop_frames(RZMacSession *session, RZMacWindow *window);
+static BOOL selected_tab(NSWindow *window) {
+  NSWindow *selected = window.tabGroup.selectedWindow;
+  return !selected || selected == window;
+}
+static int64_t screen_identity(NSScreen *screen) {
+  return [screen.deviceDescription[@"NSScreenNumber"] longLongValue];
+}
+static RZMacWindow *window_control(NSWindow *window) {
+  if (![window isKindOfClass:RZMacNativeWindow.class])
+    return nil;
+  return ((RZMacNativeWindow *)window).control;
+}
+static struct MacWindowTabs window_tabs(RZMacWindow *window) {
+  NSWindowTabGroup *group = window.window.tabGroup;
+  NSArray<NSWindow *> *windows = group.windows;
+  NSUInteger index = [windows indexOfObjectIdenticalTo:window.window];
+  RZMacWindow *first = window_control(windows.firstObject) ?: window;
+  RZMacWindow *selected = window_control(group.selectedWindow) ?: window;
+  return (struct MacWindowTabs){.first = first.identity,
+                                .selected = selected.identity,
+                                .index = index == NSNotFound ? 0 : (int64_t)index,
+                                .count = windows.count ?: 1};
+}
+static void window_tab_state(RZMacWindow *window) {
+  if (!window || window.closed || !window.identity)
+    return;
+  struct MacWindowTabs next = window_tabs(window), last = window.lastTabs;
+  if (next.first == last.first && next.selected == last.selected && next.index == last.index &&
+      next.count == last.count)
+    return;
+  window.lastTabs = next;
+  [window.owner enqueue:(struct MacEvent){.kind = RZ_WINDOW_TABS, .windowId = window.identity}];
+}
 static int32_t window_flags(RZMacWindow *window) {
   NSWindow *native = window.window;
+  BOOL full = window.inFullScreenTransition ? (window.lastState & 32) != 0
+                                            : (native.styleMask & NSWindowStyleMaskFullScreen) != 0;
   return (native.visible ? 1 : 0) | (native.keyWindow ? 2 : 0) | (native.mainWindow ? 4 : 0) |
-         (native.miniaturized ? 8 : 0) | (native.zoomed ? 16 : 0) |
-         ((native.styleMask & NSWindowStyleMaskFullScreen) ? 32 : 0) |
-         ((native.occlusionState & NSWindowOcclusionStateVisible) ? 0 : 64);
+         (native.miniaturized ? 8 : 0) | (native.zoomed ? 16 : 0) | (full ? 32 : 0) |
+         ((native.occlusionState & NSWindowOcclusionStateVisible) && selected_tab(native) ? 0 : 64);
+}
+static void window_placement(RZMacWindow *window) {
+  if (!window || window.closed || !window.identity || window.inFullScreenTransition)
+    return;
+  NSRect rect = window.window.frame;
+  int64_t display = screen_identity(window.window.screen);
+  int32_t full = (window.window.styleMask & NSWindowStyleMaskFullScreen) != 0;
+  if (window.placementKnown && NSEqualRects(window.lastFrame, rect) &&
+      display == window.lastDisplay && full == ((window.lastState & 32) != 0))
+    return;
+  window.placementKnown = YES;
+  window.lastFrame = rect;
+  window.lastDisplay = display;
+  [window.owner enqueue:(struct MacEvent){.kind = RZ_WINDOW_PLACEMENT,
+                                          .windowId = window.identity,
+                                          .action = display,
+                                          .flags = full,
+                                          .x = rect.origin.x,
+                                          .y = rect.origin.y,
+                                          .width = rect.size.width,
+                                          .height = rect.size.height}];
 }
 static void window_state(RZMacWindow *window) {
-  if (!window || window.closed)
+  if (!window || window.closed || !window.identity)
     return;
-  for (RZMacHandle *handle in handles.allValues)
-    if (handle.kind == RZ_VIEW) {
-      NSView *view = ((RZMacView *)handle).view;
-      if (view.window == window.window && [view isKindOfClass:RZMacNativeView.class])
-        [(RZMacNativeView *)view syncInputContext];
-    }
-  for (RZMacHandle *handle in handles.allValues)
-    if (handle.kind == RZ_FRAME_CLOCK && (((RZMacFrameClock *)handle).view.rootWindow == window ||
-                                          ((RZMacFrameClock *)handle).view.scopeWindow == window))
-      refresh_frame((RZMacFrameClock *)handle, YES);
   int32_t flags = window_flags(window);
   if (window.stateKnown && flags == window.lastState)
     return;
   window.stateKnown = YES;
   window.lastState = flags;
+  // Transitions are rare. Move/resize and repeated AppKit notifications need
+  // not rescan all live handles or invalidate every attached surface.
+  for (RZMacHandle *handle in handles.allValues) {
+    if (handle.kind == RZ_VIEW) {
+      RZMacView *target = (RZMacView *)handle;
+      if (target.scopeWindow == window && [target.view isKindOfClass:RZMacNativeView.class])
+        [(RZMacNativeView *)target.view syncInputContext];
+    } else if (handle.kind == RZ_FRAME_CLOCK) {
+      RZMacFrameClock *clock = (RZMacFrameClock *)handle;
+      if (clock.view.scopeWindow == window || clock.view.rootWindow == window)
+        refresh_frame(clock, YES);
+    }
+  }
   [window.owner enqueue:(struct MacEvent){
                             .kind = RZ_WINDOW_STATE, .windowId = window.identity, .flags = flags}];
 }
 static RZMacView *responder_view(NSResponder *responder) {
-  if (!responder)
+  if ([responder isKindOfClass:RZMacNativeView.class])
+    return ((RZMacNativeView *)responder).control;
+  if (![responder isKindOfClass:NSView.class])
     return nil;
   for (RZMacHandle *handle in handles.allValues)
     if (handle.kind == RZ_VIEW && (((RZMacView *)handle).view == responder ||
@@ -574,6 +645,20 @@ static RZMacView *responder_view(NSResponder *responder) {
 - (void)orderWindow:(NSWindowOrderingMode)place relativeTo:(NSInteger)other {
   [super orderWindow:place relativeTo:other];
   window_state(self.control);
+}
+- (void)newWindowForTab:(id)sender {
+  (void)sender;
+  RZMacWindow *window = self.control;
+  [window.owner enqueue:(struct MacEvent){.kind = RZ_NEW_TAB, .windowId = window.identity}];
+}
+- (void)moveTabToNewWindow:(id)sender {
+  NSArray<NSWindow *> *previous = self.tabGroup.windows;
+  [super moveTabToNewWindow:sender];
+  for (NSWindow *member in previous) {
+    RZMacWindow *control = window_control(member);
+    window_tab_state(control);
+    window_state(control);
+  }
 }
 - (void)zoom:(id)sender {
   [super zoom:sender];
@@ -1407,12 +1492,13 @@ static void application_input_focus(RZMacSession *session, BOOL active) {
                                    : NULL;
   if (selection)
     last = count > 1 ? &events[(head + count - 2) % RZ_EVENT_LIMIT] : NULL;
-  BOOL replaceable = event.kind == RZ_DRAW || event.kind == RZ_RESIZED ||
-                     event.kind == RZ_MOUSE_MOVED || event.kind == RZ_TEXT_CHANGED ||
-                     event.kind == RZ_SELECTION_CHANGED || event.kind == RZ_TASK_FINISHED ||
-                     event.kind == RZ_WINDOW_STATE || event.kind == RZ_SCROLL ||
-                     event.kind == RZ_ENVIRONMENT || (event.kind == RZ_DATA && event.flags == 1) ||
-                     (event.kind == RZ_INPUT && event.flags == 10);
+  BOOL replaceable =
+      event.kind == RZ_DRAW || event.kind == RZ_RESIZED || event.kind == RZ_MOUSE_MOVED ||
+      event.kind == RZ_TEXT_CHANGED || event.kind == RZ_SELECTION_CHANGED ||
+      event.kind == RZ_TASK_FINISHED || event.kind == RZ_WINDOW_STATE || event.kind == RZ_SCROLL ||
+      event.kind == RZ_WINDOW_PLACEMENT || event.kind == RZ_WINDOW_TABS ||
+      event.kind == RZ_DIVIDER || event.kind == RZ_REOPEN || event.kind == RZ_ENVIRONMENT ||
+      (event.kind == RZ_DATA && event.flags == 1) || (event.kind == RZ_INPUT && event.flags == 10);
   BOOL replace = last && replaceable && last->kind == event.kind && last->viewId == event.viewId &&
                  last->windowId == event.windowId && last->flags == event.flags &&
                  (event.kind != RZ_INPUT || last->action == event.action);
@@ -1524,6 +1610,13 @@ static void application_input_focus(RZMacSession *session, BOOL active) {
       window_state((RZMacWindow *)handle);
     }
 }
+- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)visible {
+  (void)sender;
+  if (!self.sharedMenu)
+    return YES;
+  [self enqueue:(struct MacEvent){.kind = RZ_REOPEN, .flags = visible ? 1 : 0}];
+  return NO;
+}
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender {
   (void)sender;
   [self enqueue:(struct MacEvent){.kind = RZ_QUIT_REQUESTED}];
@@ -1533,7 +1626,7 @@ static void application_input_focus(RZMacSession *session, BOOL active) {
 static void refresh_menu(RZMacSession *session) {
   if (!session.running)
     return;
-  NSApp.mainMenu = session.activeWindow.menu.menu ?: session.fallbackMenu;
+  NSApp.mainMenu = session.activeWindow.menu.menu ?: session.sharedMenu.menu ?: session.fallbackMenu;
 }
 @implementation RZMacWindow
 - (BOOL)windowShouldClose:(NSWindow *)sender {
@@ -1544,7 +1637,17 @@ static void refresh_menu(RZMacSession *session) {
 - (void)windowDidResize:(NSNotification *)notification {
   (void)notification;
   resized(self.content);
+  window_placement(self);
   window_state(self);
+}
+- (void)windowDidMove:(NSNotification *)notification {
+  (void)notification;
+  window_placement(self);
+  window_tab_state(self);
+}
+- (void)windowDidChangeScreen:(NSNotification *)notification {
+  (void)notification;
+  window_placement(self);
 }
 - (void)windowDidChangeOcclusionState:(NSNotification *)notification {
   (void)notification;
@@ -1554,6 +1657,12 @@ static void refresh_menu(RZMacSession *session) {
   (void)notification;
   self.owner.activeWindow = self;
   refresh_menu(self.owner);
+  for (NSWindow *member in self.window.tabGroup.windows) {
+    RZMacWindow *control = window_control(member);
+    window_tab_state(control);
+    window_state(control);
+  }
+  window_tab_state(self);
   window_state(self);
 }
 - (void)windowDidResignKey:(NSNotification *)notification {
@@ -1576,13 +1685,35 @@ static void refresh_menu(RZMacSession *session) {
   (void)notification;
   window_state(self);
 }
+- (void)windowWillEnterFullScreen:(NSNotification *)notification {
+  (void)notification;
+  self.inFullScreenTransition = YES;
+}
+- (void)windowWillExitFullScreen:(NSNotification *)notification {
+  (void)notification;
+  self.inFullScreenTransition = YES;
+}
+- (void)finishFullScreenTransition {
+  self.inFullScreenTransition = NO;
+  self.placementKnown = NO;
+  window_placement(self);
+  window_state(self);
+}
 - (void)windowDidEnterFullScreen:(NSNotification *)notification {
   (void)notification;
-  window_state(self);
+  [self finishFullScreenTransition];
 }
 - (void)windowDidExitFullScreen:(NSNotification *)notification {
   (void)notification;
-  window_state(self);
+  [self finishFullScreenTransition];
+}
+- (void)windowDidFailToEnterFullScreen:(NSWindow *)window {
+  (void)window;
+  [self finishFullScreenTransition];
+}
+- (void)windowDidFailToExitFullScreen:(NSWindow *)window {
+  (void)window;
+  [self finishFullScreenTransition];
 }
 - (id)windowWillReturnFieldEditor:(NSWindow *)sender toObject:(id)client {
   (void)sender;
@@ -1813,6 +1944,10 @@ static BOOL descendant(RZMacView *view, RZMacView *root) {
   return NO;
 }
 static BOOL view_busy(RZMacView *root) {
+  if (root.leases)
+    return YES;
+  if (root.view.subviews.count == 0)
+    return NO;
   for (RZMacHandle *handle in handles.allValues)
     if (!handle.closed && handle.kind == RZ_VIEW && handle.leases &&
         descendant((RZMacView *)handle, root))
@@ -1827,10 +1962,11 @@ static void close_menu(RZMacMenu *root) {
       close_menu((RZMacMenu *)handle);
   for (NSMenuItem *item in root.menu.itemArray)
     item.target = nil;
-  if (root.scopeWindow.menu == root) {
+  if (root.scopeWindow.menu == root)
     root.scopeWindow.menu = nil;
-    refresh_menu(root.owner);
-  }
+  if (root.owner.sharedMenu == root)
+    root.owner.sharedMenu = nil;
+  refresh_menu(root.owner);
   if (root.parent)
     for (NSMenuItem *item in root.parent.menu.itemArray)
       if (item.submenu == root.menu)
@@ -2401,7 +2537,8 @@ int64_t rinzu_macos_window_configured(void *raw, int64_t token, const uint8_t *t
               ((RZMacWindow *)handle).scopeToken == token)
             return fail(RZ_BUSY, @"window scope is already active");
       NSApplication *application = [NSApplication sharedApplication];
-      if (!session.activationConfigured)
+      if (!session.activationConfigured &&
+          application.activationPolicy != NSApplicationActivationPolicyRegular)
         [application setActivationPolicy:NSApplicationActivationPolicyRegular];
       RZMacWindow *window = [RZMacWindow new];
       window.scopeToken = token;
@@ -2424,6 +2561,7 @@ int64_t rinzu_macos_window_configured(void *raw, int64_t token, const uint8_t *t
       view.scopeWindow = window;
       window.content = view;
       window.window.releasedWhenClosed = NO;
+      window.window.restorable = NO;
       window.window.title = name;
       window.window.contentView = view.view;
       window.window.delegate = window;
@@ -2471,9 +2609,14 @@ int32_t rinzu_macos_activation_policy(void *raw, int64_t policy) {
         return fail(RZ_ARGUMENT, @"invalid application activation policy");
       if (!accepting(session))
         return fail(RZ_BUSY, @"Session is closing");
-      if (policy >= 0 && ![[NSApplication sharedApplication]
-                             setActivationPolicy:(NSApplicationActivationPolicy)policy])
-        return fail(RZ_BUSY, @"AppKit rejected the requested activation policy");
+      if (policy >= 0) {
+        NSApplication *application = NSApplication.sharedApplication;
+        NSApplicationActivationPolicy requested = (NSApplicationActivationPolicy)policy;
+        if (application.activationPolicy != requested &&
+            ![application setActivationPolicy:requested] &&
+            application.activationPolicy != requested)
+          return fail(RZ_BUSY, @"AppKit rejected the requested activation policy");
+      }
       session.activationConfigured = YES;
       return 0;
     } @catch (NSException *exception) {
@@ -2597,7 +2740,10 @@ int32_t rinzu_macos_window_destroy(void *raw) {
       for (RZMacHandle *handle in handles.allValues)
         if (handle.kind == RZ_VIEW && ((RZMacView *)handle).scopeWindow == window && handle.leases)
           return fail(RZ_BUSY, @"window scope has a leased Metal surface");
+      NSArray<NSWindow *> *peers = window.window.tabGroup.windows;
       window.window.delegate = nil;
+      if (window.owner.activeWindow == window)
+        window.owner.activeWindow = nil;
       for (RZMacHandle *handle in handles.allValues)
         if (handle.kind == RZ_MENU && ((RZMacMenu *)handle).scopeWindow == window)
           close_menu((RZMacMenu *)handle);
@@ -2607,6 +2753,13 @@ int32_t rinzu_macos_window_destroy(void *raw) {
           close_view((RZMacView *)handle);
       [window.window orderOut:nil];
       [window.window close];
+      for (NSWindow *peer in peers)
+        if (peer != window.window) {
+          RZMacWindow *control = window_control(peer);
+          window_tab_state(control);
+          window_state(control);
+        }
+      refresh_menu(window.owner);
       window.content = nil;
       window.window = nil;
       retire(window);
@@ -2616,6 +2769,312 @@ int32_t rinzu_macos_window_destroy(void *raw) {
     }
   }
 }
+int32_t rinzu_macos_window_frame(void *raw, struct MacRect *frame) {
+  @autoreleasepool {
+    RZMacWindow *window = (RZMacWindow *)lookup(raw, RZ_WINDOW);
+    if (!window)
+      return missing();
+    if (!frame)
+      return fail(RZ_ARGUMENT, @"missing window frame output");
+    NSRect value = window.window.frame;
+    *frame = (struct MacRect){value.origin.x, value.origin.y, value.size.width, value.size.height};
+    return 0;
+  }
+}
+int32_t rinzu_macos_window_set_frame(void *raw, const struct MacRect *frame) {
+  @autoreleasepool {
+    @try {
+      RZMacWindow *window = (RZMacWindow *)lookup(raw, RZ_WINDOW);
+      if (!window)
+        return missing();
+      if (!rect_valid(frame) || frame->width == 0 || frame->height == 0)
+        return fail(RZ_ARGUMENT, @"invalid window frame");
+      if (!accepting(window) || window.inFullScreenTransition ||
+          (window.window.styleMask & NSWindowStyleMaskFullScreen))
+        return fail(RZ_BUSY, @"window frame is unavailable during fullscreen or close");
+      if (!NSEqualRects(window.window.frame, nsrect(frame)))
+        [window.window setFrame:nsrect(frame) display:YES];
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+int32_t rinzu_macos_window_fullscreen(void *raw, _Bool enabled) {
+  @autoreleasepool {
+    @try {
+      RZMacWindow *window = (RZMacWindow *)lookup(raw, RZ_WINDOW);
+      if (!window)
+        return missing();
+      if (!accepting(window))
+        return fail(RZ_BUSY, @"Window is closing");
+      if (window.inFullScreenTransition)
+        return 0;
+      BOOL current = (window.window.styleMask & NSWindowStyleMaskFullScreen) != 0;
+      if (current != enabled)
+        [window.window toggleFullScreen:nil];
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+int64_t rinzu_macos_window_display(void *raw) {
+  @autoreleasepool {
+    RZMacWindow *window = (RZMacWindow *)lookup(raw, RZ_WINDOW);
+    return window ? screen_identity(window.window.screen) : missing();
+  }
+}
+int64_t rinzu_macos_display_count(void *raw) {
+  @autoreleasepool {
+    return lookup(raw, RZ_SESSION) ? (int64_t)NSScreen.screens.count : missing();
+  }
+}
+int32_t rinzu_macos_display_at(void *raw, int64_t index, struct MacDisplay *display) {
+  @autoreleasepool {
+    if (!lookup(raw, RZ_SESSION))
+      return missing();
+    NSArray<NSScreen *> *screens = NSScreen.screens;
+    if (!display || index < 0 || (uint64_t)index >= screens.count)
+      return fail(RZ_ARGUMENT, @"invalid display index");
+    NSScreen *screen = screens[(NSUInteger)index];
+    NSRect frame = screen.visibleFrame;
+    *display = (struct MacDisplay){screen_identity(screen), frame.origin.x, frame.origin.y,
+                                   frame.size.width, frame.size.height};
+    return 0;
+  }
+}
+int32_t rinzu_macos_window_tab_identity(void *raw, int64_t group) {
+  @autoreleasepool {
+    @try {
+      RZMacWindow *window = (RZMacWindow *)lookup(raw, RZ_WINDOW);
+      if (!window)
+        return missing();
+      if (group < 0)
+        return fail(RZ_ARGUMENT, @"invalid tabbing group");
+      window.window.tabbingIdentifier = [NSString stringWithFormat:@"rinzu.%lld", group];
+      window.window.tabbingMode =
+          group ? NSWindowTabbingModePreferred : NSWindowTabbingModeDisallowed;
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+int32_t rinzu_macos_window_tab_attach(void *raw, void *childRaw) {
+  @autoreleasepool {
+    @try {
+      RZMacWindow *window = (RZMacWindow *)lookup(raw, RZ_WINDOW);
+      RZMacWindow *child = (RZMacWindow *)lookup(childRaw, RZ_WINDOW);
+      if (!window || !child)
+        return missing();
+      if (window == child || window.owner != child.owner || !accepting(window) || !accepting(child))
+        return fail(RZ_ARGUMENT, @"tab windows must be distinct and live in one Session");
+      if ([window.window.tabGroup.windows containsObject:child.window])
+        return 0;
+      if (child.window.tabGroup.windows.count > 1)
+        return fail(RZ_BUSY, @"detach the tab from its current group first");
+      child.window.tabbingIdentifier = window.window.tabbingIdentifier;
+      NSWindowTabGroup *group = window.window.tabGroup;
+      if (group.windows.count > 1)
+        [group insertWindow:child.window atIndex:(NSInteger)group.windows.count];
+      else
+        [window.window addTabbedWindow:child.window ordered:NSWindowAbove];
+      if (![window.window.tabGroup.windows containsObject:child.window])
+        return fail(RZ_BUSY, @"AppKit did not attach the tab");
+      for (NSWindow *peer in window.window.tabGroup.windows) {
+        RZMacWindow *control = window_control(peer);
+        window_tab_state(control);
+        window_state(control);
+      }
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+int32_t rinzu_macos_window_tab_select(void *raw) {
+  @autoreleasepool {
+    @try {
+      RZMacWindow *window = (RZMacWindow *)lookup(raw, RZ_WINDOW);
+      if (!window)
+        return missing();
+      window.window.tabGroup.selectedWindow = window.window;
+      return rinzu_macos_window_show(raw);
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+int32_t rinzu_macos_window_tab_detach(void *raw) {
+  @autoreleasepool {
+    @try {
+      RZMacWindow *window = (RZMacWindow *)lookup(raw, RZ_WINDOW);
+      if (!window)
+        return missing();
+      if (window.window.tabGroup.windows.count > 1)
+        [window.window moveTabToNewWindow:nil];
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+int32_t rinzu_macos_window_tabs(void *raw, struct MacWindowTabs *tabs) {
+  @autoreleasepool {
+    RZMacWindow *window = (RZMacWindow *)lookup(raw, RZ_WINDOW);
+    if (!window)
+      return missing();
+    if (!tabs)
+      return fail(RZ_ARGUMENT, @"missing tab state output");
+    *tabs = window_tabs(window);
+    return 0;
+  }
+}
+
+@interface RZMacTabIndicator : NSView
+@property(nonatomic, strong) NSColor *color;
+@end
+@implementation RZMacTabIndicator
+- (void)drawRect:(NSRect)dirtyRect {
+  (void)dirtyRect;
+  [self.color setFill];
+  [[NSBezierPath bezierPathWithOvalInRect:NSInsetRect(self.bounds, 1, 1)] fill];
+}
+@end
+int32_t rinzu_macos_window_tab_color(void *raw, int64_t rgb) {
+  @autoreleasepool {
+    @try {
+      RZMacWindow *window = (RZMacWindow *)lookup(raw, RZ_WINDOW);
+      if (!window)
+        return missing();
+      if (rgb < -1 || rgb > 0xffffff)
+        return fail(RZ_ARGUMENT, @"invalid tab RGB color");
+      RZMacTabIndicator *view = nil;
+      if (rgb >= 0) {
+        view = [[RZMacTabIndicator alloc] initWithFrame:NSMakeRect(0, 0, 10, 10)];
+        view.color = [NSColor colorWithSRGBRed:((rgb >> 16) & 255) / 255.0
+                                         green:((rgb >> 8) & 255) / 255.0
+                                          blue:(rgb & 255) / 255.0
+                                         alpha:1.0];
+      }
+      window.window.tab.accessoryView = view;
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+int32_t rinzu_macos_application_menu(void *raw, void *menuRaw) {
+  @autoreleasepool {
+    @try {
+      RZMacSession *session = (RZMacSession *)lookup(raw, RZ_SESSION);
+      RZMacMenu *menu = (RZMacMenu *)lookup(menuRaw, RZ_MENU);
+      if (!session || !menu)
+        return missing();
+      if (menu.owner != session || menu.parent || !accepting(menu))
+        return fail(RZ_ARGUMENT, @"application menu must be a live root of this Session");
+      session.sharedMenu = menu;
+      refresh_menu(session);
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+
+@interface RZMacDivider : NSView
+@property(nonatomic, weak) RZMacView *control;
+@property(nonatomic) BOOL vertical;
+@end
+@implementation RZMacDivider
+- (void)drawRect:(NSRect)dirtyRect {
+  (void)dirtyRect;
+  [NSColor.separatorColor setFill];
+  NSRect line = self.bounds;
+  if (self.vertical) {
+    line.origin.x = floor(NSMidX(line));
+    line.size.width = 1;
+  } else {
+    line.origin.y = floor(NSMidY(line));
+    line.size.height = 1;
+  }
+  NSRectFill(line);
+}
+- (void)resetCursorRects {
+  [self addCursorRect:self.bounds
+               cursor:self.vertical ? NSCursor.resizeLeftRightCursor : NSCursor.resizeUpDownCursor];
+}
+- (void)mouseDown:(NSEvent *)inputEvent {
+  (void)inputEvent;
+}
+- (void)mouseDragged:(NSEvent *)inputEvent {
+  RZMacView *control = self.control;
+  if (!control || control.closed || !self.superview)
+    return;
+  NSPoint point = [self.superview convertPoint:inputEvent.locationInWindow fromView:nil];
+  struct MacEvent event = view_event(control, RZ_DIVIDER);
+  event.x = point.x;
+  event.y = point.y;
+  [control.owner enqueue:event];
+}
+- (BOOL)isAccessibilityElement {
+  return YES;
+}
+- (NSString *)accessibilityRole {
+  return NSAccessibilitySplitterRole;
+}
+- (NSAccessibilityOrientation)accessibilityOrientation {
+  return self.vertical ? NSAccessibilityOrientationVertical : NSAccessibilityOrientationHorizontal;
+}
+@end
+
+int64_t rinzu_macos_divider_create(void *raw, _Bool vertical) {
+  @autoreleasepool {
+    @try {
+      RZMacWindow *window = (RZMacWindow *)lookup(raw, RZ_WINDOW);
+      if (!window)
+        return missing();
+      if (!accepting(window))
+        return fail(RZ_BUSY, @"Window is closing");
+      RZMacView *control = [RZMacView new];
+      RZMacDivider *divider = [[RZMacDivider alloc] initWithFrame:NSZeroRect];
+      control.enabled = YES;
+      control.scopeWindow = window;
+      control.view = divider;
+      divider.control = control;
+      divider.vertical = vertical;
+      return publish(control, RZ_VIEW, window.owner);
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+int32_t rinzu_macos_directory(void *raw, const uint8_t *bytes, size_t length, _Bool create) {
+  @autoreleasepool {
+    @try {
+      if (!lookup(raw, RZ_SESSION))
+        return missing();
+      NSString *path = text(bytes, length);
+      if (!path.isAbsolutePath || !length || length > 4096 || memchr(bytes, 0, length) != NULL)
+        return fail(RZ_ARGUMENT, @"invalid directory path");
+      NSFileManager *manager = NSFileManager.defaultManager;
+      if (create && ![manager createDirectoryAtPath:path
+                        withIntermediateDirectories:YES
+                                         attributes:@{
+                                           NSFilePosixPermissions : @0700
+                                         }
+                                              error:NULL])
+        return fail(RZ_ARGUMENT, @"could not create directory");
+      BOOL directory = NO;
+      return [manager fileExistsAtPath:path isDirectory:&directory] && directory &&
+             [manager isExecutableFileAtPath:path];
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+
 void *rinzu_macos_window_content(void *raw) {
   @autoreleasepool {
     RZMacWindow *window = (RZMacWindow *)lookup(raw, RZ_WINDOW);
@@ -4182,9 +4641,14 @@ static SEL standard_command(int32_t command) {
 - (void)activated:(NSMenuItem *)sender {
   if (self.closed || !self.scopeWindow || !sender.enabled || !self.owner.running)
     return;
-  [self.owner enqueue:(struct MacEvent){.kind = RZ_ACTION,
-                                        .windowId = self.scopeWindow.identity,
-                                        .action = sender.tag}];
+  RZMacWindow *target = self.scopeWindow;
+  for (RZMacMenu *root = self; root; root = root.parent)
+    if (root == self.owner.sharedMenu) {
+      target = self.owner.activeWindow;
+      break;
+    }
+  [self.owner enqueue:(struct MacEvent){
+                          .kind = RZ_ACTION, .windowId = target.identity, .action = sender.tag}];
 }
 @end
 int64_t rinzu_macos_menu_create(void *raw, const uint8_t *bytes, size_t length) {
@@ -5749,6 +6213,8 @@ int32_t rinzu_macos_font_catalog(void *raw) {
         return missing();
       if (!accepting(session))
         return fail(RZ_BUSY, @"Session is closing");
+      if (session.fontCatalogValid)
+        return 0;
       CTFontCollectionRef collection = CTFontCollectionCreateFromAvailableFonts(
           (__bridge CFDictionaryRef)
               @{(__bridge id)kCTFontCollectionRemoveDuplicatesOption : @YES});
@@ -5783,6 +6249,7 @@ int32_t rinzu_macos_font_catalog(void *raw) {
       session.fontCatalogData = data;
       session->fontCatalogSnapshot =
           (rinzu_native_byte_array_t){(uint8_t *)data.bytes, data.length};
+      session.fontCatalogValid = session.observingEnvironment;
       return 0;
     } @catch (NSException *exception) {
       return caught(exception);
@@ -6498,7 +6965,8 @@ static BOOL frame_visible(RZMacFrameClock *clock) {
   NSWindow *window = view.view.window;
   CGSize pixels = ((CAMetalLayer *)view.view.layer).drawableSize;
   return clock && !clock.stopped && view && !view.closed && clock.owner.running && window &&
-         window.visible && !window.miniaturized && !view.view.hiddenOrHasHiddenAncestor &&
+         window.visible && selected_tab(window) && !window.miniaturized &&
+         !view.view.hiddenOrHasHiddenAncestor &&
          (window.occlusionState & NSWindowOcclusionStateVisible) &&
          view.view.bounds.size.width > 0 && view.view.bounds.size.height > 0 && pixels.width > 0 &&
          pixels.height > 0;
@@ -7765,8 +8233,10 @@ static void environment_changed(RZMacSession *session, int64_t reason) {
       (reason == 1 && session.fontGeneration == INT64_MAX))
     _Exit(70);
   ++session.environmentGeneration;
-  if (reason == 1)
+  if (reason == 1) {
     ++session.fontGeneration;
+    session.fontCatalogValid = NO;
+  }
   [session enqueue:(struct MacEvent){.kind = RZ_ENVIRONMENT,
                                      .flags = reason,
                                      .action = session.fontGeneration,
@@ -7781,6 +8251,7 @@ int32_t rinzu_macos_environment_watch(void *raw, _Bool enabled) {
       if (session.observingEnvironment == enabled)
         return 0;
       session.observingEnvironment = NO;
+      session.fontCatalogValid = NO;
       for (NSArray *registration in session.environmentObservers)
         [(NSNotificationCenter *)registration[0] removeObserver:registration[1]];
       session.environmentObservers = nil;

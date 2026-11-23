@@ -342,9 +342,9 @@ def main():
                                 timeout=180 if backend == "jit" else 20,
                             )
                         )
-                    assert sample_outputs[0]["stdout"] == sample_outputs[1]["stdout"], (
-                        sample_outputs
-                    )
+                    assert (
+                        sample_outputs[0]["stdout"] == sample_outputs[1]["stdout"]
+                    ), sample_outputs
             evidence["passed"] = True
     finally:
         save()

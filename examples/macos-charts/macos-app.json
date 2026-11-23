@@ -3,7 +3,5 @@
   "identifier": "dev.rinzu.samples.charts",
   "name": "Rinzu Charts",
   "icon": "assets/AppIcon.png",
-  "resources": [
-    "assets/title.txt"
-  ]
+  "resources": ["assets/title.txt"]
 }

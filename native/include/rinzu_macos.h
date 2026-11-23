@@ -47,6 +47,15 @@ struct MacFrameStatistics {
   int64_t requests, coalesced, ticks, retries;
   _Bool pending, visible, animating, stopped;
 };
+struct MacDisplay {
+  int64_t identifier;
+  double x, y, width, height;
+};
+
+struct MacWindowTabs {
+  int64_t first, selected, index, count;
+};
+
 struct MacEnvironment {
   int64_t generation, fontGeneration, preferences;
   _Bool observing;
@@ -178,6 +187,21 @@ int32_t rinzu_macos_window_title(void *window, const uint8_t *title, size_t leng
 int32_t rinzu_macos_window_size(void *window, double width, double height);
 int32_t rinzu_macos_window_minimum_size(void *window, double width, double height);
 int32_t rinzu_macos_window_state(void *window);
+int32_t rinzu_macos_window_frame(void *window, struct MacRect *frame);
+int32_t rinzu_macos_window_set_frame(void *window, const struct MacRect *frame);
+int32_t rinzu_macos_window_fullscreen(void *window, _Bool enabled);
+int64_t rinzu_macos_window_display(void *window);
+int64_t rinzu_macos_display_count(void *session);
+int32_t rinzu_macos_display_at(void *session, int64_t index, struct MacDisplay *display);
+int32_t rinzu_macos_window_tab_identity(void *window, int64_t group);
+int32_t rinzu_macos_window_tab_attach(void *window, void *other);
+int32_t rinzu_macos_window_tab_select(void *window);
+int32_t rinzu_macos_window_tab_detach(void *window);
+int32_t rinzu_macos_window_tabs(void *window, struct MacWindowTabs *tabs);
+int32_t rinzu_macos_window_tab_color(void *window, int64_t rgb);
+int32_t rinzu_macos_application_menu(void *session, void *menu);
+int64_t rinzu_macos_divider_create(void *window, _Bool vertical);
+int32_t rinzu_macos_directory(void *session, const uint8_t *path, size_t length, _Bool create);
 int32_t rinzu_macos_window_visibility(void *window, int32_t operation);
 int32_t rinzu_macos_sheet_ready(void *window);
 int32_t rinzu_macos_panel_begin(void *window, int64_t token, int32_t save, const uint8_t *title,

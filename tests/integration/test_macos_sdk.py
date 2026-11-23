@@ -302,6 +302,7 @@ def main():
                         "srgb",
                     ]
                 if args.ui:
+                    probes["windows"] = [""]
                     probes["input"] = [""]
                     probes["data"].extend(["list", "large"])
                     if gpu:

@@ -672,6 +672,57 @@ class Sampler {
     }
 }
 
+native {
+    record Display {
+        identifier: Int,
+        x: Float,
+        y: Float,
+        width: Float,
+        height: Float
+    }
+
+    record WindowTabs {
+        first: Int,
+        selected: Int,
+        index: Int,
+        count: Int
+    }
+
+    fn rawWindowFrame(window: WindowHandle, frame: Rect) -> CInt symbol "rinzu_macos_window_frame";
+
+    fn rawSetWindowFrame(window: WindowHandle, frame: Rect) -> CInt symbol "rinzu_macos_window_set_frame";
+
+    fn rawFullScreen(window: WindowHandle, enabled: CBool) -> CInt symbol "rinzu_macos_window_fullscreen";
+
+    fn rawWindowDisplay(window: WindowHandle) -> Int symbol "rinzu_macos_window_display";
+
+    fn rawDisplayCount(session: SessionHandle) -> Int symbol "rinzu_macos_display_count";
+
+    fn rawDisplayAt(session: SessionHandle, index: Int, output: Display) -> CInt symbol "rinzu_macos_display_at";
+
+    fn rawTabIdentity(window: WindowHandle, group: Int) -> CInt symbol "rinzu_macos_window_tab_identity";
+
+    fn rawTabAttach(window: WindowHandle, other: WindowHandle) -> CInt symbol "rinzu_macos_window_tab_attach";
+
+    fn rawTabSelect(window: WindowHandle) -> CInt symbol "rinzu_macos_window_tab_select";
+
+    fn rawTabDetach(window: WindowHandle) -> CInt symbol "rinzu_macos_window_tab_detach";
+
+    fn rawTabs(window: WindowHandle, output: WindowTabs) -> CInt symbol "rinzu_macos_window_tabs";
+
+    fn rawTabColor(window: WindowHandle, rgb: Int) -> CInt symbol "rinzu_macos_window_tab_color";
+
+    fn rawApplicationMenu(session: SessionHandle, menu: MenuHandle) -> CInt symbol "rinzu_macos_application_menu";
+
+    fn rawDivider(window: WindowHandle, vertical: CBool) -> Int symbol "rinzu_macos_divider_create";
+
+    fn rawDirectory(session: SessionHandle, path: ByteArray, length: CSize, create: CBool)
+        -> CInt symbol "rinzu_macos_directory";
+}
+
+export Display;
+export WindowTabs;
+
 class Session {
     const handle: SessionHandle
 
@@ -682,6 +733,32 @@ class Session {
     }
 
     /// Owned absolute app-resource root; None in an ordinary JIT/console host.
+    /// Screen order follows AppKit, with the primary display at index zero.
+    fn displays(self: Session) -> List<Display> {
+        let count = checked(rawDisplayCount(self.handle), "macos.displays.count");
+        var result: List<Display> = [];
+        var index = 0;
+        while index < count {
+            let display = Display(identifier: 0, x: 0.0, y: 0.0, width: 0.0, height: 0.0);
+            let status = checked(Int(rawDisplayAt(self.handle, index, display)), "macos.displays.read");
+            result = rinzu.list.append(result, display);
+            index = index + 1;
+        }
+        return result;
+    }
+
+    /// Use the menu when a window has no menu of its own. Actions identify the active window.
+    fn setMenu(self: Session, menu: Menu) -> Int {
+        return checked(Int(rawApplicationMenu(self.handle, menu.handle)), "macos.application.menu");
+    }
+
+    /// Check a searchable directory, optionally creating it and any missing parents.
+    fn directory(self: Session, path: String, create: Bool) -> Bool {
+        let bytes = textApi.encodeUtf8(path);
+        return checked(Int(rawDirectory(self.handle, bytes, bytesApi.byteLength(bytes), create)), "macos.directory")
+            != 0;
+    }
+
     fn observeEnvironment(self: Session, enabled: Bool) -> Int {
         return checked(Int(rawEnvironmentWatch(self.handle, enabled)), "macos.environment.observe");
     }
@@ -1286,6 +1363,59 @@ class Window {
 
     fn setContentSize(self: Window, width: Float, height: Float) -> Int {
         return checked(Int(rawWindowSize(self.handle, width, height)), "macos.window.size");
+    }
+
+    /// Outer window rectangle in AppKit screen points.
+    fn frame(self: Window) -> Rect {
+        let output = Rect(x: 0.0, y: 0.0, width: 0.0, height: 0.0);
+        let status = checked(Int(rawWindowFrame(self.handle, output)), "macos.window.frame");
+        return output;
+    }
+
+    fn setFrame(self: Window, frame: Rect) -> Int {
+        return checked(Int(rawSetWindowFrame(self.handle, frame)), "macos.window.setFrame");
+    }
+
+    fn display(self: Window) -> Int {
+        return checked(rawWindowDisplay(self.handle), "macos.window.display");
+    }
+
+    /// Completion is reported by eventWindowPlacement after AppKit's transition.
+    fn setFullScreen(self: Window, enabled: Bool) -> Int {
+        return checked(Int(rawFullScreen(self.handle, enabled)), "macos.window.fullscreen");
+    }
+
+    /// Set before showing. Zero disables automatic tabbing for this window.
+    fn setTabbingGroup(self: Window, group: Int) -> Int {
+        return checked(Int(rawTabIdentity(self.handle, group)), "macos.window.tabIdentity");
+    }
+
+    fn attachTab(self: Window, tab: Window) -> Int {
+        return checked(Int(rawTabAttach(self.handle, tab.handle)), "macos.window.attachTab");
+    }
+
+    fn selectTab(self: Window) -> Int {
+        return checked(Int(rawTabSelect(self.handle)), "macos.window.selectTab");
+    }
+
+    fn detachTab(self: Window) -> Int {
+        return checked(Int(rawTabDetach(self.handle)), "macos.window.detachTab");
+    }
+
+    fn tabs(self: Window) -> WindowTabs {
+        let output = WindowTabs(first: 0, selected: 0, index: 0, count: 0);
+        let status = checked(Int(rawTabs(self.handle, output)), "macos.window.tabs");
+        return output;
+    }
+
+    /// RGB color of the tab indicator. -1 clears it.
+    fn setTabColor(self: Window, rgb: Int) -> Int {
+        return checked(Int(rawTabColor(self.handle, rgb)), "macos.window.tabColor");
+    }
+
+    /// The view emits eventDivider with a pointer position in its parent's coordinates.
+    fn divider(self: Window, vertical: Bool) -> View {
+        return View(handle: rawView(checked(rawDivider(self.handle, vertical), "macos.window.divider")));
     }
 
     fn contentView(self: Window) -> View {
@@ -2289,6 +2419,22 @@ let eventFocus = 16;
 
 let eventWindowState = 17;
 
+let eventWindowPlacement = 24;
+
+let eventWindowTabs = 25;
+
+let eventDivider = 26;
+
+let eventReopen = 27;
+
+let eventNewTab = 28;
+
+export eventWindowPlacement;
+export eventWindowTabs;
+export eventDivider;
+export eventReopen;
+export eventNewTab;
+
 let eventTaskFinished = 18;
 
 /// An owned event. Text remains valid after the native queue is acknowledged.
@@ -2608,7 +2754,17 @@ class UiScope {
     canvases: List<Canvas2D>,
     errors: List<Error>,
     reportedErrors: Int,
-    const control: UiControl
+    const control: UiControl,
+    const ownsWindow: Bool
+
+    /// Isolate jobs and owned canvases within the same window. The caller
+    /// settles this child before closing the window's own scope.
+    fn child(self: UiScope) -> UiScope {
+        if self.control.closed || self.control.stopping {
+            throw err.create(-7803, "UI scope is stopping");
+        }
+        return makeUiScope(self.session, self.window, false);
+    }
 
     fn start(self: UiScope, work: fn (UiJob) -> Future<Unit>) -> Int {
         return self.admitJob(work, Option<Canvas2D>.None());
@@ -2645,7 +2801,14 @@ class UiScope {
 
     fn requestStop(self: UiScope) {
         self.control.stopping = true;
-        uiStopWindow(self.window);
+        if self.ownsWindow {
+            uiStopWindow(self.window);
+        }
+        else {
+            for canvas in self.canvases {
+                canvas.stop();
+            }
+        }
     }
 
     /// Wake the single dispatcher after Source state changes outside an input handler.
@@ -2676,10 +2839,9 @@ class UiScope {
     }
 
     async fn close(self: UiScope) -> Int {
-        self.control.stopping = true;
         try {
             try {
-                uiStopWindow(self.window);
+                self.requestStop();
             }
             finally {
                 try {
@@ -3001,6 +3163,10 @@ async fn uiJoinJobs(tasks: List<UiTask>, index: Int) {
 
 /// Request cooperative stop, join every admitted job, then report the first Error.
 fn uiScope(session: Session, window: Window) -> UiScope {
+    return makeUiScope(session, window, true);
+}
+
+fn makeUiScope(session: Session, window: Window, ownsWindow: Bool) -> UiScope {
     return UiScope(
         session: session,
         window: window,
@@ -3009,7 +3175,8 @@ fn uiScope(session: Session, window: Window) -> UiScope {
         canvases: [],
         errors: [],
         reportedErrors: 0,
-        control: UiControl(stopping: false, closed: false)
+        control: UiControl(stopping: false, closed: false),
+        ownsWindow: ownsWindow
     );
 }
 
@@ -3075,6 +3242,54 @@ async fn withWindowOptions(session: Session, title: String, options: WindowOptio
     }
     return 0;
 }
+
+/// A dynamically opened window and its independent, explicitly settled scope.
+class OwnedWindow {
+    const scope: UiScope,
+    private const token: Int,
+    private closing: Bool,
+    private closed: Bool
+
+    fn open(session: Session, title: String, options: WindowOptions) -> OwnedWindow {
+        let token = checked(rawWaitToken(), "macos.window.scopeToken");
+        let window = configuredWindow(session, token, title, options);
+        try {
+            let owner = OwnedWindow(scope: uiScope(session, window), token: token, closing: false, closed: false);
+            if options.visible {
+                let shown = window.show();
+            }
+            return owner;
+        }
+        catch errors {
+            let released = window.destroy();
+            rethrow errors;
+        }
+    }
+
+    async fn close(self: OwnedWindow) -> Int {
+        if self.closing {
+            while !self.closed {
+                await rinzu.timer.sleep(1);
+            }
+            return 0;
+        }
+        self.closing = true;
+        try {
+            try {
+                let joined = await self.scope.close();
+            }
+            finally {
+                let settled = await closeWindowScope(self.scope.session, self.token);
+            }
+        }
+        finally {
+            self.closed = true;
+        }
+        return 0;
+    }
+}
+
+export OwnedWindow;
 
 async fn uiSignals(scope: UiJob) {
     while !scope.control.stopping {

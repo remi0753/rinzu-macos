@@ -25,12 +25,18 @@ int main(void) {
     assert(!pthread_join(other, NULL));
     assert(rinzu_macos_environment_watch(raw, YES) == 0);
     assert(rinzu_macos_environment_watch(raw, YES) == 0 && session.environmentObservers.count == 5);
+    assert(rinzu_macos_font_catalog(raw) == 0 && session.fontCatalogValid);
+    NSData *initialCatalog = session.fontCatalogData;
+    assert(initialCatalog.length && rinzu_macos_font_catalog(raw) == 0 &&
+           session.fontCatalogData == initialCatalog);
     session.streaming = YES;
     for (int i = 0; i < 1000; ++i)
       [NSNotificationCenter.defaultCenter postNotificationName:NSFontSetChangedNotification
                                                         object:nil];
     assert(rinzu_macos_environment(raw, &env) == 0 && env.fontGeneration == 1000 &&
            env.generation == 1000);
+    assert(!session.fontCatalogValid && rinzu_macos_font_catalog(raw) == 0 &&
+           session.fontCatalogData != initialCatalog && session.fontCatalogValid);
     assert(session->count == 1 && session->events[session->head].kind == RZ_ENVIRONMENT &&
            !session.overflow);
     [NSWorkspace.sharedWorkspace.notificationCenter
@@ -38,7 +44,8 @@ int main(void) {
                       object:nil];
     assert(rinzu_macos_environment(raw, &env) == 0 && env.generation == 1001 &&
            env.fontGeneration == 1000);
-    assert(rinzu_macos_environment_watch(raw, NO) == 0 && !session.environmentObservers);
+    assert(rinzu_macos_environment_watch(raw, NO) == 0 && !session.environmentObservers &&
+           !session.fontCatalogValid);
     [NSNotificationCenter.defaultCenter postNotificationName:NSFontSetChangedNotification
                                                       object:nil];
     assert(rinzu_macos_environment(raw, &env) == 0 && env.generation == 1001 && !env.observing);
