@@ -68,10 +68,12 @@ fn require(condition: Bool) {
 }
 
 fn test_unicode_analysis_snapshot() {
-    let snapshot = rinzu.macos.DocumentSnapshot(text: "日本 e\u{301} 😀\nTODO\n", start: 1, end: 5, version: 7);
+    let document = rinzu.macos.Document.create("日本 e\u{301} 😀\nTODO\n", true);
+    document.select(1, 5);
+    let snapshot = document.snapshot();
     let result = analyze(snapshot);
     rinzu.testing.assertTrue(
-        result.version == 7 && result.scalars == 13 && result.lines == 3 && result.keywords == 1,
+        result.version == snapshot.version && result.scalars == 13 && result.lines == 3 && result.keywords == 1,
         "Unicode snapshot"
     );
 }

@@ -2,8 +2,14 @@ import rinzu.list;
 import rinzu.error as err;
 import rinzu.string as textApi;
 
+native {
+    fn rawDocumentId() -> Int symbol "rinzu_macos_document_id";
+}
+
 /// Immutable, transferable input for saving and background analysis.
 class DocumentSnapshot {
+    const documentId: Int,
+    const generation: Int,
     const text: String,
     const start: Int,
     const end: Int,
@@ -115,6 +121,9 @@ class DocumentHistory {
 /// Source document state. Native input updates this model without echoing setText.
 /// Public mutations finish synchronously under cancellation masking.
 class Document {
+    private const identity: Int,
+    private generation: Int,
+    private savedText: Option<String>,
     const undo: DocumentHistory,
     const redo: DocumentHistory,
     text: String,
@@ -132,10 +141,15 @@ class Document {
     fn withHistory(text: String, saved: Bool, maximumEntries: Int, maximumBytes: Int) -> Document {
         validateDocument(text, 0, 0);
         var savedVersion = -1;
+        var savedText = Option<String>.None();
         if saved {
             savedVersion = 0;
+            savedText = Option<String>.Some(value: text);
         }
         return Document(
+            identity: rawDocumentId(),
+            generation: 0,
+            savedText: savedText,
             undo: DocumentHistory.create(maximumEntries, maximumBytes),
             redo: DocumentHistory.create(maximumEntries, maximumBytes),
             text: text,
@@ -149,7 +163,14 @@ class Document {
     }
 
     fn snapshot(self: Document) -> DocumentSnapshot {
-        return DocumentSnapshot(text: self.text, start: self.start, end: self.end, version: self.version);
+        return DocumentSnapshot(
+            documentId: self.identity,
+            generation: self.generation,
+            text: self.text,
+            start: self.start,
+            end: self.end,
+            version: self.version
+        );
     }
 
     /// Install another document after its read succeeds; invalidate outstanding snapshots.
@@ -163,11 +184,14 @@ class Document {
             self.text = text;
             self.start = 0;
             self.end = 0;
+            self.generation = self.generation + 1;
             self.version = self.version + 1;
             self.edits = self.edits + 1;
             self.savedVersion = -1;
+            self.savedText = Option<String>.None();
             if saved {
                 self.savedVersion = self.version;
+                self.savedText = Option<String>.Some(value: text);
             }
             self.undo.clear();
             self.redo.clear();
@@ -176,7 +200,14 @@ class Document {
     }
 
     fn dirty(self: Document) -> Bool {
-        return self.version != self.savedVersion;
+        switch self.savedText {
+            case Option.Some(saved): {
+                return self.text != saved;
+            }
+            case Option.None: {
+                return true;
+            }
+        }
     }
 
     fn select(self: Document, start: Int, end: Int) {
@@ -279,14 +310,22 @@ class Document {
     }
 
     fn markSaved(self: Document, snapshot: DocumentSnapshot) {
-        if snapshot.version < 0 || snapshot.version > self.version {
-            throw err.create(-7820, "document.invalidSaveReceipt");
+        try {}
+        finally {
+            if !self.sameDocument(snapshot) || snapshot.version < 0 || snapshot.version > self.version {
+                throw err.create(-7820, "document.invalidSaveReceipt");
+            }
+            self.savedVersion = snapshot.version;
+            self.savedText = Option<String>.Some(value: snapshot.text);
         }
-        self.savedVersion = snapshot.version;
     }
 
     fn accepts(self: Document, snapshot: DocumentSnapshot) -> Bool {
-        return self.accepting && snapshot.version == self.version;
+        return self.accepting && self.sameDocument(snapshot) && snapshot.version == self.version;
+    }
+
+    private fn sameDocument(self: Document, snapshot: DocumentSnapshot) -> Bool {
+        return self.identity == snapshot.documentId && self.generation == snapshot.generation;
     }
 }
 

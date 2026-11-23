@@ -297,6 +297,18 @@ fragment float4 fragment2d(Raster v [[stage_in]], texture2d<float> image [[textu
         try {
             let rgba = library.renderPipelineWithOptions("vertex2d", "fragment2d", pixelRGBA8, blendPremultiplied);
             let bgra = library.renderPipelineWithOptions("vertex2d", "fragment2d", pixelBGRA8, blendPremultiplied);
+            let rgbaUnormStraight = library.renderPipelineWithOptions(
+                "vertex2d",
+                "fragment2d_straight",
+                pixelRGBA8,
+                blendPremultiplied
+            );
+            let bgraUnormStraight = library.renderPipelineWithOptions(
+                "vertex2d",
+                "fragment2d_straight",
+                pixelBGRA8,
+                blendPremultiplied
+            );
             let rgbaSrgb = library.renderPipelineWithOptions(
                 "vertex2d_srgb",
                 "fragment2d",
@@ -331,6 +343,8 @@ fragment float4 fragment2d(Raster v [[stage_in]], texture2d<float> image [[textu
                 bgraSrgb: bgraSrgb,
                 rgbaStraight: rgbaStraight,
                 bgraStraight: bgraStraight,
+                rgbaUnormStraight: rgbaUnormStraight,
+                bgraUnormStraight: bgraUnormStraight,
                 nearest: self.sampler(filterNearest, addressClamp),
                 linear: self.sampler(filterLinear, addressClamp),
                 white: white,
@@ -849,6 +863,16 @@ class Texture {
         let output = TextureInfo(width: 0, height: 0, format: 0, usage: 0, bytes: 0);
         let status = checked(Int(rawTextureInfo(self.handle, output)), "macos.texture.info");
         return output;
+    }
+
+    /// Interpretation used by Batch2D. This metadata does not transform the stored pixels.
+    fn alphaMode(self: Texture) -> Int {
+        return checked(Int(rawTextureAlphaMode(self.handle)), "macos.texture.alphaMode");
+    }
+
+    /// Declare the input alpha representation. Set it again when replacing pixels in another representation.
+    fn setAlphaMode(self: Texture, mode: Int) -> Int {
+        return checked(Int(rawTextureSetAlphaMode(self.handle, mode)), "macos.texture.setAlphaMode");
     }
 
     fn write(self: Texture, region: Scissor, rowBytes: Int, bytes: ByteArray) -> Int {
@@ -1527,6 +1551,10 @@ native {
 
     fn rawOpen() -> Int symbol "rinzu_macos_open";
 
+    fn rawOpenScoped(token: Int) -> Int symbol "rinzu_macos_open_scoped";
+
+    fn rawSessionScopeId(token: Int) -> Int symbol "rinzu_macos_session_scope_id";
+
     fn rawSession(id: Int) -> SessionHandle symbol "rinzu_macos_session";
 
     fn rawClose(session: SessionHandle) -> CInt symbol "rinzu_macos_close";
@@ -1813,6 +1841,12 @@ native {
     fn rawTextureId(texture: TextureHandle) -> Int symbol "rinzu_macos_texture_id";
 
     fn rawTextureInfo(texture: TextureHandle, output: TextureInfo) -> CInt symbol "rinzu_macos_texture_info";
+
+    fn rawTextureAlphaMode(texture: TextureHandle) -> CInt symbol "rinzu_macos_texture_alpha_mode";
+
+    fn rawTextureSetAlphaMode(texture: TextureHandle, mode: Int) -> CInt symbol "rinzu_macos_texture_set_alpha_mode";
+
+    fn rawTargetAlphaMode(command: CommandHandle, mode: Int) -> CInt symbol "rinzu_macos_command_target_alpha_mode";
 
     fn rawTextureWrite(texture: TextureHandle, region: Scissor, rowBytes: Int, bytes: ByteArray, length: CSize)
         -> CInt symbol "rinzu_macos_texture_write";
@@ -2744,9 +2778,9 @@ async fn uiApplication(
     body: fn (UiApplication) -> Future<Unit>,
     signals: Bool
 ) -> Int {
+    let token = checked(rawWaitToken(), "macos.application.scopeToken");
     try {
-        let session = open();
-        let token = checked(rawWaitToken(), "macos.application.scopeToken");
+        let session = Session(handle: rawSession(checked(rawOpenScoped(token), "macos.open")));
         try {
             let bytes = textApi.encodeUtf8(title);
             let window = Window(
@@ -2786,13 +2820,16 @@ async fn uiApplication(
         }
     }
     finally {
-        try {
-            if rawHasOwnerSession() {
-                await stopAndDrain(Session(handle: rawOwnerSession()));
+        // Recover native acquisition even if cancellation prevented its managed return.
+        let identity = rawSessionScopeId(token);
+        if identity > 0 {
+            let acquiredSession = Session(handle: rawSession(identity));
+            try {
+                await stopAndDrain(acquiredSession);
             }
-        }
-        finally {
-            let ownerClosed = await closeOwnerSessions();
+            finally {
+                let sessionClosed = await acquiredSession.close();
+            }
         }
     }
     return 0;
@@ -3472,6 +3509,13 @@ let textureRenderTarget = 2;
 
 let textureStorage = 4;
 
+/// Keep the legacy Batch2D convention for textures with unspecified alpha representation.
+let textureAlphaDefault = 0;
+
+let textureAlphaPremultiplied = 1;
+
+let textureAlphaStraight = 2;
+
 let filterNearest = 0;
 
 let filterLinear = 1;
@@ -3504,6 +3548,9 @@ export pixelAlpha8;
 export textureSampled;
 export textureRenderTarget;
 export textureStorage;
+export textureAlphaDefault;
+export textureAlphaPremultiplied;
+export textureAlphaStraight;
 export filterNearest;
 export filterLinear;
 export addressClamp;
@@ -3565,6 +3612,8 @@ class Batch2D {
     const bgraSrgb: RenderPipeline,
     const rgbaStraight: RenderPipeline,
     const bgraStraight: RenderPipeline,
+    const rgbaUnormStraight: RenderPipeline,
+    const bgraUnormStraight: RenderPipeline,
     const nearest: Sampler,
     const linear: Sampler,
     const white: Texture,
@@ -3659,7 +3708,7 @@ class Batch2D {
         self.imageRegion(texture, destination, Rect(x: 0.0, y: 0.0, width: 1.0, height: 1.0), tint);
     }
 
-    /// Normalized UVs, with row zero at the top. Unorm pixels are premultiplied; sRGB pixels use straight alpha on sRGB targets.
+    /// Normalized UVs with row zero at the top. Texture.alphaMode controls input alpha.
     /// Tint is encoded sRGB on sRGB targets. Clear colors remain linear Metal colors.
     fn imageRegion(self: Batch2D, texture: Texture, destination: Rect, uv: Rect, tint: Color) {
         try {}
@@ -3741,17 +3790,23 @@ class Batch2D {
         }
         // Binding first makes subsequent writes/reset fail until finish/abandon.
         let bound = command.setVertexBuffer(0, self.vertices, 0);
+        let srgb = format == pixelRGBA8Srgb || format == pixelBGRA8Srgb;
         var pipeline = self.bgra;
+        var straight = self.bgraUnormStraight;
         if format == pixelRGBA8 {
             pipeline = self.rgba;
+            straight = self.rgbaUnormStraight;
         }
-        if format == pixelRGBA8Srgb {
+        else if format == pixelRGBA8Srgb {
             pipeline = self.rgbaSrgb;
+            straight = self.rgbaStraight;
         }
-        if format == pixelBGRA8Srgb {
+        else if format == pixelBGRA8Srgb {
             pipeline = self.bgraSrgb;
+            straight = self.bgraStraight;
         }
         let installed = command.setRenderPipeline(pipeline);
+        var usingStraight = false;
         var index = 0;
         while index < rinzu.list.length(self.draws) {
             switch rinzu.list.get(self.draws, index) {
@@ -3759,19 +3814,19 @@ class Batch2D {
                     throw err.create(-7804, "macos.batch2D.span");
                 }
                 case Option.Some(draw): {
-                    if format == pixelRGBA8Srgb || format == pixelBGRA8Srgb {
+                    let alphaMode = draw.texture.alphaMode();
+                    var straightSource = alphaMode == textureAlphaStraight;
+                    if alphaMode == textureAlphaDefault && srgb {
                         let source = draw.texture.info();
-                        var selected = self.rgbaSrgb;
-                        if format == pixelBGRA8Srgb {
-                            selected = self.bgraSrgb;
-                        }
-                        if source.format == pixelRGBA8Srgb || source.format == pixelBGRA8Srgb {
-                            selected = self.rgbaStraight;
-                            if format == pixelBGRA8Srgb {
-                                selected = self.bgraStraight;
-                            }
+                        straightSource = source.format == pixelRGBA8Srgb || source.format == pixelBGRA8Srgb;
+                    }
+                    if straightSource != usingStraight {
+                        var selected = pipeline;
+                        if straightSource {
+                            selected = straight;
                         }
                         let colorPipeline = command.setRenderPipeline(selected);
+                        usingStraight = straightSource;
                     }
                     let clipped = command.setScissor(draw.clip);
                     let sampled = command.setFragmentTexture(0, draw.texture);
@@ -3818,6 +3873,7 @@ class Batch2D {
         }
     }
 
+    /// Clear with a linear, straight-alpha color and produce a premultiplied texture.
     async fn renderTexture(self: Batch2D, texture: Texture, clear: Color) -> Int {
         var admitted = false;
         try {
@@ -3830,8 +3886,20 @@ class Batch2D {
                 admitted = true;
             }
             let info = texture.info();
-            let begun = self.command.beginRenderTexture(texture, clear);
+            let begun = self.command.beginRenderTexture(
+                texture,
+                Color(
+                    red: clear.red * clear.alpha,
+                    green: clear.green * clear.alpha,
+                    blue: clear.blue * clear.alpha,
+                    alpha: clear.alpha
+                )
+            );
             let encoded = self.encodeNow(self.command, info.format);
+            let alpha = checked(
+                Int(rawTargetAlphaMode(self.command.handle, textureAlphaPremultiplied)),
+                "macos.batch2D.outputAlpha"
+            );
             let submitted = self.command.commit();
             return await self.command.wait();
         }
@@ -3865,6 +3933,8 @@ class Batch2D {
         let bgraSrgbRetired = self.bgraSrgb.destroy();
         let rgbaStraightRetired = self.rgbaStraight.destroy();
         let bgraStraightRetired = self.bgraStraight.destroy();
+        let rgbaUnormStraightRetired = self.rgbaUnormStraight.destroy();
+        let bgraUnormStraightRetired = self.bgraUnormStraight.destroy();
         let nearest = self.nearest.destroy();
         let linear = self.linear.destroy();
         let white = self.white.destroy();

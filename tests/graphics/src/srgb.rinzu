@@ -80,6 +80,53 @@ fragment float4 fs(O o [[stage_in]]) { return float4(0.5,0,0,0.5); }
                 rinzu.bytes.from(b"\xbc\xbc\xbc\xff"),
                 "sRGB Batch2D decodes tint and blends linear"
             );
+            let intermediate = device.texture2D(
+                1,
+                1,
+                macos.pixelRGBA8Srgb,
+                macos.textureRenderTarget + macos.textureSampled
+            );
+            try {
+                let clear = macos.Color(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.5);
+                let black = macos.Color(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0);
+                let white = macos.Color(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0);
+                let area = macos.Rect(x: 0.0, y: 0.0, width: 1.0, height: 1.0);
+                let pixel = macos.Scissor(x: 0, y: 0, width: 1, height: 1);
+                batch.reset(1, 1);
+                let cleared = await batch.renderTexture(intermediate, clear);
+                rinzu.testing.assertEqual<Int>(
+                    intermediate.alphaMode(),
+                    macos.textureAlphaPremultiplied,
+                    "Batch2D output declares its alpha"
+                );
+                batch.reset(1, 1);
+                batch.image(intermediate, area, white);
+                let composed = await batch.renderTexture(batchTarget, black);
+                rinzu.testing.assertEqual<ByteArray>(
+                    batchTarget.read(pixel),
+                    rinzu.bytes.from(b"\xbc\xbc\xbc\xff"),
+                    "sRGB intermediate blends its alpha once"
+                );
+                let uploaded = intermediate.write(pixel, 4, rinzu.bytes.from(b"\xff\xff\xff\x80"));
+                let declared = intermediate.setAlphaMode(macos.textureAlphaStraight);
+                let unorm = device.texture2D(1, 1, macos.pixelRGBA8, macos.textureRenderTarget);
+                try {
+                    batch.reset(1, 1);
+                    batch.image(intermediate, area, white);
+                    let linear = await batch.renderTexture(unorm, black);
+                    rinzu.testing.assertEqual<ByteArray>(
+                        unorm.read(pixel),
+                        rinzu.bytes.from(b"\x80\x80\x80\xff"),
+                        "explicit alpha works independently of the target format"
+                    );
+                }
+                finally {
+                    let unormRetired = unorm.destroy();
+                }
+            }
+            finally {
+                let intermediateRetired = intermediate.destroy();
+            }
         }
         finally {
             let batchTargetRetired = batchTarget.destroy();

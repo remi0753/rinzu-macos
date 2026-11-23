@@ -203,6 +203,21 @@ int main(void) {
                                           [committed[@"replacementStart"] intValue] == 2 &&
                                           [committed[@"replacementLength"] intValue] == 4 &&
                                           !view.hasMarkedText);
+                                   [view setMarkedText:@"wxyz"
+                                          selectedRange:NSMakeRange(4, 0)
+                                       replacementRange:NSMakeRange(NSNotFound, 0)];
+                                   [view setMarkedText:@"Q"
+                                          selectedRange:NSMakeRange(1, 0)
+                                       replacementRange:NSMakeRange(1, 2)];
+                                   assert(NSEqualRanges(view.markedRange, NSMakeRange(1, 1)) &&
+                                          NSEqualRanges(view.selectedRange, NSMakeRange(2, 0)));
+                                   NSAttributedString *replaced =
+                                       [view attributedSubstringForProposedRange:NSMakeRange(0, 5)
+                                                                     actualRange:&actual];
+                                   assert([replaced.string isEqual:@"AQxyz"] &&
+                                          NSEqualRanges(actual, NSMakeRange(0, 5)) &&
+                                          [view.accessibilityValue isEqual:@"A日😀\nB"]);
+                                   [view unmarkText];
                                    [view setMarkedText:@"😀"
                                           selectedRange:NSMakeRange(1, 0)
                                        replacementRange:NSMakeRange(NSNotFound, 0)];

@@ -60,10 +60,35 @@ async fn capturedRun() {
     rinzu.stdio.writeLine("SOURCE:callback-ok:2:42");
 }
 
-fn core() {
+async fn rejectSecondApplication(session: rinzu.macos.Session, view: rinzu.macos.View) {
+    let identity = view.identity();
+    var rejected = false;
+    try {
+        let status = await rinzu.macos.application(
+            "Second application",
+            240.0,
+            160.0,
+            async fn (app: rinzu.macos.UiApplication) {
+                rinzu.core.panic("an already open session admitted another application");
+            }
+        );
+    }
+    catch [problem: Error, ...rest] {
+        rinzu.testing.assertEqual<Option<Int>>(err.nativeStatus(problem), Option<Int>.Some(value: -7803), "open busy");
+        rejected = true;
+    }
+    rinzu.testing.assertTrue(rejected, "second application rejected");
+    let stats = rinzu.macos.statistics();
+    rinzu.testing.assertEqual<Int>(stats.sessions, 1, "original session remains open");
+    rinzu.testing.assertEqual<Int>(view.identity(), identity, "original view remains live");
+    let sequence = session.eventSequence();
+}
+
+async fn core() {
     inputChecked.run();
     let session = rinzu.macos.open();
     let view = session.view(rinzu.macos.Rect(x: 2.0, y: 3.0, width: 20.0, height: 30.0));
+    await rejectSecondApplication(session, view);
     let frame = view.frame();
     rinzu.testing.assertTrue(
         frame.x == 2.0 && frame.y == 3.0 && frame.width == 20.0 && frame.height == 30.0,
@@ -247,7 +272,7 @@ async fn application() {
     try {
         let mode = rinzu.process.setting("RINZU_MACOS_TEST", "core");
         if mode == "core" {
-            core();
+            await core();
         }
         else if mode == "callback" {
             await capturedRun();

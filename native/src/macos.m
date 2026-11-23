@@ -69,6 +69,7 @@ enum {
   RZ_TEXT_LIMIT = 1048576,
   RZ_EVENT_BYTES_LIMIT = 8388608
 };
+enum { RZ_ALPHA_DEFAULT, RZ_ALPHA_PREMULTIPLIED, RZ_ALPHA_STRAIGHT };
 @class RZMacSession, RZMacWindow, RZMacView, RZMacDevice, RZMacCommand, RZMacMenu, RZMacSheet,
     RZMacFrameClock, RZMacDataController;
 @interface RZMacHandle : NSObject
@@ -99,6 +100,7 @@ enum {
 @property(nonatomic) BOOL running, stopping, overflow, closing, scheduled, delivering;
 @property(nonatomic) BOOL streaming, eventSelected, hasRun, streamPrepared, streamCancelled;
 @property(nonatomic) int64_t eventWaitToken, runWaitToken, payloadBytes;
+@property(nonatomic) int64_t scopeToken;
 @property(nonatomic, strong) NSMutableDictionary<NSNumber *, NSData *> *payloads;
 @property(nonatomic, strong) NSData *selectedText;
 @property(nonatomic, strong) id previousDelegate;
@@ -212,16 +214,16 @@ struct RZInputSpan {
 @property(nonatomic, strong) NSDictionary *inputSnapshot;
 @property(nonatomic, strong) NSData *inputData, *inputGridData, *inputSpans;
 @property(nonatomic, strong) NSTextInputContext *ownedInputContext;
-@property(nonatomic, strong) NSString *inputMarked, *inputCommand;
+@property(nonatomic, strong) NSString *inputTransientText, *inputCommand;
 @property(nonatomic, strong) NSEvent *inputKey;
-@property(nonatomic) NSRange inputSelection;
-@property(nonatomic) NSUInteger inputMarkBase;
+@property(nonatomic) NSRange inputMarkedRange, inputSelection;
 @property(nonatomic) BOOL inputProduced, suppressInput, inputPending, inputActive, inputFocused;
 @property(nonatomic) int64_t inputEpoch, inputMutationSequence, inputAcknowledged, inputRangeBase;
 @property(nonatomic, strong) NSTrackingArea *inputTracking;
 @property(nonatomic, strong) NSCursor *explicitCursor;
 - (BOOL)inputEnabled;
 - (NSString *)inputQueryText;
+- (void)clearInputMark;
 - (void)detachInput;
 - (void)syncInputContext;
 - (void)emitInput:(NSInteger)kind
@@ -255,7 +257,7 @@ struct RZInputSpan {
 @property(nonatomic, strong) RZMacDevice *device;
 @property(nonatomic, strong) id<MTLTexture> texture;
 @property(nonatomic, strong) NSData *readback;
-@property(nonatomic) int format, usage;
+@property(nonatomic) int format, usage, alphaMode;
 @end
 @interface RZMacSampler : RZMacHandle
 @property(nonatomic, strong) RZMacDevice *device;
@@ -322,6 +324,7 @@ struct RZInputSpan {
 @property(nonatomic, strong) RZMacTexture *target;
 @property(nonatomic) NSUInteger targetWidth, targetHeight;
 @property(nonatomic) int targetFormat;
+@property(nonatomic) int targetAlphaMode;
 @property(nonatomic, strong) NSMutableArray<RZMacHandle *> *pins;
 @property(nonatomic, strong) NSString *failure;
 @property(nonatomic) int state; // 0 idle, 1 recording, 2 submitted; reusable after finish.
@@ -377,6 +380,7 @@ static void publish_frame(RZMacFrameClock *clock);
 static NSMutableDictionary<NSNumber *, RZMacHandle *> *handles;
 static int64_t next_identity;
 static int64_t next_waiter;
+static _Atomic int64_t next_document_id;
 static NSData *diagnostic_data;
 static rinzu_native_byte_array_t diagnostic_snapshot;
 static int32_t fail(int32_t code, NSString *message) {
@@ -686,6 +690,16 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
       *actual = range;
     return input_screen_rect(view, input_caret(view));
   }
+  if (transient && view.inputTransientText && view.hasMarkedText) {
+    NSRange marked = view.markedRange;
+    NSRange covered = NSIntersectionRange(range, marked);
+    if (covered.length || (!range.length && NSLocationInRange(range.location, marked))) {
+      if (actual)
+        *actual = range.length ? covered : range;
+      // The owner has not supplied layout for this transient text yet.
+      return input_screen_rect(view, input_caret(view));
+    }
+  }
   NS_VALID_UNTIL_END_OF_SCOPE NSData *data = view.inputSpans;
   const struct RZInputSpan *spans = data.bytes;
   NSUInteger count = data.length / sizeof(*spans);
@@ -745,14 +759,18 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
   self.inputData = nil;
   self.inputGridData = nil;
   self.inputSpans = nil;
-  self.inputMarked = nil;
+  [self clearInputMark];
   self.inputKey = nil;
   self.inputCommand = nil;
   if (self.inputTracking)
     [self removeTrackingArea:self.inputTracking];
   self.inputTracking = nil;
-  self.inputSelection = NSMakeRange(0, 0);
   self.suppressInput = NO;
+}
+- (void)clearInputMark {
+  self.inputTransientText = nil;
+  self.inputMarkedRange = NSMakeRange(NSNotFound, 0);
+  self.inputSelection = NSMakeRange(0, 0);
 }
 - (void)syncInputContext {
   if (!self.inputSnapshot)
@@ -867,16 +885,14 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
   return result;
 }
 - (BOOL)hasMarkedText {
-  return self.inputMarked.length != 0;
+  return self.inputMarkedRange.length != 0;
 }
 - (NSRange)markedRange {
-  return self.hasMarkedText ? NSMakeRange(self.inputMarkBase, self.inputMarked.length)
-                            : NSMakeRange(NSNotFound, 0);
+  return self.hasMarkedText ? self.inputMarkedRange : NSMakeRange(NSNotFound, 0);
 }
 - (NSRange)selectedRange {
-  if (self.hasMarkedText)
-    return NSMakeRange(self.inputMarkBase + self.inputSelection.location,
-                       self.inputSelection.length);
+  if (self.inputTransientText)
+    return self.inputSelection;
   return self.inputSnapshot ? input_selection(self.inputSnapshot) : NSMakeRange(NSNotFound, 0);
 }
 - (void)setMarkedText:(id)value
@@ -884,11 +900,18 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
      replacementRange:(NSRange)replacement {
   if (!self.inputEnabled)
     return;
-  self.inputRangeBase =
-      (int64_t)(self.hasMarkedText ? self.inputMarkBase : self.selectedRange.location);
+  NSRange previous = self.hasMarkedText ? self.markedRange : self.selectedRange;
+  self.inputRangeBase = (int64_t)previous.location;
   NSString *text = [value isKindOfClass:NSAttributedString.class] ? [value string] : value;
-  if (![text isKindOfClass:NSString.class] || !input_range(text, selection) ||
-      [text lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 65536) {
+  NSString *current = [self inputQueryText];
+  NSRange replaced = replacement.location == NSNotFound ? previous : replacement;
+  NSString *updated = nil;
+  if ([text isKindOfClass:NSString.class] && input_range(text, selection) &&
+      [text lengthOfBytesUsingEncoding:NSUTF8StringEncoding] <= 65536 &&
+      input_range(current, replaced))
+    updated = [current stringByReplacingCharactersInRange:replaced withString:text];
+  if (!updated ||
+      [updated lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > RZ_TEXT_LIMIT + 65536) {
     [self emitInput:7
                text:nil
           selection:NSMakeRange(NSNotFound, 0)
@@ -897,15 +920,11 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
               flags:0];
     return;
   }
-  if (!self.hasMarkedText) {
-    NSRange published = input_pair(self.inputSnapshot, @"marked");
-    self.inputMarkBase =
-        published.location == NSNotFound ? self.selectedRange.location : published.location;
-  }
   self.inputProduced = YES;
   self.inputPending = NO;
-  self.inputMarked = [text copy];
-  self.inputSelection = selection;
+  self.inputTransientText = updated;
+  self.inputMarkedRange = NSMakeRange(replaced.location, text.length);
+  self.inputSelection = NSMakeRange(replaced.location + selection.location, selection.length);
   [self emitInput:text.length ? 3 : 5
              text:text
         selection:selection
@@ -916,11 +935,10 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
 - (void)unmarkText {
   if (!self.hasMarkedText)
     return;
-  self.inputRangeBase = (int64_t)self.inputMarkBase;
+  self.inputRangeBase = (int64_t)self.markedRange.location;
   self.inputProduced = YES;
   self.inputPending = NO;
-  self.inputMarked = nil;
-  self.inputSelection = NSMakeRange(0, 0);
+  [self clearInputMark];
   [self emitInput:5
              text:nil
         selection:NSMakeRange(NSNotFound, 0)
@@ -932,7 +950,7 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
   if (!self.inputEnabled)
     return;
   self.inputRangeBase =
-      (int64_t)(self.hasMarkedText ? self.inputMarkBase : self.selectedRange.location);
+      (int64_t)(self.hasMarkedText ? self.markedRange.location : self.selectedRange.location);
   NSString *text = [value isKindOfClass:NSAttributedString.class] ? [value string] : value;
   if (![text isKindOfClass:NSString.class])
     return;
@@ -940,8 +958,7 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
   NSInteger flags = ((self.hasMarkedText || self.inputPending) ? 4 : 0) |
                     (self.inputKey.type == NSEventTypeKeyDown && self.inputKey.isARepeat ? 1 : 0);
   self.inputPending = NO;
-  self.inputMarked = nil;
-  self.inputSelection = NSMakeRange(0, 0);
+  [self clearInputMark];
   [self emitInput:4
              text:text
         selection:NSMakeRange(NSNotFound, 0)
@@ -968,15 +985,7 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
   return @[];
 }
 - (NSString *)inputQueryText {
-  NSString *text = self.inputSnapshot[@"text"] ?: @"";
-  if (!self.hasMarkedText)
-    return text;
-  NSRange range = input_pair(self.inputSnapshot, @"marked");
-  if (range.location == NSNotFound)
-    range = input_selection(self.inputSnapshot);
-  return input_range(text, range)
-             ? [text stringByReplacingCharactersInRange:range withString:self.inputMarked]
-             : text;
+  return self.inputTransientText ?: (self.inputSnapshot[@"text"] ?: @"");
 }
 - (NSAttributedString *)attributedSubstringForProposedRange:(NSRange)range
                                                 actualRange:(NSRangePointer)actual {
@@ -1549,7 +1558,7 @@ static void refresh_menu(RZMacSession *session) {
 }
 @end
 
-int64_t rinzu_macos_open(void) {
+static int64_t open_session(int64_t scopeToken) {
   @autoreleasepool {
     @try {
       if (![NSThread isMainThread])
@@ -1557,6 +1566,7 @@ int64_t rinzu_macos_open(void) {
       if (rinzu_macos_has_owner_session())
         return fail(RZ_BUSY, @"a Session is already open");
       RZMacSession *session = [RZMacSession new];
+      session.scopeToken = scopeToken;
       session.payloads = [NSMutableDictionary new];
       NSBundle *bundle = [NSBundle mainBundle];
       if ([[bundle objectForInfoDictionaryKey:@"RinzuResourceDirectory"] isEqual:@"app"] &&
@@ -1581,6 +1591,28 @@ int64_t rinzu_macos_open(void) {
       return caught(exception);
     }
   }
+}
+int64_t rinzu_macos_open(void) {
+  return open_session(0);
+}
+int64_t rinzu_macos_open_scoped(int64_t token) {
+  if (![NSThread isMainThread])
+    return missing();
+  if (token <= 0 || token > next_waiter)
+    return fail(RZ_ARGUMENT, @"invalid Session scope identity");
+  return open_session(token);
+}
+int64_t rinzu_macos_session_scope_id(int64_t token) {
+  @autoreleasepool {
+    RZMacSession *session = (RZMacSession *)lookup(rinzu_macos_owner_session(), RZ_SESSION);
+    return token > 0 && session.scopeToken == token ? session.identity : 0;
+  }
+}
+int64_t rinzu_macos_document_id(void) {
+  int64_t previous = atomic_fetch_add_explicit(&next_document_id, 1, memory_order_relaxed);
+  if (previous == INT64_MAX)
+    _Exit(70);
+  return previous + 1;
 }
 void *rinzu_macos_session(int64_t identity) {
   @autoreleasepool {
@@ -1676,7 +1708,7 @@ int32_t rinzu_macos_statistics(struct MacStatistics *output) {
           RZMacNativeView *view = (RZMacNativeView *)((RZMacView *)handle).view;
           output->snapshotBytes +=
               (int64_t)(view.inputData.length +
-                        [view.inputMarked lengthOfBytesUsingEncoding:NSUTF8StringEncoding]);
+                        [view.inputTransientText lengthOfBytesUsingEncoding:NSUTF8StringEncoding]);
         }
         if (((RZMacView *)handle).dataController) {
           RZMacDataController *data = ((RZMacView *)handle).dataController;
@@ -2988,6 +3020,7 @@ static void release_command(RZMacCommand *command) {
   command.drawable = nil;
   command.pipeline = nil;
   command.target = nil;
+  command.targetAlphaMode = RZ_ALPHA_DEFAULT;
   command.targetWidth = command.targetHeight = 0;
   command.targetFormat = 0;
   command.failure = nil;
@@ -3351,6 +3384,8 @@ int32_t rinzu_macos_command_finish(void *raw, int64_t token) {
       if (command.state != 2 || token <= 0 || command.waiterToken != token ||
           !rinzu_native_completion_is_done(&command->completion.base))
         return fail(RZ_BUSY, @"finish requires a waiter and physical completion");
+      if (!command->result && command.targetAlphaMode != RZ_ALPHA_DEFAULT)
+        command.target.alphaMode = command.targetAlphaMode;
       release_command(command);
       command.waiterToken = 0;
       return 0;
@@ -4925,6 +4960,39 @@ int32_t rinzu_macos_texture_info(void *raw, struct MacTextureInfo *output) {
         (int64_t)texture.texture.width, (int64_t)texture.texture.height, texture.format,
         texture.usage,
         (int64_t)(texture.texture.width * texture.texture.height * pixel_bytes(texture.format))};
+    return 0;
+  }
+}
+int32_t rinzu_macos_texture_alpha_mode(void *raw) {
+  @autoreleasepool {
+    RZMacTexture *texture = (RZMacTexture *)lookup(raw, RZ_TEXTURE);
+    return texture ? texture.alphaMode : missing();
+  }
+}
+int32_t rinzu_macos_texture_set_alpha_mode(void *raw, int64_t mode) {
+  @autoreleasepool {
+    RZMacTexture *texture = (RZMacTexture *)lookup(raw, RZ_TEXTURE);
+    if (!texture)
+      return missing();
+    if (mode < RZ_ALPHA_DEFAULT || mode > RZ_ALPHA_STRAIGHT ||
+        (texture.format == 4 && mode == RZ_ALPHA_STRAIGHT))
+      return fail(RZ_ARGUMENT, @"invalid alpha mode for texture");
+    if (texture.leases)
+      return fail(RZ_BUSY, @"texture is leased by a command");
+    texture.alphaMode = (int)mode;
+    return 0;
+  }
+}
+int32_t rinzu_macos_command_target_alpha_mode(void *raw, int64_t mode) {
+  @autoreleasepool {
+    RZMacCommand *command = (RZMacCommand *)lookup(raw, RZ_COMMAND);
+    if (!command)
+      return missing();
+    if (command.state != 1 || !command.target)
+      return fail(RZ_BUSY, @"alpha mode requires a recording texture pass");
+    if (mode < RZ_ALPHA_PREMULTIPLIED || mode > RZ_ALPHA_STRAIGHT)
+      return fail(RZ_ARGUMENT, @"invalid output alpha mode");
+    command.targetAlphaMode = (int)mode;
     return 0;
   }
 }
@@ -7661,8 +7729,7 @@ static int32_t input_publish(void *raw, const uint8_t *bytes, size_t length,
         view.inputPending = NO;
         view.suppressInput = YES;
         [view.ownedInputContext discardMarkedText];
-        view.inputMarked = nil;
-        view.inputSelection = NSMakeRange(0, 0);
+        [view clearInputMark];
         view.suppressInput = NO;
       }
       view.inputSnapshot = [value copy];
@@ -7672,26 +7739,19 @@ static int32_t input_publish(void *raw, const uint8_t *bytes, size_t length,
       view.inputEpoch = epoch;
       view.inputAcknowledged = ack;
       [view syncInputContext];
-      if (!contextChanged && view.hasMarkedText && ack < view.inputMutationSequence) {
-        NSRange marked = input_pair(value, @"marked");
-        view.inputMarkBase =
-            marked.location == NSNotFound ? input_selection(value).location : marked.location;
-      }
       if (!contextChanged && ack >= view.inputMutationSequence) {
         NSRange marked = input_pair(value, @"marked"), selected = input_selection(value);
-        if (marked.location != NSNotFound && selected.location >= marked.location &&
-            NSMaxRange(selected) <= NSMaxRange(marked)) {
-          view.inputMarked = [value[@"text"] substringWithRange:marked];
-          view.inputMarkBase = marked.location;
-          view.inputSelection = NSMakeRange(selected.location - marked.location, selected.length);
+        if (marked.location != NSNotFound && marked.length &&
+            selected.location >= marked.location && NSMaxRange(selected) <= NSMaxRange(marked)) {
+          view.inputTransientText = nil;
+          view.inputMarkedRange = marked;
         } else {
           if (view.hasMarkedText) {
             view.suppressInput = YES;
             [view.ownedInputContext discardMarkedText];
             view.suppressInput = NO;
           }
-          view.inputMarked = nil;
-          view.inputSelection = NSMakeRange(0, 0);
+          [view clearInputMark];
         }
       }
       view.window.acceptsMouseMovedEvents = YES;
@@ -7746,6 +7806,8 @@ int32_t rinzu_macos_input_discard(void *raw) {
       [view unmarkText];
       view.suppressInput = YES;
       [view.ownedInputContext discardMarkedText];
+      view.inputPending = NO;
+      [view clearInputMark];
       view.suppressInput = NO;
       return 0;
     } @catch (NSException *exception) {

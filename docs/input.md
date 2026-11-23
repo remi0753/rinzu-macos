@@ -25,7 +25,9 @@ as raw text. An explicit command can accompany a dead-key flush in one event.
 
 The application serializes proposals, applies its editing policy, and publishes
 a new snapshot. The native marked shadow exists only to answer synchronous OS
-queries before that publication; it does not edit the application's model.
+queries before that publication. Successive replacements update that temporary
+text and its UTF-16 ranges. The published caret supplies candidate geometry for
+transient marked text until the application supplies updated layout.
 `ack` is the last consumed `UiEvent.sequence`; `View.acknowledgeInput` advances
 it without copying unchanged text. Unacknowledged composition mutations are
 not overwritten by older application snapshots. Snapshot revisions, acks and

@@ -117,6 +117,9 @@ int32_t rinzu_macos_window_theme(void *window, int64_t theme);
 int32_t rinzu_macos_window_effective_theme(void *window);
 
 int64_t rinzu_macos_open(void);
+int64_t rinzu_macos_open_scoped(int64_t token);
+int64_t rinzu_macos_session_scope_id(int64_t token);
+int64_t rinzu_macos_document_id(void);
 void *rinzu_macos_session(int64_t id);
 int32_t rinzu_macos_close(void *session);
 int32_t rinzu_macos_prepare_close(void *session);
@@ -259,6 +262,9 @@ int64_t rinzu_macos_texture_image(void *device, const uint8_t *encoded, size_t l
 void *rinzu_macos_texture(int64_t id);
 int64_t rinzu_macos_texture_id(void *texture);
 int32_t rinzu_macos_texture_info(void *texture, struct MacTextureInfo *output);
+int32_t rinzu_macos_texture_alpha_mode(void *texture);
+int32_t rinzu_macos_texture_set_alpha_mode(void *texture, int64_t mode);
+int32_t rinzu_macos_command_target_alpha_mode(void *command, int64_t mode);
 int32_t rinzu_macos_texture_write(void *texture, const struct MacScissor *region, int64_t row_bytes,
                                   const uint8_t *bytes, size_t length);
 int32_t rinzu_macos_texture_read(void *texture, const struct MacScissor *region);

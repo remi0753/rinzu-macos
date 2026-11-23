@@ -53,6 +53,9 @@ Metal's instance ID includes that base; applications bound shader buffer indexin
 `pixelRGBA8Srgb` and `pixelBGRA8Srgb` provide four-byte, hardware sRGB decode/encode.
 They support sampling/rendering, not shader writes. Upload/readback preserve stored
 encoded bytes. Shaders supply linear RGB and the selected blend contract.
+Use Texture.setAlphaMode to declare how uploaded colors represent alpha.
+Batch2D.renderTexture produces premultiplied output and records that mode for
+subsequent drawing. Its clear color uses linear RGB and straight alpha.
 `View.setPixelFormat(pixelBGRA8Srgb)` also declares the layer's sRGB color space;
 changes require no GPU lease. Defaults remain compatible with existing clients.
 
