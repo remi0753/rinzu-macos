@@ -5690,8 +5690,12 @@ int64_t rinzu_macos_text_shape(void *raw, const uint8_t *bytes, size_t length, _
       NSArray *runs = (__bridge NSArray *)CTLineGetGlyphRuns(layout->line);
       if (runs.count > 4096)
         return fail(RZ_ARGUMENT, @"shape exceeds 4096 runs");
-      NSMutableData *records = [NSMutableData new];
-      NSMutableArray *runValues = [NSMutableArray new];
+      CFIndex glyphCount = CTLineGetGlyphCount(layout->line);
+      if (glyphCount < 0 || glyphCount > 65536)
+        return fail(RZ_ARGUMENT, @"shape exceeds 65536 glyphs");
+      NSMutableData *records =
+          [NSMutableData dataWithCapacity:(NSUInteger)glyphCount * sizeof(struct RZShapeGlyph)];
+      NSMutableArray *runValues = [NSMutableArray arrayWithCapacity:runs.count];
       int64_t total = 0;
       for (NSUInteger r = 0; r < runs.count; ++r) {
         CTRunRef run = (__bridge CTRunRef)runs[r];
@@ -5714,28 +5718,47 @@ int64_t rinzu_macos_text_shape(void *raw, const uint8_t *bytes, size_t length, _
           CTRunGetStringIndices(run, CFRangeMake(0, 0), s.mutableBytes);
         }
         CFIndex *indices = s.mutableBytes;
-        indices[count] = range.location + range.length;
-        NSMutableData *sorted = [s mutableCopy];
-        qsort(sorted.mutableBytes, (size_t)count + 1, sizeof(CFIndex), compare_text_index);
+        CFIndex runEnd = range.location + range.length;
+        indices[count] = runEnd;
+        CFIndex sortedThrough = 1;
+        while (sortedThrough < count && indices[sortedThrough - 1] <= indices[sortedThrough])
+          ++sortedThrough;
+        BOOL ordered = sortedThrough >= count;
+        NS_VALID_UNTIL_END_OF_SCOPE NSMutableData *sorted = nil;
+        if (!ordered) {
+          sorted = [s mutableCopy];
+          qsort(sorted.mutableBytes, (size_t)count + 1, sizeof(CFIndex), compare_text_index);
+        }
         const CFIndex *cuts = sorted.bytes;
-        NSMutableArray *glyphs = [NSMutableArray new];
+        NSMutableArray *glyphs = [NSMutableArray arrayWithCapacity:(NSUInteger)count];
+        CFIndex next = 0;
         for (CFIndex i = 0; i < count; ++i) {
-          CFIndex start = indices[i];
-          CFIndex low = 0, high = count + 1;
-          while (low < high) {
-            CFIndex middle = low + (high - low) / 2;
-            if (cuts[middle] <= start)
-              low = middle + 1;
-            else
-              high = middle;
+          CFIndex start = indices[i], end;
+          if (ordered) {
+            if (next <= i) {
+              next = i + 1;
+              while (next < count && indices[next] == start)
+                ++next;
+            }
+            end = indices[next];
+          } else {
+            CFIndex low = 0, high = count + 1;
+            while (low < high) {
+              CFIndex middle = low + (high - low) / 2;
+              if (cuts[middle] <= start)
+                low = middle + 1;
+              else
+                high = middle;
+            }
+            end = low <= count ? cuts[low] : start;
           }
-          if (start < range.location || start >= range.location + range.length || low > count ||
-              !text_boundary(plain, start) || !text_boundary(plain, cuts[low]))
+          if (start < range.location || start >= runEnd || end <= start || end > runEnd ||
+              !text_boundary(plain, start) || !text_boundary(plain, end))
             return fail(RZ_ARGUMENT, @"invalid CoreText cluster boundary");
           CGPoint point = ((CGPoint *)p.bytes)[i];
           CGSize delta = ((CGSize *)a.bytes)[i];
           struct RZShapeGlyph value = {
-              (int64_t)r, i,       start,       cuts[low],   ((CGGlyph *)g.bytes)[i],
+              (int64_t)r, i,       start,       end,         ((CGGlyph *)g.bytes)[i],
               point.x,    point.y, delta.width, delta.height};
           [records appendBytes:&value length:sizeof(value)];
           [glyphs addObject:@{
