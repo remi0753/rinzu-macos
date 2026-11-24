@@ -72,9 +72,29 @@ identifies the active source and exposes native timestamps/period. Paused, idle
 and hidden readers have no active display callback. Neither clock promises an
 exact callback rate under system load.
 
+`Window.setTransparentBackground` controls window composition and restores its
+previous background when disabled. Use `View.setSurfaceOpaque(false)` on each
+Metal surface that supplies alpha. The renderer owns its pixel colors and alpha.
+
 ## Documents and sheets
 
 The document layer provides state, selection, undo/redo, snapshots, and explicit file saving. Await saves and resource users before closing. Open/save panels and alert sheets complete asynchronously; distinguish user cancellation from ordinary Error and runtime cancellation. Keep UI event and text ownership rules when composing IME or document callbacks.
+
+### Text view keys
+
+`TextView.setEditable` switches between editable and selectable read-only
+text. Once the view is attached, `TextView.configureKeys` can register up to
+128 bindings for one text view per window. A binding has a single key character
+as returned by AppKit's `charactersIgnoringModifiers`, a combination of the
+Shift, Control, Option, and Command flags, a context, and a command.
+
+Use `textKeyReadOnly`, `textKeyEditable`, or `textKeyFindBar` for contextual
+bindings. `textKeyWindow` supplies a fallback within the owning window.
+Editing, motion, and find commands run before AppKit dispatches the key.
+A positive binding action also emits `eventAction` with the text view and
+window identities for the initial key press. Active IME composition receives
+the original keys. The containing scroll view hosts the optional find bar.
+Closing the view or window releases its key routes.
 
 ## Bundled resources
 

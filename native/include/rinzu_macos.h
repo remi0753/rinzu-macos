@@ -129,6 +129,8 @@ int32_t rinzu_macos_view_accessibility(void *view, const uint8_t *label, size_t 
 int32_t rinzu_macos_view_tooltip(void *view, const uint8_t *text, size_t length);
 int32_t rinzu_macos_window_theme(void *window, int64_t theme);
 int32_t rinzu_macos_window_effective_theme(void *window);
+int32_t rinzu_macos_window_transparent_background(void *window, _Bool transparent);
+int32_t rinzu_macos_window_live_resize_preview(void *window, _Bool enabled);
 
 int64_t rinzu_macos_open(void);
 int64_t rinzu_macos_open_scoped(int64_t token);
@@ -261,6 +263,11 @@ int32_t rinzu_macos_text_select(void *view, int64_t start, int64_t end);
 int32_t rinzu_macos_text_composing(void *view);
 int32_t rinzu_macos_text_view_options(void *view, const uint8_t *font, size_t length, double size,
                                       int64_t flags);
+int32_t rinzu_macos_text_view_editable(void *view, _Bool editable);
+int32_t rinzu_macos_text_view_is_editable(void *view);
+/* JSON rows of [key, modifiers, context, command, action]. Flags select the
+   block caret (1), read-only key consumption (2), and find bar (4). */
+int32_t rinzu_macos_text_view_keys(void *view, const uint8_t *keys, size_t length, int64_t flags);
 int32_t rinzu_macos_scroll_content(void *scroll, void *view);
 int32_t rinzu_macos_scroll_to(void *scroll, double x, double y);
 int32_t rinzu_macos_scroll_rect(void *scroll, struct MacRect *output);
@@ -323,6 +330,8 @@ void *rinzu_macos_sampler(int64_t id);
 int32_t rinzu_macos_sampler_destroy(void *sampler);
 int32_t rinzu_macos_rotation2d(double radians, struct MacTransform2D *output);
 int32_t rinzu_macos_surface_format(void *view, int64_t format);
+int32_t rinzu_macos_surface_opaque(void *view, _Bool opaque);
+int32_t rinzu_macos_surface_live_resize_background(void *view, const struct MacColor *color);
 int64_t rinzu_macos_surface_pixel_format(void *view);
 int32_t rinzu_macos_surface_size(void *view, struct MacRect *output);
 int32_t rinzu_macos_font_catalog(void *session);

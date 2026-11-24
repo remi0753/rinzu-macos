@@ -1,6 +1,7 @@
 #import <AppKit/AppKit.h>
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
+#import <QuartzCore/CATransaction.h>
 #import <QuartzCore/CADisplayLink.h>
 #import <ImageIO/ImageIO.h>
 #import <CoreText/CoreText.h>
@@ -140,12 +141,16 @@ enum { RZ_ALPHA_DEFAULT, RZ_ALPHA_PREMULTIPLIED, RZ_ALPHA_STRAIGHT };
 @property(nonatomic) BOOL activateOnShow;
 @property(nonatomic) BOOL closing, sheetsStopping, stateKnown, inFullScreenTransition;
 @property(nonatomic) BOOL placementKnown;
+@property(nonatomic) BOOL liveResizePreview, previewingLiveResize;
 @property(nonatomic) NSRect lastFrame;
 @property(nonatomic) int64_t lastDisplay;
 @property(nonatomic) struct MacWindowTabs lastTabs;
 @property(nonatomic) int32_t lastState;
 @property(nonatomic, strong) NSWindow *window;
 @property(nonatomic, strong) RZMacView *content;
+@property(nonatomic, weak) RZMacView *textKeyView;
+@property(nonatomic, strong) NSColor *savedBackgroundColor;
+@property(nonatomic) BOOL transparentBackground, savedOpaque;
 @property(nonatomic, strong) RZMacMenu *menu;
 @property(nonatomic, strong) RZMacSheet *sheet;
 @end
@@ -183,11 +188,18 @@ enum { RZ_ALPHA_DEFAULT, RZ_ALPHA_PREMULTIPLIED, RZ_ALPHA_STRAIGHT };
 @property(nonatomic, weak) RZMacWindow *rootWindow;
 @property(nonatomic, weak) RZMacWindow *scopeWindow;
 @property(nonatomic, strong) RZMacDevice *device;
+@property(nonatomic, strong) CAMetalLayer *metalLayer;
+@property(nonatomic, strong) CALayer *resizeRight, *resizeBelow;
+@property(nonatomic, strong) NSColor *resizeBackground;
+@property(nonatomic) BOOL holdingResizeContents;
 @property(nonatomic) int widgetKind;
 @property(nonatomic) int64_t action, snapshotToken;
 @property(nonatomic) BOOL updating, enabled, marking;
 @property(nonatomic, strong) NSData *snapshotData;
 @property(nonatomic, strong) NSTextView *fieldEditor;
+@property(nonatomic) BOOL textEditable;
+@property(nonatomic) NSUInteger textKeyFlags;
+@property(nonatomic, copy) NSArray<NSArray *> *textKeys;
 @property(nonatomic) NSPoint scrollOrigin;
 @property(nonatomic, weak) RZMacFrameClock *clock;
 @property(nonatomic, strong) RZMacDataController *dataController;
@@ -340,6 +352,7 @@ struct RZInputSpan {
 @property(nonatomic, strong) id<MTLComputeCommandEncoder> compute;
 @property(nonatomic, strong) id<MTLRenderCommandEncoder> render;
 @property(nonatomic, strong) id<CAMetalDrawable> drawable;
+@property(nonatomic, weak) RZMacView *surface;
 @property(nonatomic, strong) RZMacPipeline *pipeline;
 @property(nonatomic, strong) RZMacTexture *target;
 @property(nonatomic) NSUInteger targetWidth, targetHeight;
@@ -563,7 +576,8 @@ static int32_t window_flags(RZMacWindow *window) {
          ((native.occlusionState & NSWindowOcclusionStateVisible) && selected_tab(native) ? 0 : 64);
 }
 static void window_placement(RZMacWindow *window) {
-  if (!window || window.closed || !window.identity || window.inFullScreenTransition)
+  if (!window || window.closed || !window.identity || window.inFullScreenTransition ||
+      window.previewingLiveResize)
     return;
   NSRect rect = window.window.frame;
   int64_t display = screen_identity(window.window.screen);
@@ -619,7 +633,18 @@ static RZMacView *responder_view(NSResponder *responder) {
       return (RZMacView *)handle;
   return nil;
 }
+static BOOL route_text_key(RZMacWindow *window, NSEvent *event);
+
 @implementation RZMacNativeWindow
+- (BOOL)performKeyEquivalent:(NSEvent *)event {
+  if (route_text_key(self.control, event))
+    return YES;
+  return [super performKeyEquivalent:event];
+}
+- (void)sendEvent:(NSEvent *)event {
+  if (!route_text_key(self.control, event))
+    [super sendEvent:event];
+}
 - (BOOL)makeFirstResponder:(NSResponder *)responder {
   RZMacView *before = responder_view(self.firstResponder);
   BOOL accepted = [super makeFirstResponder:responder];
@@ -665,11 +690,49 @@ static RZMacView *responder_view(NSResponder *responder) {
   window_state(self.control);
 }
 @end
+static void install_resize_layers(RZMacView *view) {
+  if (!view.scopeWindow.liveResizePreview || view.resizeRight)
+    return;
+  CALayer *host = [CALayer layer];
+  view.resizeRight = [CALayer layer];
+  view.resizeBelow = [CALayer layer];
+  view.resizeRight.backgroundColor = view.resizeBackground.CGColor;
+  view.resizeBelow.backgroundColor = view.resizeBackground.CGColor;
+  view.view.layer = host;
+  view.view.clipsToBounds = YES;
+  host.masksToBounds = YES;
+  [host addSublayer:view.metalLayer];
+  [host addSublayer:view.resizeRight];
+  [host addSublayer:view.resizeBelow];
+}
+
+static void layout_metal_layer(RZMacView *view) {
+  if (!view.resizeRight)
+    return;
+  NSSize bounds = view.view.bounds.size;
+  CAMetalLayer *layer = view.metalLayer;
+  CGSize shown = view.holdingResizeContents ? layer.bounds.size : bounds;
+  CGFloat coveredWidth = MIN(shown.width, bounds.width);
+  // Keep the last drawable at its original size, anchored at the top left.
+  // The two fill rectangles never overlap its pixels, including with alpha.
+  [CATransaction begin];
+  [CATransaction setDisableActions:YES];
+  layer.frame = CGRectMake(0, bounds.height - shown.height, shown.width, shown.height);
+  view.resizeRight.frame = CGRectMake(coveredWidth, 0, bounds.width - coveredWidth, bounds.height);
+  view.resizeBelow.frame = CGRectMake(0, 0, coveredWidth, MAX(0, bounds.height - shown.height));
+  [CATransaction commit];
+}
+
 static void resized(RZMacView *view) {
   if (!view || view.closed)
     return;
+  BOOL previewing = view.scopeWindow.previewingLiveResize;
+  if (view.device)
+    layout_metal_layer(view);
+  if (previewing && (view.device || view.rootWindow))
+    return;
   if (view.device) {
-    CAMetalLayer *layer = (CAMetalLayer *)view.view.layer;
+    CAMetalLayer *layer = view.metalLayer;
     NSSize size = [view.view convertRectToBacking:view.view.bounds].size;
     layer.contentsScale = view.view.window ? view.view.window.backingScaleFactor : 1.0;
     layer.drawableSize = CGSizeMake(size.width, size.height);
@@ -1256,6 +1319,8 @@ static NSRect input_character_rect(RZMacNativeView *view, NSRange range, BOOL tr
 }
 - (void)drawRect:(NSRect)rect {
   if (self.control.device) {
+    if (self.control.scopeWindow.previewingLiveResize)
+      return;
     [self.control.owner enqueue:view_event(self.control, RZ_DRAW)];
     refresh_frame(self.control.clock, YES);
   } else
@@ -1634,6 +1699,33 @@ static void refresh_menu(RZMacSession *session) {
   [self.owner enqueue:(struct MacEvent){.kind = RZ_CLOSE_REQUESTED, .windowId = self.identity}];
   return NO;
 }
+- (void)windowWillStartLiveResize:(NSNotification *)notification {
+  (void)notification;
+  self.previewingLiveResize = self.liveResizePreview;
+  if (self.previewingLiveResize)
+    for (RZMacHandle *handle in handles.allValues)
+      if (handle.kind == RZ_VIEW) {
+        RZMacView *view = (RZMacView *)handle;
+        if (view.scopeWindow == self && view.resizeRight)
+          view.holdingResizeContents = YES;
+      }
+}
+- (void)windowDidEndLiveResize:(NSNotification *)notification {
+  (void)notification;
+  if (!self.previewingLiveResize)
+    return;
+  self.previewingLiveResize = NO;
+  // AppKit has laid out the views. Publish their final Metal extents together.
+  resized(self.content);
+  for (RZMacHandle *handle in handles.allValues)
+    if (handle.kind == RZ_VIEW) {
+      RZMacView *view = (RZMacView *)handle;
+      if (view.scopeWindow == self && view.device)
+        resized(view);
+    }
+  window_placement(self);
+  window_state(self);
+}
 - (void)windowDidResize:(NSNotification *)notification {
   (void)notification;
   resized(self.content);
@@ -1980,6 +2072,10 @@ static void close_menu(RZMacMenu *root) {
 static void close_view(RZMacView *root) {
   if (!root || root.closed)
     return;
+  RZMacWindow *window = view_window(root);
+  if (window.textKeyView == root)
+    window.textKeyView = nil;
+  root.textKeys = nil;
   stop_frame(root.clock);
   root.clock.view = nil;
   root.clock = nil;
@@ -3103,6 +3199,7 @@ static int64_t create_view(RZMacSession *session, const struct MacRect *rect, RZ
     layer.framebufferOnly = YES;
     view.view.wantsLayer = YES;
     view.view.layer = layer;
+    view.metalLayer = layer;
     resized(view);
   }
   return identity;
@@ -3185,6 +3282,8 @@ int32_t rinzu_macos_view_add(void *parent_raw, void *child_raw) {
           if (handle.kind == RZ_VIEW && descendant((RZMacView *)handle, child))
             ((RZMacView *)handle).scopeWindow = scope;
       [parent.view addSubview:child.view];
+      if (child.device)
+        install_resize_layers(child);
       resized(child);
       return 0;
     } @catch (NSException *exception) {
@@ -3559,6 +3658,7 @@ static void release_command(RZMacCommand *command) {
   command.render = nil;
   command.command = nil;
   command.drawable = nil;
+  command.surface = nil;
   command.pipeline = nil;
   command.target = nil;
   command.targetAlphaMode = RZ_ALPHA_DEFAULT;
@@ -3654,7 +3754,9 @@ static int32_t begin_surface_render(void *raw, void *view_raw, const struct MacC
         return fail(RZ_NO_DRAWABLE, @"surface is not visible");
       if (command.state || command.waiterToken)
         return fail(RZ_BUSY, @"command is not idle");
-      CAMetalLayer *layer = (CAMetalLayer *)view.view.layer;
+      CAMetalLayer *layer = view.metalLayer;
+      if (view.scopeWindow.previewingLiveResize)
+        return fail(RZ_NO_DRAWABLE, @"surface is preserving its live resize preview");
       id<CAMetalDrawable> drawable = [layer nextDrawable];
       if (!drawable)
         return fail(RZ_NO_DRAWABLE, @"Metal drawable is temporarily unavailable");
@@ -3667,6 +3769,7 @@ static int32_t begin_surface_render(void *raw, void *view_raw, const struct MacC
       if (status)
         return status;
       command.drawable = drawable;
+      command.surface = view;
       command.targetWidth = drawable.texture.width;
       command.targetHeight = drawable.texture.height;
       command.targetFormat = layer.pixelFormat == MTLPixelFormatBGRA8Unorm_sRGB ? 6 : 2;
@@ -3803,6 +3906,23 @@ int32_t rinzu_macos_command_draw_instances(void *raw, int64_t start, int64_t cou
     }
   }
 }
+static void present_resized_surface(RZMacCommand *command, RZMacView *view) {
+  [command.command waitUntilScheduled];
+  if (command.command.status == MTLCommandBufferStatusError)
+    return;
+  CAMetalLayer *layer = view.metalLayer;
+  layer.presentsWithTransaction = YES;
+  [CATransaction begin];
+  @try {
+    view.holdingResizeContents = NO;
+    layout_metal_layer(view);
+    [command.drawable present];
+  } @finally {
+    [CATransaction commit];
+    layer.presentsWithTransaction = NO;
+  }
+}
+
 int32_t rinzu_macos_command_commit(void *raw) {
   @autoreleasepool {
     RZMacCommand *command = nil;
@@ -3816,7 +3936,13 @@ int32_t rinzu_macos_command_commit(void *raw) {
       [command.render endEncoding];
       command.compute = nil;
       command.render = nil;
-      if (command.drawable)
+      RZMacView *surface = command.surface;
+      BOOL replacingPreview =
+          command.drawable && surface.holdingResizeContents &&
+          !surface.scopeWindow.previewingLiveResize &&
+          command.drawable.texture.width == (NSUInteger)surface.metalLayer.drawableSize.width &&
+          command.drawable.texture.height == (NSUInteger)surface.metalLayer.drawableSize.height;
+      if (command.drawable && !replacingPreview && !surface.holdingResizeContents)
         [command.command presentDrawable:command.drawable];
       // The block retains the carrier through its last access. finish breaks
       // command -> MTLCommandBuffer -> block -> command after publication.
@@ -3839,6 +3965,8 @@ int32_t rinzu_macos_command_commit(void *raw) {
       command.state = 2;
       atomic_store_explicit(&command->submitted, generation, memory_order_release);
       [command.command commit];
+      if (replacingPreview)
+        present_resized_surface(command, surface);
       return 0;
     } @catch (NSException *exception) {
       // If Metal rejected commit before submission, there will be no completion.
@@ -4088,6 +4216,256 @@ static BOOL utf16_offset(NSString *text, int64_t scalar, NSUInteger *output) {
   *output = index;
   return YES;
 }
+
+enum { RZ_KEY_WINDOW, RZ_KEY_READ_ONLY, RZ_KEY_EDITABLE, RZ_KEY_FIND_BAR };
+enum {
+  RZ_KEY_NOTIFY,
+  RZ_KEY_EDIT_BEFORE,
+  RZ_KEY_EDIT_AFTER,
+  RZ_KEY_MAKE_READ_ONLY,
+  RZ_KEY_LEFT,
+  RZ_KEY_DOWN_LINE,
+  RZ_KEY_UP_LINE,
+  RZ_KEY_RIGHT,
+  RZ_KEY_LINE_START,
+  RZ_KEY_LINE_END,
+  RZ_KEY_PAGE_UP,
+  RZ_KEY_PAGE_DOWN,
+  RZ_KEY_SHOW_FIND,
+  RZ_KEY_HIDE_FIND,
+  RZ_KEY_FIND_NEXT,
+  RZ_KEY_FIND_PREVIOUS
+};
+enum { RZ_KEY_BLOCK_CARET = 1, RZ_KEY_CONSUME_READ_ONLY = 2, RZ_KEY_ENABLE_FIND = 4 };
+static const NSEventModifierFlags text_key_modifiers =
+    NSEventModifierFlagShift | NSEventModifierFlagControl | NSEventModifierFlagOption |
+    NSEventModifierFlagCommand;
+
+static NSRange text_caret_character(NSTextView *editor, NSUInteger location) {
+  NSString *value = editor.string;
+  if (location >= value.length)
+    return NSMakeRange(value.length, 0);
+  NSRange range = [value rangeOfComposedCharacterSequenceAtIndex:location];
+  if ([NSCharacterSet.newlineCharacterSet
+          characterIsMember:[value characterAtIndex:range.location]])
+    range.length = 0;
+  return range;
+}
+
+static void text_caret(NSTextView *editor, NSUInteger location, BOOL block) {
+  NSRange range = block ? text_caret_character(editor, location)
+                        : NSMakeRange(MIN(location, editor.string.length), 0);
+  editor.selectedRange = range;
+  [editor scrollRangeToVisible:range];
+}
+
+static void text_editable(RZMacView *view, BOOL editable, BOOL append) {
+  NSTextView *editor = (NSTextView *)view.view;
+  NSUInteger location = editor.selectedRange.location;
+  if (append)
+    location = NSMaxRange(text_caret_character(editor, location));
+  view.textEditable = editable;
+  editor.editable = view.enabled && editable;
+  text_caret(editor, location, !editable && (view.textKeyFlags & RZ_KEY_BLOCK_CARET));
+}
+
+static void text_key_perform(RZMacView *view, int64_t command) {
+  NSTextView *editor = (NSTextView *)view.view;
+  if (command == RZ_KEY_NOTIFY)
+    return;
+  if (command <= RZ_KEY_MAKE_READ_ONLY) {
+    text_editable(view, command != RZ_KEY_MAKE_READ_ONLY, command == RZ_KEY_EDIT_AFTER);
+    return;
+  }
+  if (command >= RZ_KEY_SHOW_FIND) {
+    const NSTextFinderAction actions[] = {
+        NSTextFinderActionShowFindInterface, NSTextFinderActionHideFindInterface,
+        NSTextFinderActionNextMatch, NSTextFinderActionPreviousMatch};
+    NSMenuItem *item = [NSMenuItem new];
+    item.tag = actions[command - RZ_KEY_SHOW_FIND];
+    [editor performTextFinderAction:item];
+    if (command == RZ_KEY_HIDE_FIND)
+      [editor.window makeFirstResponder:editor];
+    return;
+  }
+  const SEL motions[] = {
+    @selector(moveLeft:),
+    @selector(moveDown:),
+    @selector(moveUp:),
+    @selector(moveRight:),
+    @selector(moveToBeginningOfLine:),
+    @selector(moveToEndOfLine:),
+    @selector(pageUp:),
+    @selector(pageDown:)
+  };
+  NSUInteger location = editor.selectedRange.location;
+  BOOL readOnly = !editor.editable;
+  if (readOnly && (command == RZ_KEY_DOWN_LINE || command == RZ_KEY_UP_LINE)) {
+    // Plain up/down scrolls a read-only text view. Use the moving end of the selection.
+    BOOL down = command == RZ_KEY_DOWN_LINE;
+    BOOL updating = view.updating;
+    view.updating = YES;
+    @try {
+      editor.selectedRange = NSMakeRange(location, 0);
+      [editor doCommandBySelector:down ? @selector(moveDownAndModifySelection:)
+                                       : @selector(moveUpAndModifySelection:)];
+      NSRange selection = editor.selectedRange;
+      location = down ? NSMaxRange(selection) : selection.location;
+    } @finally {
+      view.updating = updating;
+    }
+  } else {
+    text_caret(editor, location, NO);
+    [editor doCommandBySelector:motions[command - RZ_KEY_LEFT]];
+    location = editor.selectedRange.location;
+  }
+  text_caret(editor, location, readOnly && (view.textKeyFlags & RZ_KEY_BLOCK_CARET));
+}
+
+// The window decides before AppKit dispatches to the editor, find bar, or IME.
+// Applying the operation here keeps the following keystroke in the new state.
+static BOOL route_text_key(RZMacWindow *window, NSEvent *event) {
+  RZMacView *view = window.textKeyView;
+  if (!view || view.closed || !view.enabled || !accepting(view) ||
+      event.type != NSEventTypeKeyDown || event.window != window.window ||
+      view.view.window != window.window || view.view.hiddenOrHasHiddenAncestor)
+    return NO;
+  NSTextView *editor = (NSTextView *)view.view;
+  NSResponder *responder = window.window.firstResponder;
+  if (editor.hasMarkedText ||
+      ([responder isKindOfClass:NSTextView.class] && ((NSTextView *)responder).hasMarkedText))
+    return NO;
+
+  int64_t context = RZ_KEY_WINDOW;
+  if ((view.textKeyFlags & RZ_KEY_ENABLE_FIND) && editor.enclosingScrollView.findBarVisible)
+    context = RZ_KEY_FIND_BAR;
+  else if (responder == editor)
+    context = editor.editable ? RZ_KEY_EDITABLE : RZ_KEY_READ_ONLY;
+
+  NSString *key = event.charactersIgnoringModifiers;
+  NSEventModifierFlags modifiers = event.modifierFlags & text_key_modifiers;
+  NSArray *match = nil;
+  for (NSArray *binding in view.textKeys) {
+    if (![binding[0] isEqualToString:key] || [binding[1] unsignedLongLongValue] != modifiers)
+      continue;
+    int64_t bindingContext = [binding[2] longLongValue];
+    if (bindingContext == context) {
+      match = binding;
+      break;
+    }
+    if (bindingContext == RZ_KEY_WINDOW)
+      match = binding;
+  }
+  if (!match)
+    return context == RZ_KEY_READ_ONLY && (view.textKeyFlags & RZ_KEY_CONSUME_READ_ONLY) &&
+           !(modifiers & ~NSEventModifierFlagShift) && event.keyCode != 48;
+
+  text_key_perform(view, [match[3] longLongValue]);
+  int64_t action = [match[4] longLongValue];
+  if (action && !event.isARepeat) {
+    struct MacEvent delivered = view_event(view, RZ_ACTION);
+    delivered.action = action;
+    [view.owner enqueue:delivered];
+  }
+  return YES;
+}
+
+static BOOL input_integer(id value, int64_t minimum, int64_t maximum);
+
+int32_t rinzu_macos_text_view_keys(void *raw, const uint8_t *bytes, size_t length, int64_t flags) {
+  @autoreleasepool {
+    @try {
+      RZMacView *view = (RZMacView *)lookup(raw, RZ_VIEW);
+      if (!view)
+        return missing();
+      if (view.widgetKind != RZ_TEXT_VIEW || !bytes || length > 16384 || flags < 0 || flags > 7)
+        return fail(RZ_ARGUMENT, @"invalid text key bindings");
+      NSTextView *editor = (NSTextView *)view.view;
+      RZMacWindow *window = view_window(view);
+      if (!accepting(view) || editor.hasMarkedText)
+        return fail(RZ_BUSY, @"TextView is closing or composing text");
+      id value = [NSJSONSerialization JSONObjectWithData:[NSData dataWithBytes:bytes length:length]
+                                                 options:0
+                                                   error:NULL];
+      if (![value isKindOfClass:NSArray.class] || [value count] > 128)
+        return fail(RZ_ARGUMENT, @"expected up to 128 text key bindings");
+      NSMutableSet *chords = [NSMutableSet set];
+      for (id row in value) {
+        if (![row isKindOfClass:NSArray.class] || [row count] != 5)
+          return fail(RZ_ARGUMENT, @"invalid text key binding");
+        NSArray *binding = row;
+        NSString *key = binding[0];
+        if (![key isKindOfClass:NSString.class] || key.length > 2 ||
+            scalar_count(key, key.length) != 1 ||
+            !input_integer(binding[1], 0, text_key_modifiers) ||
+            ([binding[1] unsignedLongLongValue] & ~text_key_modifiers) ||
+            !input_integer(binding[2], RZ_KEY_WINDOW, RZ_KEY_FIND_BAR) ||
+            !input_integer(binding[3], RZ_KEY_NOTIFY, RZ_KEY_FIND_PREVIOUS) ||
+            !input_integer(binding[4], 0, INT64_MAX) ||
+            (([binding[2] longLongValue] == RZ_KEY_FIND_BAR ||
+              [binding[3] longLongValue] >= RZ_KEY_SHOW_FIND) &&
+             !(flags & RZ_KEY_ENABLE_FIND)))
+          return fail(RZ_ARGUMENT, @"invalid text key binding value");
+        NSArray *chord = @[ binding[0], binding[1], binding[2] ];
+        if ([chords containsObject:chord])
+          return fail(RZ_ARGUMENT, @"duplicate text key binding");
+        [chords addObject:chord];
+      }
+      BOOL intercepts = [value count] || (flags & RZ_KEY_CONSUME_READ_ONLY);
+      if (intercepts && (!window || editor.window != window.window))
+        return fail(RZ_ARGUMENT, @"attach the TextView to a Window before binding keys");
+      if (intercepts && window.textKeyView && window.textKeyView != view &&
+          window.textKeyView.view.window == window.window)
+        return fail(RZ_BUSY, @"Window already has a text key target");
+      if ((flags & RZ_KEY_ENABLE_FIND) && !editor.enclosingScrollView)
+        return fail(RZ_ARGUMENT, @"the find bar requires a ScrollView");
+      if (!(flags & RZ_KEY_ENABLE_FIND) && editor.enclosingScrollView.findBarVisible)
+        text_key_perform(view, RZ_KEY_HIDE_FIND);
+      editor.usesFindBar = (flags & RZ_KEY_ENABLE_FIND) != 0;
+      editor.incrementalSearchingEnabled = editor.usesFindBar;
+      view.textKeys = value;
+      view.textKeyFlags = (NSUInteger)flags;
+      if (intercepts)
+        window.textKeyView = view;
+      else if (window.textKeyView == view)
+        window.textKeyView = nil;
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+
+int32_t rinzu_macos_text_view_editable(void *raw, _Bool editable) {
+  @autoreleasepool {
+    @try {
+      RZMacView *view = (RZMacView *)lookup(raw, RZ_VIEW);
+      if (!view)
+        return missing();
+      if (view.widgetKind != RZ_TEXT_VIEW)
+        return fail(RZ_ARGUMENT, @"editability requires a TextView");
+      if (!accepting(view) || ((NSTextView *)view.view).hasMarkedText)
+        return fail(RZ_BUSY, @"TextView is closing or composing text");
+      if (view.textEditable != editable)
+        text_editable(view, editable, NO);
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+
+int32_t rinzu_macos_text_view_is_editable(void *raw) {
+  @autoreleasepool {
+    RZMacView *view = (RZMacView *)lookup(raw, RZ_VIEW);
+    if (!view)
+      return missing();
+    if (view.widgetKind != RZ_TEXT_VIEW)
+      return fail(RZ_ARGUMENT, @"editability requires a TextView");
+    return ((NSTextView *)view.view).editable;
+  }
+}
+
 static NSString *widget_string(RZMacView *view) {
   switch (view.widgetKind) {
   case RZ_LABEL:
@@ -4299,6 +4677,7 @@ static int64_t widget_create(void *raw, RZMacWindow *scope, int32_t kind, const 
       }
       case RZ_TEXT_VIEW: {
         RZMacTextView *editor = [RZMacTextView new];
+        view.textEditable = editor.editable;
         editor.control = view;
         editor.delegate = view;
         editor.richText = NO;
@@ -4483,7 +4862,7 @@ int32_t rinzu_macos_view_enabled(void *raw, _Bool enabled) {
       if (view.dataController)
         view.dataController.table.enabled = enabled;
       if (view.widgetKind == RZ_TEXT_VIEW)
-        ((NSTextView *)view.view).editable = enabled;
+        ((NSTextView *)view.view).editable = enabled && view.textEditable;
       return 0;
     } @catch (NSException *exception) {
       return caught(exception);
@@ -4594,6 +4973,8 @@ int32_t rinzu_macos_scroll_content(void *raw, void *child_raw) {
         editor.frame = NSMakeRect(0, 0, native.contentSize.width,
                                   MAX(editor.frame.size.height, native.contentSize.height));
         editor.textContainer.containerSize = NSMakeSize(native.contentSize.width, CGFLOAT_MAX);
+        // Fit text that was loaded before vertical resizing was enabled.
+        [editor sizeToFit];
       }
       return 0;
     } @catch (NSException *exception) {
@@ -5579,7 +5960,7 @@ int32_t rinzu_macos_surface_device(void *raw, void *device_raw) {
         return fail(RZ_BUSY, @"surface is closing or leased");
       if (device.removed)
         return fail(RZ_GPU, @"Device removal was requested");
-      CAMetalLayer *layer = (CAMetalLayer *)view.view.layer;
+      CAMetalLayer *layer = view.metalLayer;
       layer.device = device.device;
       view.device = device;
       resized(view);
@@ -5607,13 +5988,30 @@ int32_t rinzu_macos_surface_format(void *raw, int64_t format) {
         return fail(RZ_ARGUMENT, @"surface format must be BGRA8 or BGRA8 sRGB");
       if (!accepting(view) || view.leases)
         return fail(RZ_BUSY, @"surface is closing or leased");
-      CAMetalLayer *layer = (CAMetalLayer *)view.view.layer;
+      CAMetalLayer *layer = view.metalLayer;
       CGColorSpaceRef space = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
       layer.pixelFormat = pixel_format(format);
       layer.colorspace = format == 6 ? space : NULL;
       CGColorSpaceRelease(space);
       if (view.clock)
         refresh_frame(view.clock, YES);
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+int32_t rinzu_macos_surface_opaque(void *raw, _Bool opaque) {
+  @autoreleasepool {
+    @try {
+      RZMacView *view = (RZMacView *)lookup(raw, RZ_VIEW);
+      if (!view)
+        return missing();
+      if (!view.device)
+        return fail(RZ_ARGUMENT, @"opacity requires a Metal surface");
+      if (!accepting(view))
+        return fail(RZ_BUSY, @"surface is closing");
+      view.metalLayer.opaque = opaque;
       return 0;
     } @catch (NSException *exception) {
       return caught(exception);
@@ -5627,7 +6025,7 @@ int64_t rinzu_macos_surface_pixel_format(void *raw) {
       return missing();
     if (!view.device)
       return fail(RZ_ARGUMENT, @"pixel format requires a Metal surface");
-    return ((CAMetalLayer *)view.view.layer).pixelFormat == MTLPixelFormatBGRA8Unorm_sRGB ? 6 : 2;
+    return view.metalLayer.pixelFormat == MTLPixelFormatBGRA8Unorm_sRGB ? 6 : 2;
   }
 }
 int32_t rinzu_macos_surface_size(void *raw, struct MacRect *output) {
@@ -5637,7 +6035,7 @@ int32_t rinzu_macos_surface_size(void *raw, struct MacRect *output) {
       return missing();
     if (!view.device || !output)
       return fail(RZ_ARGUMENT, @"drawable size requires a Metal surface and output");
-    CGSize size = ((CAMetalLayer *)view.view.layer).drawableSize;
+    CGSize size = view.metalLayer.drawableSize;
     *output = (struct MacRect){0, 0, size.width, size.height};
     return 0;
   }
@@ -6963,7 +7361,7 @@ int32_t rinzu_macos_text_destroy(void *raw) {
 static BOOL frame_visible(RZMacFrameClock *clock) {
   RZMacView *view = clock.view;
   NSWindow *window = view.view.window;
-  CGSize pixels = ((CAMetalLayer *)view.view.layer).drawableSize;
+  CGSize pixels = view.metalLayer.drawableSize;
   return clock && !clock.stopped && view && !view.closed && clock.owner.running && window &&
          window.visible && selected_tab(window) && !window.miniaturized &&
          !view.view.hiddenOrHasHiddenAncestor &&
@@ -6976,9 +7374,10 @@ static void publish_frame(RZMacFrameClock *current) {
     return;
   @try {
     if (!current.token || rinzu_native_completion_is_done(&current->completion.base) ||
-        !frame_visible(current) || (!current.dirty && !current.animating))
+        !frame_visible(current) || current.view.scopeWindow.previewingLiveResize ||
+        (!current.dirty && !current.animating))
       return;
-    CGSize size = ((CAMetalLayer *)current.view.view.layer).drawableSize;
+    CGSize size = current.view.metalLayer.drawableSize;
     if (size.width <= 0 || size.height <= 0)
       return;
     double stamp = CACurrentMediaTime();
@@ -7001,7 +7400,8 @@ static void arm_frame(RZMacFrameClock *clock) {
   if (!clock || clock.stopped || !clock.token || clock.timer ||
       (clock.displayLink && !clock.displayLink.paused) ||
       rinzu_native_completion_is_done(&clock->completion.base) ||
-      (!clock.dirty && !clock.animating) || !frame_visible(clock))
+      (!clock.dirty && !clock.animating) || !frame_visible(clock) ||
+      clock.view.scopeWindow.previewingLiveResize)
     return;
   double now = CACurrentMediaTime();
   double deadline = MAX(now, clock.lastTick + MAX(clock.interval, clock.retryDelay));
@@ -8215,6 +8615,84 @@ int32_t rinzu_macos_window_effective_theme(void *raw) {
     NSString *match = [window.window.effectiveAppearance
         bestMatchFromAppearancesWithNames:@[ NSAppearanceNameAqua, NSAppearanceNameDarkAqua ]];
     return [match isEqualToString:NSAppearanceNameDarkAqua] ? 2 : 1;
+  }
+}
+
+int32_t rinzu_macos_window_transparent_background(void *raw, _Bool transparent) {
+  @autoreleasepool {
+    @try {
+      RZMacWindow *window = (RZMacWindow *)lookup(raw, RZ_WINDOW);
+      if (!window)
+        return missing();
+      if (!accepting(window))
+        return fail(RZ_BUSY, @"Window is closing");
+      if (window.transparentBackground == transparent)
+        return 0;
+      if (transparent) {
+        window.savedBackgroundColor = window.window.backgroundColor;
+        window.savedOpaque = window.window.opaque;
+        window.window.opaque = NO;
+        window.window.backgroundColor = NSColor.clearColor;
+      } else {
+        window.window.backgroundColor = window.savedBackgroundColor;
+        window.window.opaque = window.savedOpaque;
+        window.savedBackgroundColor = nil;
+      }
+      window.transparentBackground = transparent;
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
+  }
+}
+
+int32_t rinzu_macos_window_live_resize_preview(void *raw, _Bool enabled) {
+  @autoreleasepool {
+    RZMacWindow *window = (RZMacWindow *)lookup(raw, RZ_WINDOW);
+    if (!window)
+      return missing();
+    if (!accepting(window))
+      return fail(RZ_BUSY, @"Window is closing");
+    if (window.liveResizePreview == enabled)
+      return 0;
+    if (enabled && view_busy(window.content))
+      return fail(RZ_BUSY, @"Window has a leased Metal surface");
+    window.liveResizePreview = enabled;
+    if (enabled)
+      for (RZMacHandle *handle in handles.allValues)
+        if (handle.kind == RZ_VIEW) {
+          RZMacView *view = (RZMacView *)handle;
+          if (view.scopeWindow == window && view.device) {
+            install_resize_layers(view);
+            layout_metal_layer(view);
+          }
+        }
+    return 0;
+  }
+}
+
+int32_t rinzu_macos_surface_live_resize_background(void *raw, const struct MacColor *color) {
+  @autoreleasepool {
+    @try {
+      RZMacView *view = (RZMacView *)lookup(raw, RZ_VIEW);
+      if (!view)
+        return missing();
+      if (!view.device || !color || !(color->red >= 0 && color->red <= 1) ||
+          !(color->green >= 0 && color->green <= 1) || !(color->blue >= 0 && color->blue <= 1) ||
+          !(color->alpha >= 0 && color->alpha <= 1))
+        return fail(RZ_ARGUMENT, @"invalid live-resize surface background");
+      if (!accepting(view))
+        return fail(RZ_BUSY, @"surface is closing");
+      view.resizeBackground = [NSColor colorWithSRGBRed:color->red
+                                                  green:color->green
+                                                   blue:color->blue
+                                                  alpha:color->alpha];
+      view.resizeRight.backgroundColor = view.resizeBackground.CGColor;
+      view.resizeBelow.backgroundColor = view.resizeBackground.CGColor;
+      return 0;
+    } @catch (NSException *exception) {
+      return caught(exception);
+    }
   }
 }
 

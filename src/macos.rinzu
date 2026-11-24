@@ -1208,6 +1208,19 @@ class View {
         return checked(Int(rawSurfaceFormat(self.handle, format)), "macos.surface.setPixelFormat");
     }
 
+    /// A transparent Metal surface composites the alpha supplied by its renderer.
+    fn setSurfaceOpaque(self: View, isOpaque: Bool) -> Int {
+        return checked(Int(rawSurfaceOpaque(self.handle, isOpaque)), "macos.surface.setOpaque");
+    }
+
+    /// Fill the uncovered area while a live resize preview keeps its original size.
+    fn setLiveResizeBackground(self: View, background: Color) -> Int {
+        return checked(
+            Int(rawSurfaceResizeBackground(self.handle, background)),
+            "macos.surface.setLiveResizeBackground"
+        );
+    }
+
     fn pixelFormat(self: View) -> Int {
         return checked(rawSurfacePixelFormat(self.handle), "macos.surface.pixelFormat");
     }
@@ -1594,6 +1607,20 @@ class Window {
 
     fn effectiveTheme(self: Window) -> Int {
         return checked(Int(rawEffectiveTheme(self.handle)), "macos.window.effectiveTheme");
+    }
+
+    /// Use a clear, non-opaque window background or restore the previous background.
+    fn setTransparentBackground(self: Window, transparent: Bool) -> Int {
+        return checked(
+            Int(rawWindowTransparentBackground(self.handle, transparent)),
+            "macos.window.setTransparentBackground"
+        );
+    }
+
+    /// Clip the last Metal contents at their original size while the user drags.
+    /// Resize events and new drawables are available after the drag ends.
+    fn setLiveResizePreview(self: Window, enabled: Bool) -> Int {
+        return checked(Int(rawWindowLiveResizePreview(self.handle, enabled)), "macos.window.setLiveResizePreview");
     }
 }
 
@@ -2086,6 +2113,13 @@ native {
     fn rawTextViewOptions(view: ViewHandle, font: ByteArray, length: CSize, size: Float, flags: Int)
         -> CInt symbol "rinzu_macos_text_view_options";
 
+    fn rawTextViewEditable(view: ViewHandle, editable: CBool) -> CInt symbol "rinzu_macos_text_view_editable";
+
+    fn rawTextViewIsEditable(view: ViewHandle) -> CInt symbol "rinzu_macos_text_view_is_editable";
+
+    fn rawTextViewKeys(view: ViewHandle, keys: ByteArray, length: CSize, flags: Int)
+        -> CInt symbol "rinzu_macos_text_view_keys";
+
     fn rawScrollTo(scroll: ViewHandle, x: Float, y: Float) -> CInt symbol "rinzu_macos_scroll_to";
 
     fn rawScrollRect(scroll: ViewHandle, output: Rect) -> CInt symbol "rinzu_macos_scroll_rect";
@@ -2268,6 +2302,11 @@ native {
     fn rawDeviceAvailable(device: DeviceHandle) -> CBool symbol "rinzu_macos_device_available";
 
     fn rawSurfaceFormat(view: ViewHandle, format: Int) -> CInt symbol "rinzu_macos_surface_format";
+
+    fn rawSurfaceOpaque(view: ViewHandle, isOpaque: CBool) -> CInt symbol "rinzu_macos_surface_opaque";
+
+    fn rawSurfaceResizeBackground(view: ViewHandle, background: Color)
+        -> CInt symbol "rinzu_macos_surface_live_resize_background";
 
     fn rawSurfacePixelFormat(view: ViewHandle) -> Int symbol "rinzu_macos_surface_pixel_format";
 
@@ -3701,6 +3740,55 @@ class TextView {
         return self.view.setEnabled(enabled);
     }
 
+    /// Read-only text remains focusable and selectable.
+    fn setEditable(self: TextView, editable: Bool) -> Int {
+        return checked(Int(rawTextViewEditable(self.view.handle, editable)), "macos.textView.setEditable");
+    }
+
+    fn isEditable(self: TextView) -> Bool {
+        return checked(Int(rawTextViewIsEditable(self.view.handle)), "macos.textView.isEditable") != 0;
+    }
+
+    /// Route keys to native editor commands and optional eventAction notifications.
+    /// Bind after attachment. One TextView per window may own the key routes.
+    fn configureKeys(self: TextView, bindings: List<TextKeyBinding>, options: TextKeyOptions) -> Int {
+        if rinzu.list.length(bindings) > 128 {
+            throw error(-7804, "macos.textView.configureKeys binding limit");
+        }
+        let rows = rinzu.list.map(
+            bindings,
+            fn (binding: TextKeyBinding) -> jsonApi.Value {
+                if textApi.length(binding.key) != 1 {
+                    throw error(-7804, "macos.textView.configureKeys requires a single key character");
+                }
+                return jsonApi.array(
+                    [
+                        jsonApi.text(binding.key),
+                        jsonApi.intValue(binding.modifiers),
+                        jsonApi.intValue(binding.context),
+                        jsonApi.intValue(binding.command),
+                        jsonApi.intValue(binding.action)
+                    ]
+                );
+            }
+        );
+        let bytes = jsonApi.encode(jsonApi.array(rows));
+        var flags = 0;
+        if options.blockCaret {
+            flags = flags + 1;
+        }
+        if options.consumeReadOnlyKeys {
+            flags = flags + 2;
+        }
+        if options.findBar {
+            flags = flags + 4;
+        }
+        return checked(
+            Int(rawTextViewKeys(self.view.handle, bytes, bytesApi.byteLength(bytes), flags)),
+            "macos.textView.configureKeys"
+        );
+    }
+
     /// An empty font name selects a system font.
     fn configure(self: TextView, options: TextViewOptions) -> Int {
         let font = textApi.encodeUtf8(options.fontName);
@@ -3747,6 +3835,82 @@ class TextView {
     }
 }
 
+type TextKeyBinding = {
+    key: String,
+    modifiers: Int,
+    context: Int,
+    command: Int,
+    action: Int
+};
+
+type TextKeyOptions = {
+    blockCaret: Bool,
+    consumeReadOnlyKeys: Bool,
+    findBar: Bool
+};
+
+let textKeyWindow = 0;
+
+let textKeyReadOnly = 1;
+
+let textKeyEditable = 2;
+
+let textKeyFindBar = 3;
+
+let textKeyNotify = 0;
+
+let textKeyEditBefore = 1;
+
+let textKeyEditAfter = 2;
+
+let textKeyMakeReadOnly = 3;
+
+let textKeyLeft = 4;
+
+let textKeyDown = 5;
+
+let textKeyUp = 6;
+
+let textKeyRight = 7;
+
+let textKeyLineStart = 8;
+
+let textKeyLineEnd = 9;
+
+let textKeyPageUp = 10;
+
+let textKeyPageDown = 11;
+
+let textKeyShowFind = 12;
+
+let textKeyHideFind = 13;
+
+let textKeyFindNext = 14;
+
+let textKeyFindPrevious = 15;
+
+export TextKeyBinding;
+export TextKeyOptions;
+export textKeyWindow;
+export textKeyReadOnly;
+export textKeyEditable;
+export textKeyFindBar;
+export textKeyNotify;
+export textKeyEditBefore;
+export textKeyEditAfter;
+export textKeyMakeReadOnly;
+export textKeyLeft;
+export textKeyDown;
+export textKeyUp;
+export textKeyRight;
+export textKeyLineStart;
+export textKeyLineEnd;
+export textKeyPageUp;
+export textKeyPageDown;
+export textKeyShowFind;
+export textKeyHideFind;
+export textKeyFindNext;
+export textKeyFindPrevious;
 export TextView;
 export TextViewOptions;
 
@@ -5136,6 +5300,12 @@ native {
     fn rawWindowTheme(window: WindowHandle, theme: Int) -> CInt symbol "rinzu_macos_window_theme";
 
     fn rawEffectiveTheme(window: WindowHandle) -> CInt symbol "rinzu_macos_window_effective_theme";
+
+    fn rawWindowTransparentBackground(window: WindowHandle, transparent: CBool)
+        -> CInt symbol "rinzu_macos_window_transparent_background";
+
+    fn rawWindowLiveResizePreview(window: WindowHandle, enabled: CBool)
+        -> CInt symbol "rinzu_macos_window_live_resize_preview";
 }
 
 class DataColumn {
