@@ -614,8 +614,8 @@ distribution_case() (
     export RINZU_CACHE_DIR="$destination/cache"
     mkdir -p "$apps"
     if [ "$edition" = published ]; then
-        locator="https://github.com/remi0753/rinzu-macos/releases/download/v0.3.0/rinzu-macos-0.3.0.tar.gz"
-        digest="da468d630a6fe075d3111d6d5d91a93e21ac52ece74bb486f27b86188d3e2223"
+        locator="https://github.com/remi0753/rinzu-macos/releases/download/v0.4.0/rinzu-macos-0.4.0.tar.gz"
+        digest="0785c28a8c613db8e2afc85e9a1d6cd17cda1dabed3d39d52a58184c92d8f538"
     else
         candidate="$destination/candidate.tar.gz"
         if [ -n "${RINZU_MACOS_TEST_ARCHIVE:-}${RINZU_MACOS_TEST_SHA256:-}" ]; then

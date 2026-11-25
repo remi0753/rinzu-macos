@@ -4,12 +4,12 @@ AppKit, CoreText, and Metal SDK for Rinzu on Apple Silicon. It provides native w
 
 ## Install
 
-Use a macOS arm64 Rinzu toolchain with native SDK archive support. Run GUI applications from a desktop session. [v0.3.0 release](https://github.com/remi0753/rinzu-macos/releases/tag/v0.3.0)
+Use a macOS arm64 Rinzu toolchain with native SDK archive support. Run GUI applications from a desktop session. [v0.4.0 release](https://github.com/remi0753/rinzu-macos/releases/tag/v0.4.0)
 
 From your application directory, register the module and refresh the native build lock.
 
 ```sh
-rinzu modules add rinzu.macos https://github.com/remi0753/rinzu-macos/releases/download/v0.3.0/rinzu-macos-0.3.0.tar.gz
+rinzu modules add rinzu.macos https://github.com/remi0753/rinzu-macos/releases/download/v0.4.0/rinzu-macos-0.4.0.tar.gz
 rinzu lock .
 ```
 
@@ -110,6 +110,7 @@ The distribution test can verify a local candidate before publishing. It checks 
 
 | SDK tag  | Dependency                        | Rinzu                                     | Target      |
 | -------- | --------------------------------- | ----------------------------------------- | ----------- |
+| `v0.4.0` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.3.0` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.2.0` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
 | `v0.1.5` | Published module and SDK checkout | Verified with Rinzu `0.4.0`               | macOS arm64 |
@@ -121,6 +122,8 @@ The distribution test can verify a local candidate before publishing. It checks 
 | `v0.1.0` | SDK checkout                      | Released Rinzu `0.3.0`                    | macOS arm64 |
 
 The SDK, examples, and original test vectors come from the [Rinzu v0.2.0 source tree](https://github.com/remi0753/rinzu/tree/7aa3591af36cf4635f579a8d12803362dc48bff8/sdk/macos). The repository records upstream commit `7aa3591af36cf4635f579a8d12803362dc48bff8` as the extraction baseline.
+
+See the [v0.4.0 validation record](docs/window-validation.md#v040-release-validation) for the distribution and SDK results.
 
 For v0.3.0, use `Device.batch2D` and `UiScope.canvas2D` or
 `canvas2DWithOptions` to create drawing objects. Use `Document.create` or
