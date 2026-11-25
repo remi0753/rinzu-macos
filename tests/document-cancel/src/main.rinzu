@@ -39,6 +39,14 @@ fn exercise(doc: rinzu.macos.Document) {
         }
         let edited = doc.edit(f"{index}:日本🙂", 1, 3);
         let undone = doc.undoEdit();
+        if index == 5 {
+            // Keep both histories populated when the configured root poll limit fires.
+            rinzu.stdio.writeLine("DOCUMENT:undo-ready");
+            var polls = 0;
+            while polls < 20000 {
+                polls = polls + 1;
+            }
+        }
         let redone = doc.redoEdit();
         doc.select(0, 2);
         index = index + 1;

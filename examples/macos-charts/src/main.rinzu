@@ -1,6 +1,4 @@
 import rinzu.macos;
-import rinzu.timer;
-import rinzu.process;
 import rinzu.stdio;
 import rinzu.core;
 import rinzu.error as err;
@@ -90,59 +88,12 @@ class Chart {
         let canvas = self.current();
         let changed = canvas.invalidate();
     }
-
-    async fn exercise(self: Chart, job: rinzu.macos.UiJob) {
-        let canvas = self.current();
-        var ticks = 0;
-        while canvas.frames < 3 && !job.isStopping() {
-            if ticks > 1000 {
-                rinzu.core.panic("chart did not render");
-            }
-            await rinzu.timer.sleep(10);
-            ticks = ticks + 1;
-        }
-        self.running = false;
-        let paused = canvas.setAnimating(false);
-        await rinzu.timer.sleep(80);
-        let before = canvas.frames;
-        var requests = 0;
-        while requests < 1000 {
-            let dirty = canvas.invalidate();
-            requests = requests + 1;
-        }
-        while canvas.frames <= before && !job.isStopping() {
-            await rinzu.timer.sleep(5);
-        }
-        await rinzu.timer.sleep(50);
-        let stats = canvas.clock.statistics();
-        if stats.coalesced < 999 {
-            rinzu.core.panic("draw requests were not coalesced");
-        }
-        let hidden = job.window.hide();
-        let dirtyHidden = canvas.invalidate();
-        await rinzu.timer.sleep(40);
-        let hiddenStats = canvas.clock.statistics();
-        let hiddenResources = rinzu.macos.statistics();
-        if hiddenStats.visible || hiddenResources.frameTimers != 0 {
-            rinzu.core.panic("hidden canvas kept a timer");
-        }
-        let shown = job.window.show();
-        let resized = job.window.setContentSize(880.0, 620.0);
-        let previous = canvas.frames;
-        while canvas.frames <= previous && !job.isStopping() {
-            await rinzu.timer.sleep(5);
-        }
-        let frame = canvas.view.frame();
-        if frame.width != 856.0 || frame.height != 516.0 {
-            rinzu.core.panic("chart layout did not resize");
-        }
-        rinzu.stdio.writeLine("CHARTS:text:frames:coalesced:hidden:resume:resize");
-        job.requestStop();
-    }
 }
 
-async fn screen(app: rinzu.macos.UiApplication) {
-    let scope = app.primary;
+async fn withChart(
+    scope: rinzu.macos.UiScope,
+    run: fn (Chart, fn (rinzu.macos.UiScope, rinzu.macos.UiEvent) -> Future<Unit>) -> Future<Unit>
+) {
     let minimum = scope.window.setMinimumContentSize(420.0, 300.0);
     let root = scope.window.contentView();
     let toolbar = scope.session.view(rinzu.macos.Rect(x: 12.0, y: 496.0, width: 736.0, height: 32.0));
@@ -236,14 +187,8 @@ async fn screen(app: rinzu.macos.UiApplication) {
         let applicationMenu = menu.addSubmenu(application);
         let viewMenu = menu.addSubmenu(view);
         let installed = scope.window.setMenu(menu);
-        if rinzu.process.setting("RINZU_CHARTS_TEST", "0") == "1" {
-            let automated = scope.start(
-                async fn (job: rinzu.macos.UiJob) {
-                    await state.exercise(job);
-                }
-            );
-        }
-        await scope.dispatch(
+        await run(
+            state,
             async fn (owner: rinzu.macos.UiScope, event: rinzu.macos.UiEvent) {
                 if event.kind == rinzu.macos.eventResized {
                     let layout = rinzu.macos.weightedRow(toolbar, items, 0.0, 8.0);
@@ -262,14 +207,19 @@ async fn screen(app: rinzu.macos.UiApplication) {
     }
 }
 
-async fn main() {
+async fn screen(app: rinzu.macos.UiApplication) {
+    let scope = app.primary;
+    await withChart(
+        scope,
+        async fn (chart: Chart, receive: fn (rinzu.macos.UiScope, rinzu.macos.UiEvent) -> Future<Unit>) {
+            await scope.dispatch(receive);
+        }
+    );
+}
+
+async fn runApplication(body: fn (rinzu.macos.UiApplication) -> Future<Unit>) {
     try {
-        if rinzu.process.setting("RINZU_CHARTS_TEST", "0") == "1" {
-            let tested = await rinzu.macos.application("Rinzu Charts", 760.0, 540.0, screen);
-        }
-        else {
-            let started = await rinzu.macos.applicationWithSignals("Rinzu Charts", 760.0, 540.0, screen);
-        }
+        let started = await rinzu.macos.applicationWithSignals("Rinzu Charts", 760.0, 540.0, body);
         let stats = rinzu.macos.statistics();
         if stats.retainedControls != 0 || stats.textBytes != 0 || stats.frameTimers != 0 {
             rinzu.core.panic("chart resources remained");
@@ -284,3 +234,11 @@ async fn main() {
         rinzu.core.panic("charts application failed");
     }
 }
+
+async fn main() {
+    await runApplication(screen);
+}
+
+export Chart;
+export withChart;
+export runApplication;

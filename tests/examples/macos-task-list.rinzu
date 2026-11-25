@@ -1,0 +1,66 @@
+import "example.rinzu" as example;
+import rinzu.macos;
+import rinzu.stdio;
+import rinzu.core;
+import rinzu.list;
+import rinzu.bytes as bytesApi;
+import rinzu.string as textApi;
+
+async fn exercise(state: example.Tasks, job: rinzu.macos.UiJob) {
+    var longTitle = "x";
+    while bytesApi.byteLength(textApi.encodeUtf8(longTitle)) < 8192 {
+        longTitle = f"{longTitle}{longTitle}";
+    }
+    let oversized = state.input.setText(longTitle);
+    await state.add(job);
+    if rinzu.list.length(state.items) != 3 {
+        rinzu.core.panic("task input limit failed");
+    }
+    let title = state.input.setText("テスト task 😀");
+    await state.add(job);
+    if rinzu.list.length(state.items) != 4 || state.list.cell(4, 0) != "テスト task 😀" {
+        rinzu.core.panic("task add failed");
+    }
+    await state.change(job);
+    if state.list.cell(4, 0) != "✓  テスト task 😀" {
+        rinzu.core.panic("task toggle failed");
+    }
+    state.openOnly = true;
+    await state.refresh();
+    let filtered = state.list.state();
+    if filtered.rows != 2 || filtered.selectedId != 0 {
+        rinzu.core.panic("task filter failed");
+    }
+    let selected = state.list.select(1, true);
+    state.selected = 1;
+    await state.erase(job);
+    if rinzu.list.length(state.items) != 3 {
+        rinzu.core.panic("task delete failed");
+    }
+    let theme = job.window.setTheme(rinzu.macos.themeDark);
+    rinzu.stdio.writeLine("TASKS:add:unicode:toggle:filter:delete:theme");
+}
+
+async fn screen(app: rinzu.macos.UiApplication) {
+    let scope = app.primary;
+    await example.withTasks(
+        scope,
+        async fn (state: example.Tasks, receive: fn (rinzu.macos.UiScope, rinzu.macos.UiEvent) -> Future<Unit>) {
+            let job = scope.start(
+                async fn (owner: rinzu.macos.UiJob) {
+                    try {
+                        await exercise(state, owner);
+                    }
+                    finally {
+                        owner.requestStop();
+                    }
+                }
+            );
+            await scope.dispatch(receive);
+        }
+    );
+}
+
+async fn main() {
+    await example.runApplication(screen);
+}

@@ -1,3 +1,4 @@
+import rinzu.list;
 import rinzu.macos;
 import rinzu.process;
 import rinzu.stdio;
@@ -8,14 +9,23 @@ async fn body(app: rinzu.macos.UiApplication) {
     let device = scope.session.device();
     let mode = rinzu.process.setting("RINZU_CANVAS_ACQUIRE", "canvas");
     if mode == "canvas" {
-        let canvas = scope.canvas2D(
-            device,
-            rinzu.macos.Rect(x: 0.0, y: 0.0, width: 160.0, height: 100.0),
-            8,
-            60,
-            rinzu.macos.Color(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0),
-            async fn (frame: rinzu.macos.Frame2D) {}
-        );
+        var returned = false;
+        try {
+            let canvas = scope.canvas2D(
+                device,
+                rinzu.macos.Rect(x: 0.0, y: 0.0, width: 160.0, height: 100.0),
+                8,
+                60,
+                rinzu.macos.Color(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0),
+                async fn (frame: rinzu.macos.Frame2D) {}
+            );
+            returned = true;
+        }
+        finally {
+            if !returned && rinzu.list.length(scope.canvases) == 1 {
+                rinzu.stdio.writeLine("CANVAS:scope-owned-before-return");
+            }
+        }
     }
     else {
         let surface = scope.surface(device, rinzu.macos.Rect(x: 0.0, y: 0.0, width: 160.0, height: 100.0));

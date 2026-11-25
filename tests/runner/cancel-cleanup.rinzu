@@ -1,0 +1,33 @@
+import rinzu.core;
+import rinzu.future;
+import rinzu.process;
+import rinzu.testing;
+import rinzu.timer;
+
+native {
+    fn processId() -> CInt symbol "getpid";
+}
+
+async fn pending() {
+    await rinzu.timer.sleep(1000);
+}
+
+async fn main() {
+    try {
+        rinzu.testing.assertTrue(Int(processId()) > 0, "run with the native runtime");
+        let task = pending();
+        try {
+            rinzu.testing.assertTrue(rinzu.future.cancel(task), "cancellation admitted");
+            await task;
+        }
+        finally {
+            rinzu.testing.assertTrue(
+                rinzu.process.setting("RINZU_TEST_CLEANUP_FAILURE", "0") == "0",
+                "deliberate cleanup failure"
+            );
+        }
+    }
+    catch errors {
+        rinzu.core.panic(f"cancellation fixture failed: {errors}");
+    }
+}

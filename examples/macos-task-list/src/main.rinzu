@@ -1,6 +1,5 @@
 import rinzu.list;
 import rinzu.macos;
-import rinzu.process;
 import rinzu.stdio;
 import rinzu.bytes as bytesApi;
 import rinzu.core;
@@ -160,46 +159,12 @@ class Tasks {
         );
         await self.refresh();
     }
-
-    async fn exercise(self: Tasks, job: rinzu.macos.UiJob) {
-        var longTitle = "x";
-        while bytesApi.byteLength(textApi.encodeUtf8(longTitle)) < 8192 {
-            longTitle = f"{longTitle}{longTitle}";
-        }
-        let oversized = self.input.setText(longTitle);
-        await self.add(job);
-        if rinzu.list.length(self.items) != 3 {
-            rinzu.core.panic("task input limit failed");
-        }
-        let title = self.input.setText("テスト task 😀");
-        await self.add(job);
-        if rinzu.list.length(self.items) != 4 || self.list.cell(4, 0) != "テスト task 😀" {
-            rinzu.core.panic("task add failed");
-        }
-        await self.change(job);
-        if self.list.cell(4, 0) != "✓  テスト task 😀" {
-            rinzu.core.panic("task toggle failed");
-        }
-        self.openOnly = true;
-        await self.refresh();
-        let filtered = self.list.state();
-        if filtered.rows != 2 || filtered.selectedId != 0 {
-            rinzu.core.panic("task filter failed");
-        }
-        let selected = self.list.select(1, true);
-        self.selected = 1;
-        await self.erase(job);
-        if rinzu.list.length(self.items) != 3 {
-            rinzu.core.panic("task delete failed");
-        }
-        let theme = job.window.setTheme(rinzu.macos.themeDark);
-        rinzu.stdio.writeLine("TASKS:add:unicode:toggle:filter:delete:theme");
-        job.requestStop();
-    }
 }
 
-async fn screen(app: rinzu.macos.UiApplication) {
-    let scope = app.primary;
+async fn withTasks(
+    scope: rinzu.macos.UiScope,
+    run: fn (Tasks, fn (rinzu.macos.UiScope, rinzu.macos.UiEvent) -> Future<Unit>) -> Future<Unit>
+) {
     let minimum = scope.window.setMinimumContentSize(520.0, 300.0);
     let root = scope.window.contentView();
     let label = scope.label("New task", rinzu.macos.Rect(x: 12.0, y: 380.0, width: 72.0, height: 24.0));
@@ -274,14 +239,8 @@ async fn screen(app: rinzu.macos.UiApplication) {
     let selectAllItem = edit.addStandard("Select All", rinzu.macos.commandSelectAll, "a", rinzu.macos.modifierCommand);
     let editMenu = menu.addSubmenu(edit);
     let installed = scope.window.setMenu(menu);
-    if rinzu.process.setting("RINZU_TASK_LIST_TEST", "0") == "1" {
-        let tested = scope.start(
-            async fn (job: rinzu.macos.UiJob) {
-                await state.exercise(job);
-            }
-        );
-    }
-    await scope.dispatch(
+    await run(
+        state,
         async fn (owner: rinzu.macos.UiScope, event: rinzu.macos.UiEvent) {
             if event.kind == rinzu.macos.eventResized {
                 let resized = rinzu.macos.weightedRow(toolbar, items, 0.0, 8.0);
@@ -297,14 +256,19 @@ async fn screen(app: rinzu.macos.UiApplication) {
     );
 }
 
-async fn main() {
+async fn screen(app: rinzu.macos.UiApplication) {
+    let scope = app.primary;
+    await withTasks(
+        scope,
+        async fn (tasks: Tasks, receive: fn (rinzu.macos.UiScope, rinzu.macos.UiEvent) -> Future<Unit>) {
+            await scope.dispatch(receive);
+        }
+    );
+}
+
+async fn runApplication(body: fn (rinzu.macos.UiApplication) -> Future<Unit>) {
     try {
-        if rinzu.process.setting("RINZU_TASK_LIST_TEST", "0") == "1" {
-            let tested = await rinzu.macos.application("Rinzu Tasks", 640.0, 420.0, screen);
-        }
-        else {
-            let running = await rinzu.macos.applicationWithSignals("Rinzu Tasks", 640.0, 420.0, screen);
-        }
+        let running = await rinzu.macos.applicationWithSignals("Rinzu Tasks", 640.0, 420.0, body);
         let stats = rinzu.macos.statistics();
         if stats.retainedControls + stats.dataRows + stats.dataBytes + stats.dataUpdates != 0 {
             rinzu.core.panic("tasks leaked resources");
@@ -315,3 +279,12 @@ async fn main() {
         rinzu.core.panic(f"tasks failed: {errors}");
     }
 }
+
+async fn main() {
+    await runApplication(screen);
+}
+
+export Task;
+export Tasks;
+export withTasks;
+export runApplication;

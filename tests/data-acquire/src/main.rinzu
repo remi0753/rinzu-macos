@@ -9,7 +9,9 @@ async fn body(app: rinzu.macos.UiApplication) {
     let root = scope.window.contentView();
     let attached = root.addSubview(list.view);
     await list.setRows([rinzu.macos.DataRow(id: 1, parent: 0, cells: ["日本語 😀"])]);
-    let text = list.cell(1, 0);
+    if rinzu.process.setting("RINZU_DATA_ACQUIRE", "cell") == "cell" {
+        let text = list.cell(1, 0);
+    }
     rinzu.core.panic("data acquisition cancellation did not fire");
 }
 

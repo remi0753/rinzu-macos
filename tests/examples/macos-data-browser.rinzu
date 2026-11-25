@@ -1,0 +1,67 @@
+import "example.rinzu" as example;
+import rinzu.macos;
+import rinzu.stdio;
+import rinzu.core;
+import rinzu.timer;
+
+async fn exercise(state: example.Browser, job: rinzu.macos.UiJob) {
+    await state.reload(job);
+    let last = state.records.select(10000, true);
+    await state.showDetails(job);
+    let sorted = state.records.sort(0, false);
+    await rinzu.timer.sleep(40);
+    let initial = state.records.state();
+    if initial.rows != 10000 || initial.selectedId != 10000 || initial.selectedRow != 0 || initial.cellViews >= 1000 {
+        rinzu.core.panic("browser initial data or virtualization mismatch");
+    }
+    state.group = 2;
+    await state.reload(job);
+    let even = state.records.state();
+    let details = state.details.state();
+    if even.rows != 5000 || even.selectedId != 10000 || details.rows != 3 {
+        rinzu.core.panic("browser group mismatch");
+    }
+    state.group = 4;
+    await state.reload(job);
+    let filtered = state.records.state();
+    let cleared = state.details.state();
+    if filtered.selectedId != 0 || cleared.rows != 0 {
+        rinzu.core.panic("browser stale details remained");
+    }
+    let current = state.records.state();
+    if current.rows != 100 {
+        rinzu.core.panic("browser limit group did not display 100 rows");
+    }
+    let themed = job.window.setTheme(rinzu.macos.themeDark);
+    let resized = job.window.setContentSize(1000.0, 680.0);
+    await rinzu.timer.sleep(30);
+    let frame = state.records.view.frame();
+    if frame.width != 764.0 || frame.height != 424.0 {
+        rinzu.core.panic("browser resize mismatch");
+    }
+    rinzu.stdio.writeLine("BROWSER:10000:virtual:group:sort:theme:details:resize");
+}
+
+async fn screen(app: rinzu.macos.UiApplication) {
+    let scope = app.primary;
+    await example.withBrowser(
+        scope,
+        async fn (state: example.Browser, receive: fn (rinzu.macos.UiScope, rinzu.macos.UiEvent) -> Future<Unit>) {
+            let job = scope.start(
+                async fn (owner: rinzu.macos.UiJob) {
+                    try {
+                        await exercise(state, owner);
+                    }
+                    finally {
+                        owner.requestStop();
+                    }
+                }
+            );
+            await scope.dispatch(receive);
+        }
+    );
+}
+
+async fn main() {
+    await example.runApplication(screen);
+}

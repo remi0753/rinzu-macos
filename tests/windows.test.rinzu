@@ -1,0 +1,160 @@
+import rinzu.macos as macos;
+import rinzu.testing as testing;
+import rinzu.error as err;
+
+fn expectNativeStatus(status: Int, context: String, body: fn () throws(Error) -> Unit) {
+    var rejected = false;
+    try {
+        body();
+    }
+    catch [problem: Error, ...rest] {
+        testing.assertEqual<Option<Int>>(err.nativeStatus(problem), Option<Int>.Some(value: status), context);
+        rejected = true;
+    }
+    testing.assertTrue(rejected, context);
+}
+
+async fn invalidFrameAndAlias() {
+    let session = macos.open();
+    try {
+        let options = macos.WindowOptions.create(360.0, 240.0);
+        options.visible = false;
+        let window = session.windowWithOptions("Frame contract", options);
+        let before = window.frame();
+        expectNativeStatus(
+            -7804,
+            "zero frame width",
+            fn () {
+                let invalid = window.setFrame(macos.Rect(x: before.x, y: before.y, width: 0.0, height: before.height));
+            }
+        );
+        let after = window.frame();
+        testing.assertTrue(
+            before.x == after.x && before.y == after.y && before.width == after.width && before.height == after.height,
+            "rejected frame change preserves geometry"
+        );
+        let view = window.contentView();
+        let destroyed = window.destroy();
+        expectNativeStatus(
+            -7802,
+            "closed window frame",
+            fn () {
+                let frame = window.frame();
+            }
+        );
+        expectNativeStatus(
+            -7802,
+            "closed window content view",
+            fn () {
+                let identity = view.identity();
+            }
+        );
+    }
+    finally {
+        let closed = await session.close();
+    }
+}
+
+async fn tabs() {
+    let session = macos.open();
+    try {
+        let first = session.window("First tab", 360.0, 240.0);
+        let second = session.window("Second tab", 360.0, 240.0);
+        let identity = first.identity();
+        let group1 = first.setTabbingGroup(identity);
+        let group2 = second.setTabbingGroup(identity);
+        expectNativeStatus(
+            -7804,
+            "self attachment",
+            fn () {
+                let attached = first.attachTab(first);
+            }
+        );
+        let attached = first.attachTab(second);
+        let duplicate = first.attachTab(second);
+        let selected = second.selectTab();
+        let left = first.tabs();
+        let right = second.tabs();
+        testing.assertEqual<Int>(left.count, 2, "duplicate attach keeps two tabs");
+        testing.assertEqual<Int>(right.selected, second.identity(), "selected tab ID");
+        testing.assertTrue(left.first == right.first && left.index != right.index, "shared group and distinct indices");
+        expectNativeStatus(
+            -7804,
+            "out-of-range tab color",
+            fn () {
+                let color = second.setTabColor(16777216);
+            }
+        );
+        let detached = second.detachTab();
+        let repeated = second.detachTab();
+        let anchorTabs = first.tabs();
+        let detachedTabs = second.tabs();
+        testing.assertEqual<Int>(anchorTabs.count, 1, "anchor survives detach");
+        testing.assertEqual<Int>(detachedTabs.count, 1, "detached window remains live");
+    }
+    finally {
+        let closed = await session.close();
+        let stats = macos.statistics();
+        testing.assertEqual<Int>(stats.retainedControls, 0, "tab controls retire with the session");
+    }
+}
+
+async fn textKeyOwnership() {
+    let session = macos.open();
+    try {
+        let window = session.window("Text key ownership", 360.0, 240.0);
+        let root = window.contentView();
+        let frame = macos.Rect(x: 0.0, y: 0.0, width: 100.0, height: 50.0);
+        let first = session.textView("one", frame);
+        let second = session.textView("two", frame);
+        let binding: macos.TextKeyBinding = {
+            key = "🙂",
+            modifiers = macos.modifierCommand,
+            context = macos.textKeyWindow,
+            command = macos.textKeyNotify,
+            action = 17
+        };
+        let options: macos.TextKeyOptions = {
+            blockCaret = false,
+            consumeReadOnlyKeys = false,
+            findBar = false
+        };
+        expectNativeStatus(
+            -7804,
+            "an unattached text view cannot bind keys",
+            fn () {
+                let configured = first.configureKeys([binding], options);
+            }
+        );
+        let attachedFirst = root.addSubview(first.view);
+        let attachedSecond = root.addSubview(second.view);
+        let configured = first.configureKeys([binding], options);
+        expectNativeStatus(
+            -7804,
+            "duplicate Unicode chord",
+            fn () {
+                let duplicate = first.configureKeys([binding, binding], options);
+            }
+        );
+        expectNativeStatus(
+            -7803,
+            "failed replacement preserves the original key target",
+            fn () {
+                let denied = second.configureKeys([binding], options);
+            }
+        );
+        let released = first.configureKeys([], options);
+        let claimed = second.configureKeys([binding], options);
+        let readOnly = second.setEditable(false);
+        testing.assertTrue(!second.isEditable() && first.isEditable(), "editability stays local to each text view");
+    }
+    finally {
+        let closed = await session.close();
+    }
+}
+
+async fn main() {
+    await testing.runAsyncCase("reject invalid frame changes and closed aliases", invalidFrameAndAlias);
+    await testing.runAsyncCase("attach, select and detach tabs without losing windows", tabs);
+    await testing.runAsyncCase("reject duplicate chords and transfer text key ownership", textKeyOwnership);
+}

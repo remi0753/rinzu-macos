@@ -1,0 +1,64 @@
+import rinzu.macos as macos;
+import rinzu.testing as testing;
+import rinzu.error as err;
+
+async fn atomicRows(scope: macos.UiScope) {
+    let data = scope.listView(macos.Rect(x: 0.0, y: 0.0, width: 240.0, height: 160.0), 1);
+    let root = scope.window.contentView();
+    let attached = root.addSubview(data.view);
+    let row = macos.DataRow(id: 1, parent: 0, cells: ["日本語 😀"]);
+    await data.setRows([row, macos.DataRow(id: 2, parent: 0, cells: ["selected"])]);
+    let selected = data.select(2, false);
+    let original = data.cell(1, 0);
+    let before = data.state();
+    var rejected = false;
+    try {
+        await data.setRows([row, row]);
+    }
+    catch [problem: Error, ...rest] {
+        testing.assertEqual<Option<Int>>(
+            err.nativeStatus(problem),
+            Option<Int>.Some(value: -7804),
+            "duplicate stable ID"
+        );
+        rejected = true;
+    }
+    let after = data.state();
+    testing.assertTrue(
+        rejected
+            && after.pendingRows == 0
+            && after.revision == before.revision
+            && after.rows == 2
+            && after.selectedId == 2,
+        "a rejected replacement preserves the published revision, rows and selection"
+    );
+    await data.setRows([]);
+    let empty = data.state();
+    testing.assertEqual<Int>(empty.rows, 0, "replace with an empty model");
+    testing.assertEqual<List<Int>>(data.selectedIds(), [], "empty model clears selection");
+    testing.assertEqual<String>(original, "日本語 😀", "owned cell survives clearing the model");
+}
+
+async fn atomicReplacement() {
+    let session = macos.open();
+    try {
+        let options = macos.WindowOptions.create(240.0, 160.0);
+        options.visible = false;
+        let run = await macos.withWindowOptions(session, "Data replacement", options, atomicRows);
+    }
+    finally {
+        let closed = await session.close();
+        let stats = macos.statistics();
+        testing.assertTrue(
+            stats.dataUpdates == 0 && stats.dataRows == 0 && stats.snapshotBytes == 0,
+            "data resources retired"
+        );
+    }
+}
+
+async fn main() {
+    await testing.runAsyncCase(
+        "reject duplicate IDs without changing rows or selection, then clear the model",
+        atomicReplacement
+    );
+}

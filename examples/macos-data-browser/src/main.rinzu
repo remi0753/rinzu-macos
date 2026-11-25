@@ -1,6 +1,4 @@
 import rinzu.macos;
-import rinzu.timer;
-import rinzu.process;
 import rinzu.stdio;
 import rinzu.core;
 
@@ -97,48 +95,12 @@ class Browser {
             self.detailsBusy = false;
         }
     }
-
-    async fn exercise(self: Browser, job: rinzu.macos.UiJob) {
-        await self.reload(job);
-        let last = self.records.select(10000, true);
-        await self.showDetails(job);
-        let sorted = self.records.sort(0, false);
-        await rinzu.timer.sleep(40);
-        let initial = self.records.state();
-        if initial.rows != 10000
-            || initial.selectedId != 10000
-            || initial.selectedRow != 0
-            || initial.cellViews >= 1000 {
-            rinzu.core.panic("browser initial data or virtualization mismatch");
-        }
-        self.group = 2;
-        await self.reload(job);
-        let even = self.records.state();
-        let details = self.details.state();
-        if even.rows != 5000 || even.selectedId != 10000 || details.rows != 3 {
-            rinzu.core.panic("browser group mismatch");
-        }
-        self.group = 4;
-        await self.reload(job);
-        let filtered = self.records.state();
-        let cleared = self.details.state();
-        if filtered.selectedId != 0 || cleared.rows != 0 {
-            rinzu.core.panic("browser stale details remained");
-        }
-        let themed = job.window.setTheme(rinzu.macos.themeDark);
-        let resized = job.window.setContentSize(1000.0, 680.0);
-        await rinzu.timer.sleep(30);
-        let frame = self.records.view.frame();
-        if frame.width != 764.0 || frame.height != 424.0 {
-            rinzu.core.panic("browser resize mismatch");
-        }
-        rinzu.stdio.writeLine("BROWSER:10000:virtual:group:sort:theme:details:resize");
-        job.requestStop();
-    }
 }
 
-async fn screen(app: rinzu.macos.UiApplication) {
-    let scope = app.primary;
+async fn withBrowser(
+    scope: rinzu.macos.UiScope,
+    run: fn (Browser, fn (rinzu.macos.UiScope, rinzu.macos.UiEvent) -> Future<Unit>) -> Future<Unit>
+) {
     let minimum = scope.window.setMinimumContentSize(700.0, 420.0);
     let root = scope.window.contentView();
     let toolbar = scope.session.view(rinzu.macos.Rect(x: 12.0, y: 576.0, width: 936.0, height: 32.0));
@@ -280,17 +242,8 @@ async fn screen(app: rinzu.macos.UiApplication) {
     let quit = application.addStandard("Quit", rinzu.macos.commandQuit, "q", rinzu.macos.modifierCommand);
     let submenu = main.addSubmenu(application);
     let installed = scope.window.setMenu(main);
-    let started = scope.start(
-        async fn (job: rinzu.macos.UiJob) {
-            if rinzu.process.setting("RINZU_DATA_BROWSER_TEST", "0") == "1" {
-                await state.exercise(job);
-            }
-            else {
-                await state.reload(job);
-            }
-        }
-    );
-    await scope.dispatch(
+    await run(
+        state,
         async fn (owner: rinzu.macos.UiScope, event: rinzu.macos.UiEvent) {
             if event.kind == rinzu.macos.eventResized {
                 let resized = rinzu.macos.weightedRow(toolbar, items, 0.0, 8.0);
@@ -300,14 +253,24 @@ async fn screen(app: rinzu.macos.UiApplication) {
     );
 }
 
-async fn main() {
+async fn screen(app: rinzu.macos.UiApplication) {
+    let scope = app.primary;
+    await withBrowser(
+        scope,
+        async fn (browser: Browser, receive: fn (rinzu.macos.UiScope, rinzu.macos.UiEvent) -> Future<Unit>) {
+            let started = scope.start(
+                async fn (job: rinzu.macos.UiJob) {
+                    await browser.reload(job);
+                }
+            );
+            await scope.dispatch(receive);
+        }
+    );
+}
+
+async fn runApplication(body: fn (rinzu.macos.UiApplication) -> Future<Unit>) {
     try {
-        if rinzu.process.setting("RINZU_DATA_BROWSER_TEST", "0") == "1" {
-            let tested = await rinzu.macos.application("Rinzu Data Browser", 960.0, 620.0, screen);
-        }
-        else {
-            let running = await rinzu.macos.applicationWithSignals("Rinzu Data Browser", 960.0, 620.0, screen);
-        }
+        let running = await rinzu.macos.applicationWithSignals("Rinzu Data Browser", 960.0, 620.0, body);
         let stats = rinzu.macos.statistics();
         if stats.retainedControls + stats.dataRows + stats.dataBytes + stats.dataUpdates != 0 {
             rinzu.core.panic("browser leaked resources");
@@ -318,3 +281,11 @@ async fn main() {
         rinzu.core.panic(f"browser failed: {errors}");
     }
 }
+
+async fn main() {
+    await runApplication(screen);
+}
+
+export Browser;
+export withBrowser;
+export runApplication;

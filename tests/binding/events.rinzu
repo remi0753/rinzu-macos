@@ -1,0 +1,205 @@
+import rinzu.core;
+import rinzu.macos as macos;
+import rinzu.stdio;
+import rinzu.testing as testing;
+
+native {
+    fn insertText() -> CInt symbol "rinzu_binding_test_insert";
+
+    fn selectFirst() -> CInt symbol "rinzu_binding_test_select";
+
+    fn markText() -> CInt symbol "rinzu_binding_test_mark";
+
+    fn commitText() -> CInt symbol "rinzu_binding_test_commit";
+}
+
+async fn receiveThrough(binding: macos.DocumentBinding, target: Int, kind: Int) -> Option<macos.UiEvent> {
+    var lastEvent = Option<macos.UiEvent>.None();
+    var seen = 0;
+    while seen < target {
+        let event = await binding.session.nextEvent();
+        seen = event.sequence;
+        let before = binding.session.eventSequence();
+        let received = binding.receive(event);
+        testing.assertEqual<Int>(binding.session.eventSequence(), before, "receiving input publishes no event");
+        if event.kind == kind {
+            lastEvent = Option<macos.UiEvent>.Some(value: event);
+        }
+    }
+    return lastEvent;
+}
+
+fn expectRejected(operation: fn () throws(Error) -> Unit, message: String) {
+    var rejected = false;
+    try {
+        operation();
+    }
+    catch errors {
+        rejected = true;
+    }
+    testing.assertTrue(rejected, message);
+}
+
+async fn verifyComposition(scope: macos.UiScope, binding: macos.DocumentBinding) {
+    let doc = binding.document;
+    let before = doc.snapshot();
+    let history = doc.undo.length();
+    testing.assertEqual<Int>(Int(markText()), 1, "AppKit marked the text");
+    let marked = binding.input.text();
+    let provisional = await receiveThrough(binding, scope.session.eventSequence(), macos.eventSelectionChanged);
+    switch provisional {
+        case Option.Some(event): {
+            testing.assertEqual<Int>(event.flags, macos.textComposing, "AppKit marks the selection as provisional");
+        }
+        case Option.None: {
+            rinzu.core.panic("missing AppKit selection event during composition");
+        }
+    }
+    testing.assertTrue(doc.accepts(before) && doc.undo.length() == history, "marked input preserves committed history");
+    expectRejected(
+        fn () {
+            let changed = binding.replace("replacement", 0, 0);
+        },
+        "active IME rejects replacement"
+    );
+    expectRejected(
+        fn () {
+            let undone = binding.undoEdit();
+        },
+        "active IME rejects undo"
+    );
+    expectRejected(
+        fn () {
+            let redone = binding.redoEdit();
+        },
+        "active IME rejects redo"
+    );
+    expectRejected(
+        fn () {
+            let loaded = binding.load("other document");
+        },
+        "active IME rejects load"
+    );
+    expectRejected(
+        fn () {
+            let disabled = binding.setAccepting(false);
+        },
+        "active IME rejects disabling"
+    );
+    var openRejected = false;
+    try {
+        let opened = await scope.window.openFile("Open", "");
+    }
+    catch errors {
+        openRejected = true;
+    }
+    testing.assertTrue(openRejected, "active IME rejects opening a panel");
+    var alertRejected = false;
+    try {
+        let answered = await scope.window.alert("Close", "Unsaved", "Save", "Discard", "Cancel");
+    }
+    catch errors {
+        alertRejected = true;
+    }
+    testing.assertTrue(alertRejected, "active IME rejects showing an alert");
+    testing.assertTrue(
+        binding.input.isComposing()
+            && binding.input.view.isEnabled()
+            && binding.input.text() == marked
+            && doc.accepts(before)
+            && doc.undo.length() == history,
+        "rejected actions preserve composition and committed history"
+    );
+    testing.assertEqual<Int>(Int(commitText()), 1, "AppKit unmarked the text");
+    let committed = await receiveThrough(binding, scope.session.eventSequence(), macos.eventTextChanged);
+    switch committed {
+        case Option.Some(commitEvent): {
+            testing.assertEqual<Int>(commitEvent.flags, 0, "AppKit publishes committed text");
+        }
+        case Option.None: {
+            rinzu.core.panic("missing AppKit commit event");
+        }
+    }
+    testing.assertTrue(
+        !binding.input.isComposing()
+            && doc.text == marked
+            && doc.version == before.version + 1
+            && doc.undo.length() == history + 1,
+        "one real IME commit adds one history entry"
+    );
+}
+
+async fn body(app: macos.UiApplication) {
+    let scope = app.primary;
+    let input = scope.textView("before binding", macos.Rect(x: 0.0, y: 0.0, width: 300.0, height: 180.0));
+    let root = scope.window.contentView();
+    let attached = root.addSubview(input.view);
+    let doc = macos.Document.create("A\u{0}日本🙂", true);
+    let binding = macos.DocumentBinding.create(scope.session, input, doc);
+    var started = false;
+    while !started {
+        let startedEvent = await scope.session.nextEvent();
+        started = startedEvent.kind == macos.eventStarted;
+    }
+    let focused = input.view.focus();
+    testing.assertEqual<Int>(Int(insertText()), 1, "focused AppKit text view received input");
+    let previous = await receiveThrough(binding, scope.session.eventSequence(), macos.eventTextChanged);
+    testing.assertTrue(
+        doc.text == "入力 日本🙂" && doc.start == 3 && doc.end == 5 && doc.undo.length() == 1,
+        "AppKit text and selection reach the binding"
+    );
+    let replaced = binding.replace("new version", 0, 3);
+    switch previous {
+        case Option.Some(previousEvent): {
+            testing.assertTrue(!binding.receive(previousEvent), "reject an earlier native event");
+        }
+        case Option.None: {
+            rinzu.core.panic("missing native text event");
+        }
+    }
+    testing.assertEqual<Int>(Int(insertText()), 1, "queue native text and selection");
+    let captured = binding.capture();
+    let barrier = binding.barrier;
+    testing.assertEqual<Int>(Int(selectFirst()), 1, "update native selection before reading the queue");
+    let target = scope.session.eventSequence();
+    testing.assertTrue(target > barrier, "coalesced selection advances the sequence");
+    let selection = await receiveThrough(binding, target, macos.eventSelectionChanged);
+    switch selection {
+        case Option.Some(selectionEvent): {
+            testing.assertTrue(selectionEvent.sequence > barrier, "receive the latest native selection snapshot");
+        }
+        case Option.None: {
+            rinzu.core.panic("missing coalesced native selection event");
+        }
+    }
+    testing.assertTrue(doc.start == 0 && doc.end == 1, "binding consumes the coalesced selection after capture");
+    let undone = binding.undoEdit();
+    testing.assertTrue(undone && doc.text == "new version" && input.text() == doc.text, "undo updates the view");
+    let redone = binding.redoEdit();
+    testing.assertTrue(
+        redone && doc.text == "入力 日本🙂" && input.text() == doc.text && doc.start == 0 && doc.end == 1,
+        "redo restores the captured selection"
+    );
+    await verifyComposition(scope, binding);
+}
+
+async fn main() {
+    try {
+        try {
+            let result = await macos.application("Document binding events", 320.0, 200.0, body);
+        }
+        finally {
+            let closed = await macos.closeOwnerSessions();
+            let stats = macos.statistics();
+            testing.assertEqual<Int>(
+                stats.sessions + stats.windows + stats.retainedControls + stats.eventPayloadBytes + stats.snapshotBytes,
+                0,
+                "binding event resources settle"
+            );
+        }
+        rinzu.stdio.writeLine("BINDING:appkit-commit:coalesced-selection:closed");
+    }
+    catch errors {
+        rinzu.core.panic(f"binding fixture failed: {errors}");
+    }
+}

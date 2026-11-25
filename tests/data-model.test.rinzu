@@ -1,0 +1,7 @@
+import "data/src/cases.rinzu" as cases;
+
+async fn main() {
+    for mode in ["basic", "early", "stop", "large", "multi"] {
+        await cases.run(mode);
+    }
+}

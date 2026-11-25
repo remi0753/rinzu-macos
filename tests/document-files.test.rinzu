@@ -1,0 +1,110 @@
+import rinzu.io;
+import rinzu.macos;
+import rinzu.process;
+import rinzu.string as text;
+import rinzu.testing as testing;
+import rinzu.error as err;
+
+fn scratchFile(name: String) -> String {
+    let scratch = rinzu.process.setting("RINZU_TEST_TMP", "");
+    testing.assertTrue(scratch != "", "worker scratch directory is available");
+    return f"{scratch}/{name}";
+}
+
+fn emojis(doublings: Int) -> String {
+    var result = "🙂";
+    var count = 0;
+    while count < doublings {
+        result = f"{result}{result}";
+        count = count + 1;
+    }
+    return result;
+}
+
+async fn roundTrip() {
+    let path = scratchFile("日本語 e\u{301} 🙂.txt");
+    // The one-byte prefix puts a multibyte sequence across a 64 KiB boundary.
+    let content = f"A{emojis(15)}\u{0}\r\n日本語 e\u{301}";
+    let files = rinzu.io.liveFiles();
+    let created = await rinzu.macos.saveDocument(path, "");
+    try {
+        testing.assertEqual<String>(await rinzu.macos.readDocument(path), "", "empty document");
+        let saved = await rinzu.macos.saveDocument(path, content);
+        let copied = await rinzu.macos.readDocument(path);
+        testing.assertTrue(copied == content, "UTF-8, NUL and CRLF round trip");
+        let cleared = await rinzu.macos.saveDocument(path, "");
+        testing.assertEqual<String>(await rinzu.macos.readDocument(path), "", "replace a larger file with empty");
+        testing.assertTrue(copied == content, "owned text survives replacing the file");
+    }
+    finally {
+        let removed = await rinzu.io.remove(path);
+        testing.assertEqual<Int>(rinzu.io.liveFiles(), files, "file handles retire after replacement");
+    }
+}
+
+async fn sizeLimit() {
+    let path = scratchFile("limit.txt");
+    let exact = emojis(18);
+    let tooLarge = f"{exact}x";
+    testing.assertEqual<Int>(Int(text.utf8ByteLength(exact)), 1048576, "one MiB in UTF-8");
+    let created = await rinzu.macos.saveDocument(path, exact);
+    try {
+        testing.assertTrue(await rinzu.macos.readDocument(path) == exact, "read and write the exact byte limit");
+        var writeRejected = false;
+        try {
+            let saved = await rinzu.macos.saveDocument(path, tooLarge);
+        }
+        catch [problem: Error, ...rest] {
+            testing.assertEqual<Option<Int>>(err.code(problem), Option<Int>.Some(value: -7820), "over-limit write");
+            writeRejected = true;
+        }
+        testing.assertTrue(writeRejected, "excess bytes are rejected");
+        testing.assertTrue(
+            await rinzu.macos.readDocument(path) == exact,
+            "rejected write preserves the installed file"
+        );
+        let oversized = await rinzu.io.replaceText(path, tooLarge);
+        var readRejected = false;
+        try {
+            let read = await rinzu.macos.readDocument(path);
+        }
+        catch [problem: Error, ...rest] {
+            testing.assertEqual<Option<Int>>(err.code(problem), Option<Int>.Some(value: -7820), "over-limit read");
+            readRejected = true;
+        }
+        testing.assertTrue(readRejected, "oversized files cannot be loaded as documents");
+    }
+    finally {
+        let removed = await rinzu.io.remove(path);
+        testing.assertEqual<Int>(rinzu.io.liveFiles(), 0, "oversized read still closes file handles");
+    }
+}
+
+async fn malformedUtf8() {
+    let path = scratchFile("malformed.txt");
+    let created = await rinzu.io.replaceBytes(path, byteArray(b"A\xf0\x9f\x99"));
+    try {
+        var rejected = false;
+        try {
+            let read = await rinzu.macos.readDocument(path);
+        }
+        catch errors {
+            rejected = true;
+        }
+        testing.assertTrue(rejected, "a truncated multibyte character fails decoding");
+        let original = await rinzu.io.readBytes(path, 4);
+        testing.assertEqual<ByteArray>(original, byteArray(b"A\xf0\x9f\x99"), "failed decoding preserves disk bytes");
+        let repaired = await rinzu.macos.saveDocument(path, "A🙂");
+        testing.assertEqual<String>(await rinzu.macos.readDocument(path), "A🙂", "retry after repairing the file");
+    }
+    finally {
+        let removed = await rinzu.io.remove(path);
+        testing.assertEqual<Int>(rinzu.io.liveFiles(), 0, "failed decode closes file handles");
+    }
+}
+
+async fn main() {
+    await testing.runAsyncCase("round-trip owned UTF-8, NUL and empty replacements", roundTrip);
+    await testing.runAsyncCase("enforce the 1 MiB limit without replacing a valid file", sizeLimit);
+    await testing.runAsyncCase("reject truncated UTF-8 and reopen a repaired file", malformedUtf8);
+}

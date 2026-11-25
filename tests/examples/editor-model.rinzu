@@ -1,0 +1,47 @@
+import "example.rinzu" as example;
+import rinzu.core;
+import rinzu.macos;
+import rinzu.process;
+import rinzu.stdio;
+import rinzu.testing;
+
+fn unicodeAnalysisSnapshot() {
+    let document = rinzu.macos.Document.create("日本 e\u{301} 😀\nTODO\n", true);
+    document.select(1, 5);
+    let snapshot = document.snapshot();
+    let result = example.analyze(snapshot);
+    rinzu.testing.assertTrue(
+        result.version == snapshot.version && result.scalars == 13 && result.lines == 3 && result.keywords == 1,
+        "Unicode snapshot"
+    );
+}
+
+async fn staleAnalysisAndSettlement() {
+    let doc = rinzu.macos.Document.create("old TODO", true);
+    let old = doc.snapshot();
+    let pending = spawn example.analyze(old);
+    let edited = doc.edit("new 日本🙂", 0, 2);
+    let result = await pending;
+    rinzu.testing.assertTrue(result.version == old.version && !doc.accepts(old), "stale worker rejected");
+    doc.accepting = false;
+    rinzu.testing.assertTrue(!doc.accepts(doc.snapshot()), "closed result rejected");
+}
+
+async fn exerciseEditorModel(mode: String) {
+    if mode == "unicode" {
+        unicodeAnalysisSnapshot();
+    }
+    else {
+        await staleAnalysisAndSettlement();
+    }
+    rinzu.stdio.writeLine("EDITOR:MODEL:OK");
+}
+
+async fn main() {
+    try {
+        await exerciseEditorModel(rinzu.process.setting("RINZU_EDITOR_SCENARIO", "unicode"));
+    }
+    catch errors {
+        rinzu.core.panic(f"editor model failed: {errors}");
+    }
+}

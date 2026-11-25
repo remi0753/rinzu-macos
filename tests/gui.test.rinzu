@@ -1,0 +1,16 @@
+import "gui/src/cases.rinzu" as cases;
+
+async fn main() {
+    for mode in [
+        "events",
+        "scope",
+        "early",
+        "signal-ownership",
+        "failure",
+        "overflow",
+        "gpu-recording",
+        "gpu-submitted"
+    ] {
+        await cases.run(mode);
+    }
+}

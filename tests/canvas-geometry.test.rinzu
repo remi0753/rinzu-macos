@@ -1,0 +1,6 @@
+import "canvas-geometry/src/cases.rinzu" as cases;
+import rinzu.testing as testing;
+
+async fn main() {
+    await testing.runAsyncCase("recover from stale canvas geometry after resize", cases.run);
+}

@@ -104,7 +104,7 @@ Use rinzu bundle to create an application from macos-app.json, then bundle-verif
 
 See [AOT and bundle distribution](https://github.com/remi0753/rinzu/blob/v0.4.0/docs/tooling/distribution.md).
 
-Local candidates can be checked before publishing with `test_macos_distribution.py --archive /path/to/candidate.tar.gz --sha256 DIGEST` using the installed toolchain. The same check covers archive integrity, offline restoration, JIT and relocated signed bundles.
+The distribution test can verify a local candidate before publishing. It checks archive integrity, offline restoration, JIT, and relocated signed bundles.
 
 ## Compatibility and source provenance
 
@@ -130,24 +130,31 @@ release. [Validation](docs/input-validation.md#v030-release-validation)
 
 ## Verify the SDK
 
-Provide a `bin/rinzu` from the installed toolchain bundle so the native probes use the distributed ABI headers. Run the GUI cases from an unlocked desktop session with Metal available. The runners build in temporary directories and write any requested reports to the paths you supply.
+Run the tests from an unlocked macOS session with Metal and Xcode command-line tools. Put Rinzu with file-based test discovery on `PATH`. The published archive check also needs network access.
 
 ```sh
-rinzu_cli=/path/to/rinzu-toolchain/bin/rinzu
-sdk_reports=$(mktemp -d)
-trap 'rm -rf "$sdk_reports"' EXIT
-
-python3 -B tests/integration/test_macos_distribution.py --rinzu "$rinzu_cli"
-python3 -B tests/integration/test_macos_sdk.py --rinzu "$rinzu_cli" \
-  --ui --require-gpu --sanitize --output "$sdk_reports/sdk.json"
-python3 -B tests/integration/test_macos_gui.py --rinzu "$rinzu_cli" \
-  --gpu --sample --sanitize --output "$sdk_reports/gui.json"
-python3 -B tests/integration/test_macos_sheets.py --rinzu "$rinzu_cli" \
-  --sanitize --return-cancel --output "$sdk_reports/sheets.json"
-python3 -B tests/integration/test_macos_interrupt.py --rinzu "$rinzu_cli" --sanitize
+rinzu test ./tests
+sh tests/native/run.sh
+sh tests/integration/run.sh
 ```
 
-The distribution check registers the public GitHub release asset in fresh applications. It checks the pinned checksum, offline restoration, the example packages, and matching output from JIT and moved, signed AOT app bundles.
+The Rinzu runner finds the SDK tests in `*.test.rinzu` files. The native script builds and runs the Objective-C probes with Clang, including the AddressSanitizer, UndefinedBehaviorSanitizer and ThreadSanitizer variants. The integration script starts separate processes for JIT/AOT comparisons, the example applications, interrupt handling, and deployment. Scenario assertions for the SDK and examples live in Rinzu files.
+
+The shell scripts put binaries, logs, and caches in the Git-ignored `build/tests/native/` and `build/tests/integration/` directories. Each script creates and removes its own directory for the run. The integration launcher gives test processes a deadline and rejects non-cancellation cleanup diagnostics when cancellation is expected. Example tests have their own Rinzu entry points under `tests/examples/` and import the same source used to build the examples. The AppKit input driver exercises native text events, IME commits, and sheet responses through the ordinary SDK entry points. The Editor IME test uses that driver to start composition. Distribution tests exercise archive installation and produce their app bundles in the same build directory.
+
+The acquisition tests check the cancellation location after a native call returns. For Canvas2D, the test observes a scope-owned canvas when cancellation prevents the caller from receiving it, then checks that shutdown releases its resources.
+
+```sh
+rinzu test ./tests --list
+rinzu test ./tests/document.test.rinzu --case 'reset changes document generation and clears history'
+sh tests/native/run.sh tsan
+sh tests/integration/run.sh runner
+sh tests/integration/run.sh appkit
+sh tests/integration/run.sh acquisitions
+sh tests/integration/run.sh distribution-candidate
+```
+
+Use `--format json` for case results and resource settlement reports. The `distribution-candidate` suite packs the current SDK checkout and runs offline. To verify a prebuilt archive instead, set `RINZU_MACOS_TEST_ARCHIVE` to its absolute path and `RINZU_MACOS_TEST_SHA256` to its expected digest. Providing both variables also selects candidate-only verification when running `distribution` or `all`.
 
 ## OS environment snapshots
 

@@ -1,0 +1,168 @@
+import rinzu.macos;
+import rinzu.testing;
+
+fn historyAndSelection() {
+    let doc = rinzu.macos.Document.create("initial🙂", true);
+    let initial = doc.snapshot();
+    var index = 0;
+    while index < 8 {
+        let edited = doc.edit(f"日本語🙂:{index}", 3, 4);
+        index = index + 1;
+    }
+    index = 0;
+    while index < 8 {
+        let undone = doc.undoEdit();
+        index = index + 1;
+    }
+    rinzu.testing.assertEqual<String>(doc.text, initial.text, "undo restores original");
+    index = 0;
+    while index < 8 {
+        let redone = doc.redoEdit();
+        index = index + 1;
+    }
+    rinzu.testing.assertEqual<Int>(doc.version, 24, "monotonic version");
+    rinzu.testing.assertEqual<Int>(doc.start, 3, "scalar selection");
+    let older = doc.undoEdit();
+    let branched = doc.edit("branch🙂", 0, 1);
+    rinzu.testing.assertEqual<Int>(doc.redo.length(), 0, "new edit discards redo");
+    let saved = doc.snapshot();
+    let changed = doc.edit("later", 0, 0);
+    doc.markSaved(saved);
+    rinzu.testing.assertTrue(doc.dirty(), "saving an older version keeps current edit dirty");
+    rinzu.testing.assertTrue(!doc.accepts(saved), "stale analysis rejected");
+    doc.accepting = false;
+    let rejected = doc.edit("rejected", 0, 0);
+    rinzu.testing.assertTrue(!rejected && !doc.accepts(doc.snapshot()), "closing rejects edits and results");
+}
+
+fn countAndByteBounds() {
+    let doc = rinzu.macos.Document.withHistory("", true, 100, 256);
+    var index = 0;
+    while index < 240 {
+        let edited = doc.edit(f"{index}:🙂", 0, 0);
+        rinzu.testing.assertTrue(doc.undo.length() <= 100 && doc.undo.bytes <= 256, "bounded history");
+        index = index + 1;
+    }
+    let zero = rinzu.macos.Document.withHistory("", true, 0, 0);
+    let changed = zero.edit("no history", 0, 0);
+    rinzu.testing.assertEqual<Int>(zero.undo.length(), 0, "disabled undo");
+    var caught = false;
+    try {
+        zero.select(0, 100);
+    }
+    catch errors {
+        caught = true;
+    }
+    rinzu.testing.assertTrue(caught, "invalid selection rejected");
+}
+
+fn resetIdentityAndHistory() {
+    let doc = rinzu.macos.Document.create("old", true);
+    let edit = doc.edit("unsaved", 0, 2);
+    let old = doc.snapshot();
+    let loaded = doc.reset("Opened 日本🙂", true);
+    rinzu.testing.assertTrue(
+        loaded
+            && !doc.dirty()
+            && !doc.accepts(old)
+            && doc.version == old.version + 1
+            && doc.start == 0
+            && doc.end == 0
+            && doc.undo.length() == 0
+            && doc.redo.length() == 0,
+        "reset identity/history"
+    );
+    let same = doc.snapshot();
+    let reloaded = doc.reset(same.text, false);
+    rinzu.testing.assertTrue(reloaded && !doc.accepts(same) && doc.dirty(), "same text is a new document version");
+    doc.accepting = false;
+    let rejected = doc.reset("rejected", true);
+    rinzu.testing.assertTrue(!rejected && doc.text == same.text, "closed reset rejected");
+}
+
+fn saveIdentityAndContent() {
+    let doc = rinzu.macos.Document.create("saved", true);
+    let other = rinzu.macos.Document.create("other", false);
+    let saved = doc.snapshot();
+    rinzu.testing.assertTrue(!other.accepts(saved), "equal version from another document is rejected");
+    var rejected = false;
+    try {
+        other.markSaved(saved);
+    }
+    catch errors {
+        rejected = true;
+    }
+    rinzu.testing.assertTrue(rejected && other.dirty(), "foreign receipt leaves document unsaved");
+    let edited = doc.edit("edited", 0, 0);
+    let undone = doc.undoEdit();
+    rinzu.testing.assertTrue(undone && !doc.dirty(), "undo to saved content is clean");
+    let redone = doc.redoEdit();
+    rinzu.testing.assertTrue(redone && doc.dirty(), "redo away from saved content is dirty");
+    let replaced = doc.reset("reopened", true);
+    rejected = false;
+    try {
+        doc.markSaved(saved);
+    }
+    catch errors {
+        rejected = true;
+    }
+    rinzu.testing.assertTrue(rejected && !doc.dirty(), "old save cannot change the loaded document");
+}
+
+fn seededHistoryBounds() {
+    let doc = rinzu.macos.Document.withHistory("", true, 100, 4096);
+    var seed = 37;
+    var index = 0;
+    while index < 240 {
+        seed = (seed * 48271) % 2147483647;
+        let edited = doc.edit(f"{seed}:日本🙂", 0, 2);
+        rinzu.testing.assertTrue(doc.undo.length() <= 100 && doc.undo.bytes <= 4096, "bounded history");
+        index = index + 1;
+    }
+    let snapshot = doc.snapshot();
+    let undone = doc.undoEdit();
+    let redone = doc.redoEdit();
+    rinzu.testing.assertTrue(
+        undone && redone && doc.text == snapshot.text && doc.start == snapshot.start && doc.end == snapshot.end,
+        "history selection"
+    );
+}
+
+async fn boundUndoRedoAndClosing() {
+    let session = rinzu.macos.open();
+    try {
+        let input = session.textView("before", rinzu.macos.Rect(x: 0.0, y: 0.0, width: 200.0, height: 100.0));
+        let doc = rinzu.macos.Document.create("A\u{0}日本🙂", true);
+        let binding = rinzu.macos.DocumentBinding.create(session, input, doc);
+        let edited = binding.replace("second 日本🙂", 1, 3);
+        let undone = binding.undoEdit();
+        let redone = binding.redoEdit();
+        rinzu.testing.assertTrue(
+            edited && undone && redone && input.text() == doc.text && doc.start == 1 && doc.end == 3,
+            "native undo/redo"
+        );
+        let back = binding.undoEdit();
+        let branch = binding.replace("branch", 0, 2);
+        rinzu.testing.assertTrue(doc.redo.length() == 0, "branch removes redo");
+        let disabled = binding.setAccepting(false);
+        rinzu.testing.assertTrue(
+            !binding.replace("rejected", 0, 0) && input.text() == "branch",
+            "closing rejects edits"
+        );
+    }
+    finally {
+        let closed = await session.close();
+    }
+}
+
+async fn main() {
+    rinzu.testing.runCase("undo and redo preserve Unicode scalar selections", historyAndSelection);
+    rinzu.testing.runCase("document history obeys byte and count limits", countAndByteBounds);
+    rinzu.testing.runCase("reset changes document generation and clears history", resetIdentityAndHistory);
+    rinzu.testing.runCase("save receipts track document identity and content", saveIdentityAndContent);
+    rinzu.testing.runCase("seed 37 keeps history bounded across 240 edits", seededHistoryBounds);
+    await rinzu.testing.runAsyncCase(
+        "bound undo, redo, branch and closing synchronize native text",
+        boundUndoRedoAndClosing
+    );
+}

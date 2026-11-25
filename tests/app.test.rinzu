@@ -1,0 +1,19 @@
+import "app/src/input.rinzu" as input;
+import "app/src/shaping.rinzu" as shaping;
+import rinzu.macos;
+import rinzu.testing as testing;
+
+async fn verifyShaping() {
+    let session = rinzu.macos.open();
+    try {
+        shaping.exercise(session);
+    }
+    finally {
+        let closed = await session.close();
+    }
+}
+
+async fn main() {
+    testing.runCase("encode exact finite input geometry and escaped Unicode", input.run);
+    await testing.runAsyncCase("copy CoreText shapes and preserve UTF-16 coordinates", verifyShaping);
+}

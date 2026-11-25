@@ -1,0 +1,34 @@
+import "canvas/src/cases.rinzu" as cases;
+import "scenarios.rinzu" as scenarios;
+
+async fn main() {
+    await scenarios.run(
+        [
+            {
+                mode = "text",
+                name = "match rasterized Unicode text against copied Metal pixels"
+            },
+            {
+                mode = "canvas",
+                name = "coalesce idle redraws, pause hidden clocks and resume presentation"
+            },
+            {
+                mode = "early",
+                name = "close a canvas before it draws"
+            },
+            {
+                mode = "recording-failure",
+                name = "abandon recording when a draw handler fails"
+            },
+            {
+                mode = "submitted-failure",
+                name = "settle a submitted frame when a draw handler fails"
+            },
+            {
+                mode = "actions",
+                name = "route scoped actions and validate weighted layout"
+            }
+        ],
+        cases.run
+    );
+}

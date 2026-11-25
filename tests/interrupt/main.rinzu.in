@@ -1,5 +1,6 @@
 import rinzu.macos;
 import rinzu.core;
+import rinzu.process;
 
 fn onEvent(context: rinzu.macos.RunContext, event: rinzu.macos.Event) fallback () {
     let session = context.session;
@@ -7,8 +8,8 @@ fn onEvent(context: rinzu.macos.RunContext, event: rinzu.macos.Event) fallback (
         if !session.isRunning() {
             rinzu.core.panic("invalidEvent");
         }
-        rinzu.macos.interruptMark(1);
-        rinzu.macos.interruptMark(10);
+        let callback = rinzu.process.writeErrorLine("TERMINATION_MARK=1");
+        let entered = rinzu.process.writeErrorLine("TERMINATION_MARK=10");
     }
 }
 
@@ -20,10 +21,10 @@ async fn main() {
         let shown = window.show();
         try {
             let result = await session.run(onEvent);
-            rinzu.macos.interruptMark(5);
+            let completed = rinzu.process.writeErrorLine("TERMINATION_MARK=5");
         }
         finally {
-            rinzu.macos.interruptMark(4);
+            let cleaned = rinzu.process.writeErrorLine("TERMINATION_MARK=4");
         }
     }
     catch unexpectedErrors {

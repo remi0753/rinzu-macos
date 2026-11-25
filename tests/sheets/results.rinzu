@@ -1,0 +1,157 @@
+import rinzu.core;
+import rinzu.error as err;
+import rinzu.io;
+import rinzu.macos as macos;
+import rinzu.process;
+import rinzu.stdio;
+import rinzu.string as text;
+import rinzu.testing as testing;
+import rinzu.timer;
+
+native {
+    fn clickAlertButton(choice: CInt) -> CInt symbol "rinzu_sheet_test_click_alert";
+
+    fn acceptPanel() -> CInt symbol "rinzu_sheet_test_accept_panel";
+}
+
+async fn driveSheet(window: macos.Window, action: fn () -> CInt) {
+    let deadline = rinzu.io.monotonicMillis() + 5000;
+    var result = Int(action());
+    while result == 0 && rinzu.io.monotonicMillis() < deadline {
+        await rinzu.timer.sleep(1);
+        result = Int(action());
+    }
+    if result != 1 {
+        let dismissed = window.dismissSheet();
+        rinzu.core.panic(f"AppKit sheet did not accept test input: {result}");
+    }
+}
+
+async fn checkAlert(pending: Future<Int>, expected: Int) {
+    try {
+        testing.assertEqual<Int>(await pending, expected, "AppKit alert returns the selected button number");
+    }
+    catch errors {
+        rinzu.core.panic(f"alert response failed: {errors}");
+    }
+}
+
+async fn alert(window: macos.Window, choice: Int) {
+    let options = macos.AlertOptions.create("Confirm", "Choose a role", ["Cancel", "Discard", "Save"]);
+    options.cancelButton = 1;
+    options.defaultButton = 3;
+    let observed = checkAlert(window.alertWithOptions(options), choice);
+    try {
+        await driveSheet(
+            window,
+            fn () -> CInt {
+                return clickAlertButton(CInt(choice));
+            }
+        );
+    }
+    finally {
+        await observed;
+    }
+}
+
+fn canonicalTestPath(path: String) -> String {
+    // AppKit can report /tmp even when the panel was opened in /private/tmp.
+    if text.slice(path, 0, 5) == Option<String>.Some(value: "/tmp/") {
+        return f"/private{path}";
+    }
+    return path;
+}
+
+async fn checkSave(pending: Future<Option<String>>, expected: String) {
+    try {
+        switch await pending {
+            case Option.Some(path): {
+                testing.assertEqual<String>(
+                    canonicalTestPath(path),
+                    canonicalTestPath(expected),
+                    "accepted panel returns the full Unicode path"
+                );
+            }
+            case Option.None: {
+                rinzu.core.panic("accepted save panel returned no path");
+            }
+        }
+    }
+    catch errors {
+        rinzu.core.panic(f"save result failed: {errors}");
+    }
+}
+
+async fn checkEmptyOpen(pending: Future<Option<String>>) {
+    try {
+        var rejected = false;
+        try {
+            let selected = await pending;
+        }
+        catch [problem: Error, ...rest] {
+            testing.assertEqual<Option<Int>>(
+                err.nativeStatus(problem),
+                Option<Int>.Some(value: -7804),
+                "missing selection"
+            );
+            rejected = true;
+        }
+        testing.assertTrue(rejected, "accepting an open panel requires a selection");
+    }
+    catch errors {
+        rinzu.core.panic(f"open result failed: {errors}");
+    }
+}
+
+async fn panels(window: macos.Window) {
+    let directory = rinzu.process.setting("RINZU_SHEET_TEST_DIRECTORY", "");
+    testing.assertTrue(directory != "", "test directory was supplied");
+    let name = "日本 e\u{301} 😀.txt";
+    let options = macos.SavePanelOptions.create("Save document", directory, name);
+    options.canCreateDirectories = false;
+    let saved = checkSave(window.saveFileWithOptions(options), f"{directory}/{name}");
+    try {
+        await driveSheet(window, acceptPanel);
+    }
+    finally {
+        await saved;
+    }
+    rinzu.stdio.writeLine("SHEETS:save-path");
+    let empty = checkEmptyOpen(window.openFile("Open without selection", directory));
+    try {
+        await driveSheet(window, acceptPanel);
+    }
+    finally {
+        await empty;
+    }
+}
+
+async fn body(app: macos.UiApplication) {
+    let window = app.primary.window;
+    await alert(window, 1);
+    await alert(window, 2);
+    await alert(window, 3);
+    rinzu.stdio.writeLine("SHEETS:alert-buttons");
+    await panels(window);
+}
+
+async fn main() {
+    try {
+        try {
+            let result = await macos.application("Sheet results", 520.0, 320.0, body);
+        }
+        finally {
+            let closed = await macos.closeOwnerSessions();
+            let stats = macos.statistics();
+            testing.assertEqual<Int>(
+                stats.sessions + stats.windows + stats.views + stats.retainedControls + stats.sheets + stats.sheetBytes,
+                0,
+                "release all sheet receipts"
+            );
+        }
+        rinzu.stdio.writeLine("SHEETS:appkit-results:closed");
+    }
+    catch errors {
+        rinzu.core.panic(f"sheet result fixture failed: {errors}");
+    }
+}

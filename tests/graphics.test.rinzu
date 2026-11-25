@@ -1,0 +1,26 @@
+import "graphics/src/cases.rinzu" as cases;
+import "scenarios.rinzu" as scenarios;
+
+async fn main() {
+    await scenarios.run(
+        [
+            {
+                mode = "pixels",
+                name = "render owned alpha and sRGB pixels and recover from encode failure"
+            },
+            {
+                mode = "recording",
+                name = "close the session with an outstanding recording"
+            },
+            {
+                mode = "window-recording",
+                name = "drain a window with an outstanding recording"
+            },
+            {
+                mode = "window-submitted",
+                name = "drain a window with a submitted command"
+            }
+        ],
+        cases.run
+    );
+}

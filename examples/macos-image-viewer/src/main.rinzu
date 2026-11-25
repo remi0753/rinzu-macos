@@ -205,41 +205,12 @@ class Viewer {
             }
         }
     }
-
-    async fn exercise(self: Viewer, job: rinzu.macos.UiJob) {
-        let canvas = self.canvasNow();
-        var ticks = 0;
-        while (self.loading || canvas.frames < 1) && !job.isStopping() {
-            if ticks > 1000 {
-                rinzu.core.panic("viewer did not draw its initial image");
-            }
-            await rinzu.timer.sleep(10);
-            ticks = ticks + 1;
-        }
-        let frames = canvas.frames;
-        let resized = job.window.setContentSize(840.0, 600.0);
-        self.filter = rinzu.macos.filterNearest;
-        let zoomSize = canvas.view.drawableSize();
-        let imageInfo = self.image.info();
-        let fitted = self.fitScale(zoomSize, imageInfo);
-        self.zoomBy(1.25);
-        if self.fit || self.zoom <= fitted {
-            rinzu.core.panic("zoom-in from Fit must increase the displayed scale");
-        }
-        while canvas.frames <= frames && !job.isStopping() {
-            await rinzu.timer.sleep(10);
-        }
-        let size = canvas.view.frame();
-        if size.width != 816.0 || size.height != 502.0 {
-            rinzu.core.panic("viewer surface did not resize");
-        }
-        rinzu.stdio.writeLine("VIEWER:resize:zoom:nearest");
-        job.requestStop();
-    }
 }
 
-async fn screen(app: rinzu.macos.UiApplication) {
-    let scope = app.primary;
+async fn withViewer(
+    scope: rinzu.macos.UiScope,
+    run: fn (Viewer, fn (rinzu.macos.UiScope, rinzu.macos.UiEvent) -> Future<Unit>) -> Future<Unit>
+) -> Int {
     let minimum = scope.window.setMinimumContentSize(420.0, 240.0);
     let root = scope.window.contentView();
     let toolbar = scope.session.view(rinzu.macos.Rect(x: 12.0, y: 530.0, width: 736.0, height: 30.0));
@@ -315,14 +286,8 @@ async fn screen(app: rinzu.macos.UiApplication) {
             }
         );
     }
-    if rinzu.process.setting("RINZU_IMAGE_TEST", "0") == "1" {
-        let testing = scope.start(
-            async fn (job: rinzu.macos.UiJob) {
-                await viewer.exercise(job);
-            }
-        );
-    }
-    await scope.dispatch(
+    await run(
+        viewer,
         async fn (owner: rinzu.macos.UiScope, event: rinzu.macos.UiEvent) {
             if event.kind == rinzu.macos.eventResized {
                 let arranged = rinzu.macos.row(
@@ -335,12 +300,23 @@ async fn screen(app: rinzu.macos.UiApplication) {
             await viewer.receive(owner, event);
         }
     );
-    rinzu.stdio.writeLine(f"VIEWER:frames={canvas.frames}");
+    return canvas.frames;
 }
 
-async fn main() {
+async fn screen(app: rinzu.macos.UiApplication) {
+    let scope = app.primary;
+    let frames = await withViewer(
+        scope,
+        async fn (viewer: Viewer, receive: fn (rinzu.macos.UiScope, rinzu.macos.UiEvent) -> Future<Unit>) {
+            await scope.dispatch(receive);
+        }
+    );
+    rinzu.stdio.writeLine(f"VIEWER:frames={frames}");
+}
+
+async fn runApplication(body: fn (rinzu.macos.UiApplication) -> Future<Unit>) {
     try {
-        let result = await rinzu.macos.applicationWithSignals("Rinzu Image Viewer", 760.0, 568.0, screen);
+        let result = await rinzu.macos.applicationWithSignals("Rinzu Image Viewer", 760.0, 568.0, body);
         let stats = rinzu.macos.statistics();
         if stats.retainedControls != 0 || stats.textureBytes != 0 || stats.bufferBytes != 0 {
             rinzu.core.panic("viewer resources remained");
@@ -355,3 +331,11 @@ async fn main() {
         rinzu.core.panic("image viewer failed");
     }
 }
+
+async fn main() {
+    await runApplication(screen);
+}
+
+export Viewer;
+export withViewer;
+export runApplication;

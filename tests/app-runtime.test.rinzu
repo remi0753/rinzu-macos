@@ -1,0 +1,7 @@
+import "app/src/cases.rinzu" as cases;
+
+async fn main() {
+    for mode in ["core", "callback", "gpu", "recording", "close"] {
+        await cases.run(mode);
+    }
+}

@@ -1,0 +1,17 @@
+import rinzu.testing;
+
+type Scenario = { mode: String, name: String };
+
+async fn run(scenarios: List<Scenario>, body: fn (String) throws(Error) -> Future<Unit>) {
+    for scenario in scenarios {
+        await rinzu.testing.runAsyncCase(
+            scenario.name,
+            async fn () {
+                await body(scenario.mode);
+            }
+        );
+    }
+}
+
+export Scenario;
+export run;

@@ -28,8 +28,37 @@ fn filename(path: String) -> String {
     return "Untitled.txt";
 }
 
+class NotepadIO {
+    const confirm: fn (rinzu.macos.Window) -> Future<Int>,
+    const open: fn (rinzu.macos.Window) -> Future<Option<String>>,
+    const destination: fn (rinzu.macos.Window, String) -> Future<Option<String>>,
+    const write: fn (String, String) -> Future<Int>
+}
+
+fn systemIO() -> NotepadIO {
+    return NotepadIO(
+        confirm: async fn (window: rinzu.macos.Window) -> Int {
+            return await window.alert(
+                "Save changes?",
+                "Save this document before continuing?",
+                "Save",
+                "Discard",
+                "Cancel"
+            );
+        },
+        open: async fn (window: rinzu.macos.Window) -> Option<String> {
+            return await window.openFile("Open document", "");
+        },
+        destination: async fn (window: rinzu.macos.Window, name: String) -> Option<String> {
+            return await window.saveFile("Save document", "", name);
+        },
+        write: rinzu.macos.saveDocument
+    );
+}
+
 /// Policy lives in Source. The SDK owns widgets, receipts, history and jobs.
 class Notepad {
+    const io: NotepadIO,
     const binding: rinzu.macos.DocumentBinding,
     const status: rinzu.macos.Label,
     const fileMenu: rinzu.macos.Menu,
@@ -44,7 +73,7 @@ class Notepad {
     loads: Int,
     failures: Int
 
-    fn create(scope: rinzu.macos.UiScope, text: String, path: String) -> Notepad {
+    fn create(scope: rinzu.macos.UiScope, text: String, path: String, io: NotepadIO) -> Notepad {
         let root = scope.window.contentView();
         let scroll = scope.scrollView(rinzu.macos.Rect(x: 12.0, y: 44.0, width: 736.0, height: 464.0));
         let addedScroll = root.addSubview(scroll.view);
@@ -92,6 +121,7 @@ class Notepad {
         let installed = scope.window.setMenu(bar);
         let focused = input.view.focus();
         return Notepad(
+            io: io,
             binding: binding,
             status: status,
             fileMenu: fileMenu,
@@ -146,7 +176,8 @@ class Notepad {
         self.message("Saving…");
         self.saving = true;
         try {
-            let installed = await rinzu.macos.saveDocument(path, snapshot.text);
+            let write = self.io.write;
+            let installed = await write(path, snapshot.text);
             try {}
             finally {
                 self.binding.document.markSaved(snapshot);
@@ -165,7 +196,8 @@ class Notepad {
     async fn saveCurrent(self: Notepad, window: rinzu.macos.Window, choose: Bool) -> Bool {
         var destination = self.path;
         if choose || !self.named {
-            switch await window.saveFile("Save document", "", filename(self.path)) {
+            let chooseDestination = self.io.destination;
+            switch await chooseDestination(window, filename(self.path)) {
                 case Option.None: {
                     return false;
                 }
@@ -182,13 +214,8 @@ class Notepad {
         if !self.binding.document.dirty() {
             return true;
         }
-        let answer = await window.alert(
-            "Save changes?",
-            "Save this document before continuing?",
-            "Save",
-            "Discard",
-            "Cancel"
-        );
+        let confirm = self.io.confirm;
+        let answer = await confirm(window);
         if answer == 1 {
             return await self.saveCurrent(window, false);
         }
@@ -231,7 +258,8 @@ class Notepad {
                         self.message("Closing");
                         return;
                     }
-                    switch await job.window.openFile("Open document", "") {
+                    let open = self.io.open;
+                    switch await open(job.window) {
                         case Option.None: {}
                         case Option.Some(path): {
                             await self.loadPath(path);
@@ -331,7 +359,7 @@ class Notepad {
     }
 }
 
-async fn launch() {
+async fn launch(body: fn (rinzu.macos.UiScope, String, String) -> Future<Unit>) {
     let path = rinzu.process.setting("RINZU_NOTEPAD_PATH", "");
     var initial = "";
     if path != "" {
@@ -342,16 +370,15 @@ async fn launch() {
         760.0,
         520.0,
         async fn (app: rinzu.macos.UiApplication) {
-            let notepad = Notepad.create(app.primary, initial, path);
-            await notepad.run(app.primary);
+            await body(app.primary, initial, path);
         }
     );
 }
 
-async fn main() {
+async fn runApplication(body: fn (rinzu.macos.UiScope, String, String) -> Future<Unit>) {
     try {
         try {
-            await launch();
+            await launch(body);
         }
         finally {
             try {
@@ -367,3 +394,21 @@ async fn main() {
         rinzu.core.panic(f"notepad failed: {errors}");
     }
 }
+
+async fn main() {
+    await runApplication(
+        async fn (scope: rinzu.macos.UiScope, text: String, path: String) {
+            let notepad = Notepad.create(scope, text, path, systemIO());
+            await notepad.run(scope);
+        }
+    );
+}
+
+export Notepad;
+export NotepadIO;
+export saveAction;
+export saveAsAction;
+export openAction;
+export closeAction;
+export systemIO;
+export runApplication;

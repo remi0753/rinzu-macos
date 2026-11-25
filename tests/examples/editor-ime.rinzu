@@ -1,0 +1,98 @@
+import "example.rinzu" as example;
+import rinzu.core;
+import rinzu.http;
+import rinzu.io;
+import rinzu.macos;
+import rinzu.process;
+import rinzu.stdio;
+import rinzu.testing;
+
+native {
+    fn markText() -> CInt symbol "rinzu_editor_test_mark_text";
+}
+
+// Exercise the editor's close policy with a pending composition.
+async fn imeBody(app: rinzu.macos.UiApplication) {
+    let scope = app.primary;
+    let path = rinzu.process.setting("RINZU_EDITOR_IME_PATH", "");
+    let editor = example.Editor.create(
+        scope,
+        example.Configuration(
+            path: path,
+            url: "http://127.0.0.1:9/unused",
+            mode: "interactive",
+            repeats: 0,
+            timeout: 10,
+            initial: "Committed before IME",
+            saved: true
+        )
+    );
+    try {
+        var started = false;
+        while !started {
+            let event = await scope.session.nextEvent();
+            started = event.kind == rinzu.macos.eventStarted;
+        }
+        let dirty = editor.binding.replace("Committed dirty before IME", 0, 0);
+        let before = editor.binding.document.snapshot();
+        let signals = scope.start(
+            async fn (job: rinzu.macos.UiJob) {
+                await editor.signals(job);
+            }
+        );
+        let focused = editor.binding.input.view.focus();
+        rinzu.testing.assertTrue(
+            Int(markText()) == 1 && editor.binding.input.isComposing(),
+            "AppKit started text composition"
+        );
+        editor.stop();
+        rinzu.testing.assertTrue(
+            !editor.closing && editor.binding.document.accepting && editor.binding.input.view.isEnabled(),
+            "ordinary close is deferred during composition"
+        );
+        let settled = await editor.settle(scope);
+        rinzu.testing.assertTrue(
+            !settled
+                && editor.closing
+                && !editor.binding.document.accepting
+                && !editor.binding.input.view.isEnabled()
+                && editor.binding.document.text == before.text
+                && editor.binding.document.version == before.version,
+            "forced cleanup preserves the last committed text"
+        );
+        rinzu.stdio.writeLine("IME:CLOSE:DEFERRED:FORCED:SETTLED");
+    }
+    finally {
+        let client = await rinzu.http.close(editor.client);
+    }
+}
+
+async fn main() {
+    try {
+        try {
+            let app = await rinzu.macos.application("Editor IME close", 780.0, 580.0, imeBody);
+        }
+        finally {
+            try {
+                let clients = await rinzu.http.closeOwnerClients();
+            }
+            finally {
+                try {
+                    let files = await rinzu.io.closeOwnerFiles();
+                }
+                finally {
+                    let windows = await rinzu.macos.closeOwnerSessions();
+                    let stats = rinzu.macos.statistics();
+                    rinzu.testing.assertTrue(
+                        stats.retainedControls + stats.sheets + rinzu.io.liveFiles() + rinzu.http.liveClients() == 0,
+                        "editor resources returned to baseline"
+                    );
+                    rinzu.stdio.writeLine("IME:RESOURCES:CLOSED");
+                }
+            }
+        }
+    }
+    catch errors {
+        rinzu.core.panic(f"IME close failed: {errors}");
+    }
+}

@@ -1,0 +1,43 @@
+import "example.rinzu" as example;
+import rinzu.core;
+import rinzu.macos;
+import rinzu.string as textApi;
+import rinzu.timer;
+
+async fn exercise(screen: example.Screen, owner: rinzu.macos.UiJob) {
+    await rinzu.timer.sleep(30);
+    let expanded = owner.window.setContentSize(720.0, 510.0);
+    await rinzu.timer.sleep(30);
+    let expandedToolbar = screen.toolbar.frame();
+    if expandedToolbar.width != 696.0 {
+        rinzu.core.panic("toolbar did not resize");
+    }
+    let restored = owner.window.setContentSize(640.0, 454.0);
+    await rinzu.timer.sleep(30);
+    let replaced = screen.text.setText("Automated GUI: 日本語 🙂\n");
+    let count = screen.status.setText(f"{textApi.length(screen.text.text())} characters");
+}
+
+async fn open(app: rinzu.macos.UiApplication) {
+    let scope = app.primary;
+    await example.withScreen(
+        scope,
+        async fn (screen: example.Screen, receive: fn (rinzu.macos.UiScope, rinzu.macos.UiEvent) -> Future<Unit>) {
+            let job = scope.start(
+                async fn (owner: rinzu.macos.UiJob) {
+                    try {
+                        await exercise(screen, owner);
+                    }
+                    finally {
+                        owner.requestStop();
+                    }
+                }
+            );
+            await scope.dispatch(receive);
+        }
+    );
+}
+
+async fn main() {
+    await example.runApplication(open);
+}

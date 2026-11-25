@@ -1,0 +1,6 @@
+import "display/src/cases.rinzu" as cases;
+import rinzu.testing as testing;
+
+async fn main() {
+    await testing.runAsyncCase("present 120 display-paced frames and resume from a hidden window", cases.run);
+}

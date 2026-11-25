@@ -1,0 +1,121 @@
+import rinzu.macos;
+import rinzu.core;
+import rinzu.testing as testing;
+import rinzu.timer;
+
+async fn waitForSheet() {
+    var attempts = 0;
+    var stats = rinzu.macos.statistics();
+    while stats.sheets == 0 && attempts < 5000 {
+        await rinzu.timer.sleep(1);
+        attempts = attempts + 1;
+        stats = rinzu.macos.statistics();
+    }
+    testing.assertEqual<Int>(stats.sheets, 1, "one sheet was admitted");
+}
+
+async fn expectDismissed<T>(pending: Future<Option<T>>) {
+    try {
+        switch await pending {
+            case Option.None: {}
+            case Option.Some(path): {
+                rinzu.core.panic("dismissed panel returned a selection");
+            }
+        }
+    }
+    catch problems {
+        rinzu.core.panic(f"panel failed: {problems}");
+    }
+}
+
+async fn dismissOpenPanel(app: rinzu.macos.UiApplication) {
+    let window = app.primary.window;
+    let options = rinzu.macos.OpenPanelOptions.create("Select files or folders", "");
+    options.canChooseDirectories = true;
+    options.allowsMultipleSelection = true;
+    options.contentTypes = ["public.plain-text"];
+    let pending = window.openFiles(options);
+    let observed = expectDismissed(pending);
+    try {
+        await waitForSheet();
+    }
+    finally {
+        try {
+            let dismissed = window.dismissSheet();
+        }
+        finally {
+            await observed;
+        }
+    }
+    let stats = rinzu.macos.statistics();
+    testing.assertEqual<Int>(stats.sheets, 0, "open panel receipt was released");
+}
+
+async fn stopWithOpenPanel(app: rinzu.macos.UiApplication) {
+    let scope = app.primary;
+    let pending = scope.window.openFile("Pending open", "");
+    let observed = expectDismissed(pending);
+    try {
+        await waitForSheet();
+    }
+    finally {
+        try {
+            let stopped = scope.session.stop();
+        }
+        finally {
+            await observed;
+        }
+    }
+}
+
+async fn closeScopeWithAlert(app: rinzu.macos.UiApplication) {
+    let scope = app.primary;
+    let started = scope.start(
+        async fn (job: rinzu.macos.UiJob) {
+            let response = await job.window.alert("Pending", "Close the Window scope", "OK", "", "");
+            testing.assertEqual<Int>(response, 0, "scope close dismisses the alert");
+        }
+    );
+    try {
+        await waitForSheet();
+    }
+    finally {
+        scope.requestStop();
+        let joined = await scope.join();
+    }
+}
+
+async fn verify(body: fn (rinzu.macos.UiApplication) throws(Error) -> Future<Unit>) {
+    try {
+        let result = await rinzu.macos.application("Sheet lifecycle", 520.0, 320.0, body);
+    }
+    finally {
+        let stats = rinzu.macos.statistics();
+        testing.assertEqual<Int>(
+            stats.sessions + stats.windows + stats.views + stats.retainedControls + stats.sheets + stats.sheetBytes,
+            0,
+            "Window, Session and sheet resources were released"
+        );
+    }
+}
+
+async fn main() {
+    await testing.runAsyncCase(
+        "dismiss a configured open panel and release its receipt",
+        async fn () {
+            await verify(dismissOpenPanel);
+        }
+    );
+    await testing.runAsyncCase(
+        "dismiss a pending open panel when its session stops",
+        async fn () {
+            await verify(stopWithOpenPanel);
+        }
+    );
+    await testing.runAsyncCase(
+        "drain the alert joined by a closing window scope",
+        async fn () {
+            await verify(closeScopeWithAlert);
+        }
+    );
+}

@@ -1,7 +1,6 @@
 import rinzu.list;
 import rinzu.timer;
 import rinzu.macos;
-import rinzu.process;
 import rinzu.stdio;
 import rinzu.core;
 import rinzu.error as err;
@@ -19,6 +18,7 @@ fn errorContextText(problem: Error) nothrow -> String {
 }
 
 class Screen {
+    const toolbar: rinzu.macos.View,
     const text: rinzu.macos.TextView,
     const status: rinzu.macos.Label,
     const search: rinzu.macos.TextField,
@@ -58,8 +58,10 @@ class Screen {
     }
 }
 
-async fn screen(app: rinzu.macos.UiApplication) {
-    let scope = app.primary;
+async fn withScreen(
+    scope: rinzu.macos.UiScope,
+    run: fn (Screen, fn (rinzu.macos.UiScope, rinzu.macos.UiEvent) -> Future<Unit>) -> Future<Unit>
+) {
     let root = scope.window.contentView();
     let toolbar = scope.session.view(rinzu.macos.Rect(x: 12.0, y: 410.0, width: 616.0, height: 32.0));
     let attachedToolbar = root.addSubview(toolbar);
@@ -90,39 +92,31 @@ async fn screen(app: rinzu.macos.UiApplication) {
     let appMenu = menu.addSubmenu(applicationMenu);
     let editMenu = menu.addSubmenu(edit);
     let installed = scope.window.setMenu(menu);
-    let state = Screen(text: text, status: status, search: search, accepting: accepting, analyses: 0);
-    let automated = rinzu.process.setting("RINZU_WIDGETS_TEST", "0");
-    if automated == "1" {
-        let task = scope.start(
-            async fn (owner: rinzu.macos.UiJob) {
-                await rinzu.timer.sleep(30);
-                let expanded = owner.window.setContentSize(720.0, 510.0);
-                await rinzu.timer.sleep(30);
-                let expandedToolbar = toolbar.frame();
-                if expandedToolbar.width != 696.0 {
-                    rinzu.core.panic("toolbar did not resize");
-                }
-                let restored = owner.window.setContentSize(640.0, 454.0);
-                await rinzu.timer.sleep(30);
-                let replaced = text.setText("Automated GUI: 日本語 🙂\n");
-                let count = status.setText(f"{textApi.length(text.text())} characters");
-                owner.requestStop();
-            }
-        );
-    }
-    await scope.dispatch(
+    let state = Screen(toolbar: toolbar, text: text, status: status, search: search, accepting: accepting, analyses: 0);
+    await run(
+        state,
         async fn (owner: rinzu.macos.UiScope, event: rinzu.macos.UiEvent) {
             if event.kind == rinzu.macos.eventResized {
-                let layout = rinzu.macos.row(toolbar, [analyze.view, accepting.view, search.view], 0.0, 8.0);
+                let layout = rinzu.macos.row(state.toolbar, [analyze.view, accepting.view, search.view], 0.0, 8.0);
             }
             await state.receive(owner, event);
         }
     );
 }
 
-async fn main() {
+async fn screen(app: rinzu.macos.UiApplication) {
+    let scope = app.primary;
+    await withScreen(
+        scope,
+        async fn (state: Screen, receive: fn (rinzu.macos.UiScope, rinzu.macos.UiEvent) -> Future<Unit>) {
+            await scope.dispatch(receive);
+        }
+    );
+}
+
+async fn runApplication(body: fn (rinzu.macos.UiApplication) -> Future<Unit>) {
     try {
-        let closed = await rinzu.macos.applicationWithSignals("Rinzu Widgets", 640.0, 454.0, screen);
+        let closed = await rinzu.macos.applicationWithSignals("Rinzu Widgets", 640.0, 454.0, body);
         rinzu.stdio.writeLine("WIDGETS:closed");
     }
     catch [problem: Error, ...rest] {
@@ -133,3 +127,11 @@ async fn main() {
         rinzu.core.panic("widgets application failed");
     }
 }
+
+async fn main() {
+    await runApplication(screen);
+}
+
+export Screen;
+export withScreen;
+export runApplication;

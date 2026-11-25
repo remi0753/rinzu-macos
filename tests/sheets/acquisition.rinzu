@@ -1,0 +1,72 @@
+import rinzu.core;
+import rinzu.future;
+import rinzu.macos;
+import rinzu.process;
+import rinzu.stdio;
+import rinzu.testing;
+import rinzu.timer;
+
+async fn open(app: rinzu.macos.UiApplication) {
+    let path = await app.primary.window.openFile("Cancel during panel admission", "");
+    rinzu.core.panic("panel acquisition cancellation did not fire");
+}
+
+async fn observeCancellation(pending: Future<Option<String>>) {
+    try {
+        let path = await pending;
+        rinzu.core.panic("cancelled panel returned a result");
+    }
+    catch problems {
+        rinzu.core.panic(f"panel failed: {problems}");
+    }
+}
+
+async fn cancel(app: rinzu.macos.UiApplication) {
+    let window = app.primary.window;
+    let pending = window.openFile("Cancel pending open", "");
+    let observed = observeCancellation(pending);
+    try {
+        var stats = rinzu.macos.statistics();
+        var attempts = 0;
+        while stats.sheets == 0 && attempts < 5000 {
+            await rinzu.timer.sleep(1);
+            stats = rinzu.macos.statistics();
+            attempts = attempts + 1;
+        }
+        rinzu.testing.assertEqual<Int>(stats.sheets, 1, "one sheet was admitted");
+        rinzu.testing.assertTrue(rinzu.future.cancel(pending), "the active panel accepted cancellation");
+    }
+    finally {
+        try {
+            let dismissed = window.dismissSheet();
+        }
+        finally {
+            await observed;
+        }
+    }
+}
+
+async fn main() {
+    try {
+        try {
+            if rinzu.process.setting("RINZU_SHEET_TEST", "acquisition") == "cancel" {
+                let cancelled = await rinzu.macos.application("Sheet cancellation", 520.0, 320.0, cancel);
+            }
+            else {
+                let acquired = await rinzu.macos.application("Sheet acquisition", 520.0, 320.0, open);
+            }
+        }
+        finally {
+            let stats = rinzu.macos.statistics();
+            rinzu.testing.assertEqual<Int>(
+                stats.sessions + stats.windows + stats.views + stats.retainedControls + stats.sheets + stats.sheetBytes,
+                0,
+                "cancellation released the pending sheet"
+            );
+            rinzu.stdio.writeLine("SHEETS:closed");
+        }
+    }
+    catch problems {
+        rinzu.core.panic(f"sheet test failed: {problems}");
+    }
+}

@@ -1,0 +1,48 @@
+import rinzu.macos;
+import rinzu.testing as testing;
+import rinzu.error as err;
+
+fn packet(version: Int, keyCode: Int, flags: Int) -> String {
+    let start = r#"{"version":"#;
+    let key = r#","keyCode":"#;
+    let mask = r#","flags":"#;
+    let fields = r#",
+        "kind":4,"epoch":1,"revision":3,"rangeBase":12,"keyType":10,"modifiers":0,
+        "text":"日本\u0000🙂","unmodified":"","source":"fixture","command":"",
+        "selectionStart":-1,"selectionLength":0,"replacementStart":2,"replacementLength":2,
+        "x":0.25,"y":1.5,"button":0,"buttons":0,"clicks":0,"deltaX":0,"deltaY":0,"phase":0,"momentum":0}"#;
+    return f"{start}{version}{key}{keyCode}{mask}{flags}{fields}";
+}
+
+fn ownedFields() {
+    let value = rinzu.macos.decodeInputPacket(packet(1, -1, 7));
+    testing.assertEqual<String>(value.text, "日本\u{0}🙂", "Unicode text and NUL survive decoding");
+    testing.assertEqual<Int>(value.rangeBase, 12, "range base survives decoding");
+    testing.assertEqual<Int>(value.replacementLength, 2, "UTF-16 replacement length");
+    testing.assertEqual<Int>(value.keyCode, -1, "no physical key sentinel");
+    let physical = rinzu.macos.decodeInputPacket(packet(1, 65535, 0));
+    testing.assertEqual<Int>(physical.keyCode, 65535, "largest admitted key code");
+}
+
+fn rejectedFields() {
+    for invalid in [packet(2, -1, 0), packet(1, -2, 0), packet(1, 65536, 0), packet(1, -1, 8)] {
+        var rejected = false;
+        try {
+            let decoded = rinzu.macos.decodeInputPacket(invalid);
+        }
+        catch [problem: Error, ...rest] {
+            testing.assertEqual<Option<Int>>(
+                err.code(problem),
+                Option<Int>.Some(value: -7804),
+                "packet validation status"
+            );
+            rejected = true;
+        }
+        testing.assertTrue(rejected, "invalid packet version, key code, or flags");
+    }
+}
+
+fn main() {
+    testing.runCase("decode owned Unicode and UTF-16 input fields", ownedFields);
+    testing.runCase("reject unsupported packet version, key codes and flags", rejectedFields);
+}

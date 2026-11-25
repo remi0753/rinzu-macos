@@ -1,0 +1,77 @@
+import rinzu.macos;
+import rinzu.testing as testing;
+
+fn inputEvent(view: Int, sequence: Int, text: String, start: Int, end: Int, flags: Int) -> rinzu.macos.UiEvent {
+    return rinzu.macos.UiEvent(
+        kind: rinzu.macos.eventTextChanged,
+        windowId: 0,
+        viewId: view,
+        sequence: sequence,
+        x: 0.0,
+        y: 0.0,
+        width: 0.0,
+        height: 0.0,
+        scale: 1.0,
+        keyCode: 0,
+        modifiers: 0,
+        action: 0,
+        selectionStart: start,
+        selectionEnd: end,
+        flags: flags,
+        value: 0.0,
+        deltaX: 0.0,
+        deltaY: 0.0,
+        text: text
+    );
+}
+
+async fn documentInput() {
+    let session = rinzu.macos.open();
+    try {
+        let input = session.textView("before binding", rinzu.macos.Rect(x: 0.0, y: 0.0, width: 300.0, height: 180.0));
+        let doc = rinzu.macos.Document.create("A\u{0}日本🙂", true);
+        let binding = rinzu.macos.DocumentBinding.create(session, input, doc);
+        testing.assertTrue(input.text() == doc.text && doc.version == 0 && !doc.dirty(), "initial text");
+        let text = "入力 日本🙂";
+        let inserted = input.setText(text);
+        let selected = input.select(3, 5);
+        let sequence = session.eventSequence();
+        let edit = inputEvent(input.identity(), binding.barrier + 1, text, 3, 5, 0);
+        testing.assertTrue(binding.receive(edit), "consume the owned text event");
+        testing.assertTrue(doc.text == text && doc.start == 3 && doc.end == 5, "Unicode scalar selection");
+        testing.assertEqual<Int>(doc.undo.length(), 1, "one history entry");
+        testing.assertEqual<Int>(session.eventSequence(), sequence, "consuming an event does not publish another");
+        testing.assertTrue(!binding.receive(edit), "reject duplicate input");
+        let beforeComposition = doc.snapshot();
+        let interim = inputEvent(input.identity(), binding.barrier + 1, f"仮{text}", 1, 1, rinzu.macos.textComposing);
+        testing.assertTrue(!binding.receive(interim), "ignore provisional IME input");
+        testing.assertTrue(
+            doc.accepts(beforeComposition) && doc.undo.length() == 1,
+            "provisional input preserves history"
+        );
+        let committedText = f"仮{text}";
+        let committed = input.setText(committedText);
+        let caret = input.select(1, 1);
+        let event = inputEvent(input.identity(), binding.barrier + 1, committedText, 1, 1, 0);
+        testing.assertTrue(binding.receive(event), "consume the committed IME edit");
+        testing.assertEqual<Int>(doc.undo.length(), 2, "composition commits one edit");
+        testing.assertTrue(binding.undoEdit() && doc.text == text && input.text() == text, "undo reflects in the view");
+        testing.assertTrue(binding.redoEdit() && doc.text == committedText, "redo restores the commit");
+        let loaded = binding.load("Opened 日本🙂");
+        testing.assertTrue(
+            loaded && input.text() == doc.text && !doc.dirty() && doc.undo.length() == 0 && doc.redo.length() == 0,
+            "load synchronizes the view and resets both histories"
+        );
+        testing.assertTrue(!doc.accepts(beforeComposition), "load invalidates older snapshots");
+        let disabled = binding.setAccepting(false);
+        let late = inputEvent(input.identity(), binding.barrier + 1, "late input", 0, 0, 0);
+        testing.assertTrue(!binding.receive(late) && input.text() == doc.text, "closed document rejects pending input");
+    }
+    finally {
+        let closed = await session.close();
+    }
+}
+
+async fn main() {
+    await testing.runAsyncCase("bind Unicode text, reject provisional input and preserve history", documentInput);
+}

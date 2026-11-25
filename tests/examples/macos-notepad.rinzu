@@ -1,0 +1,221 @@
+import "example.rinzu" as example;
+import rinzu.core;
+import rinzu.io;
+import rinzu.macos;
+import rinzu.process;
+import rinzu.stdio;
+import rinzu.testing;
+import rinzu.timer;
+
+class DialogResults {
+    confirmChoice: Int,
+    panelSelection: Option<String>,
+    holdSave: Bool
+}
+
+fn documentIO(input: DialogResults) -> example.NotepadIO {
+    return example.NotepadIO(
+        confirm: async fn (window: rinzu.macos.Window) -> Int {
+            return input.confirmChoice;
+        },
+        open: async fn (window: rinzu.macos.Window) -> Option<String> {
+            return input.panelSelection;
+        },
+        destination: async fn (window: rinzu.macos.Window, name: String) -> Option<String> {
+            return input.panelSelection;
+        },
+        write: async fn (path: String, text: String) -> Int {
+            while input.holdSave {
+                await rinzu.timer.sleep(1);
+            }
+            return await rinzu.macos.saveDocument(path, text);
+        }
+    );
+}
+
+fn expect(condition: Bool, message: String) {
+    rinzu.testing.assertTrue(condition, message);
+}
+
+async fn testAction(notepad: example.Notepad, scope: rinzu.macos.UiScope, action: Int) {
+    notepad.request(action);
+    notepad.schedule(scope);
+    let joined = await scope.join();
+    expect(!notepad.busy && !notepad.saving, "operation joined");
+}
+
+async fn testNotepad(notepad: example.Notepad, scope: rinzu.macos.UiScope, input: DialogResults) {
+    var started = false;
+    while !started {
+        let event = await scope.session.nextEvent();
+        started = event.kind == rinzu.macos.eventStarted;
+    }
+    let mode = rinzu.process.setting("RINZU_NOTEPAD_TEST", "cancel-discard");
+    let originalPath = notepad.path;
+    let original = await rinzu.macos.readDocument(originalPath);
+    let isolated = notepad.binding.input.setEnabled(false);
+    let edited = notepad.binding.replace("Edited 日本 e\u{301} 😀\n", 0, 2);
+    expect(edited && notepad.binding.document.dirty(), "initial dirty document");
+    if mode == "cancel-discard" {
+        input.confirmChoice = 3;
+        await testAction(notepad, scope, example.closeAction);
+        expect(
+            !notepad.closing && notepad.binding.document.accepting && notepad.binding.input.view.isEnabled(),
+            "Cancel resumes Window and input"
+        );
+        expect(notepad.binding.document.dirty() && notepad.saves == 0, "Cancel preserves unsaved edits");
+        input.confirmChoice = 2;
+        await testAction(notepad, scope, example.closeAction);
+        expect(
+            notepad.closing && notepad.saves == 0 && await rinzu.macos.readDocument(originalPath) == original,
+            "Discard closes without overwriting original"
+        );
+    }
+    else if mode == "save-close" {
+        input.confirmChoice = 1;
+        await testAction(notepad, scope, example.closeAction);
+        expect(notepad.closing && notepad.saves == 1 && !notepad.binding.document.dirty(), "Save then close");
+        expect(await rinzu.macos.readDocument(originalPath) == notepad.binding.document.text, "saved file bytes");
+    }
+    else if mode == "save-failure" {
+        notepad.path = f"{originalPath}/missing/child";
+        input.confirmChoice = 1;
+        await testAction(notepad, scope, example.closeAction);
+        expect(
+            !notepad.closing
+                && notepad.failures == 1
+                && notepad.saves == 0
+                && notepad.binding.document.dirty()
+                && notepad.binding.document.accepting
+                && notepad.binding.input.view.isEnabled(),
+            "failed Save reopens input"
+        );
+        notepad.path = originalPath;
+        input.confirmChoice = 1;
+        await testAction(notepad, scope, example.closeAction);
+        expect(notepad.closing && notepad.saves == 1 && !notepad.binding.document.dirty(), "retry succeeds");
+    }
+    else if mode == "save-as" {
+        let destination = f"{originalPath}.new.txt";
+        input.panelSelection = Option<String>.Some(value: destination);
+        await testAction(notepad, scope, example.saveAsAction);
+        expect(
+            notepad.path == destination || notepad.path == f"/private{destination}",
+            f"Save As installs the selected path: {notepad.path} != {destination}"
+        );
+        expect(notepad.saves == 1 && !notepad.binding.document.dirty(), "Save As commits one save");
+        expect(await rinzu.macos.readDocument(originalPath) == original, "Save As preserves prior file");
+        expect(await rinzu.macos.readDocument(destination) == notepad.binding.document.text, "Save As file bytes");
+    }
+    else if mode == "save-as-cancel" {
+        notepad.request(example.saveAsAction);
+        notepad.schedule(scope);
+        let panelDeadline = rinzu.io.monotonicMillis() + 3000;
+        var stats = rinzu.macos.statistics();
+        while stats.sheets == 0 && rinzu.io.monotonicMillis() < panelDeadline {
+            await rinzu.timer.sleep(1);
+            stats = rinzu.macos.statistics();
+        }
+        expect(stats.sheets == 1, "Save As opened the AppKit panel");
+        let dismissed = scope.window.dismissSheet();
+        let joined = await scope.join();
+        expect(!notepad.busy && !notepad.saving, "operation joined");
+        expect(
+            notepad.path == originalPath && notepad.saves == 0 && notepad.binding.document.dirty(),
+            "cancelled Save As"
+        );
+    }
+    else if mode == "open-cancel" {
+        input.confirmChoice = 2;
+        input.panelSelection = Option<String>.None();
+        await testAction(notepad, scope, example.openAction);
+        expect(
+            notepad.loads == 0
+                && notepad.path == originalPath
+                && notepad.binding.document.dirty()
+                && notepad.binding.document.accepting
+                && notepad.binding.input.view.isEnabled(),
+            "Open cancel retains old document"
+        );
+    }
+    else if mode == "load" {
+        let old = notepad.binding.document.snapshot();
+        let frozen = notepad.binding.setAccepting(false);
+        await notepad.loadPath(originalPath);
+        expect(
+            notepad.loads == 1
+                && notepad.binding.document.text == original
+                && !notepad.binding.document.dirty()
+                && notepad.binding.document.undo.length() == 0
+                && !notepad.binding.document.accepts(old),
+            "load identity/history"
+        );
+        let stable = notepad.binding.document.snapshot();
+        var caught = false;
+        try {
+            await notepad.loadPath(f"{originalPath}/missing");
+        }
+        catch errors {
+            caught = true;
+        }
+        expect(
+            caught
+                && notepad.binding.document.text == stable.text
+                && notepad.binding.document.version == stable.version,
+            "failed read preserves document"
+        );
+    }
+    else if mode == "save-edit" {
+        let oldSave = notepad.binding.document.snapshot();
+        input.holdSave = true;
+        try {
+            notepad.request(example.saveAction);
+            notepad.schedule(scope);
+            let deadline = rinzu.io.monotonicMillis() + 3000;
+            while !notepad.saving && rinzu.io.monotonicMillis() < deadline {
+                await rinzu.timer.sleep(1);
+            }
+            expect(notepad.saving && notepad.busy, "delayed save in progress");
+            notepad.request(example.openAction);
+            expect(notepad.requested == 0, "file operations are serialized");
+            let newer = notepad.binding.replace("Newer while saving 日本😀", 0, 2);
+            expect(newer, "edit accepted while the previous version is saving");
+        }
+        finally {
+            input.holdSave = false;
+        }
+        let saved = await scope.join();
+        expect(
+            notepad.binding.document.dirty()
+                && notepad.binding.document.savedVersion == oldSave.version
+                && await rinzu.macos.readDocument(originalPath) == oldSave.text,
+            "save receipt keeps newer edits dirty"
+        );
+    }
+    else {
+        rinzu.core.panic("unknown notepad test");
+    }
+    expect(notepad.failures == 0 || mode == "save-failure", "no unexpected operation failure");
+    rinzu.stdio.writeLine(f"NOTEPAD:TEST:{mode}:ok");
+}
+
+async fn main() {
+    await example.runApplication(
+        async fn (scope: rinzu.macos.UiScope, text: String, path: String) {
+            let input = DialogResults(confirmChoice: 3, panelSelection: Option<String>.None(), holdSave: false);
+            var io = documentIO(input);
+            if rinzu.process.setting("RINZU_NOTEPAD_TEST", "cancel-discard") == "save-as-cancel" {
+                io = example.systemIO();
+            }
+            let notepad = example.Notepad.create(scope, text, path, io);
+            // The application scope also owns the process signal watcher.
+            let operations = scope.child();
+            try {
+                await testNotepad(notepad, operations, input);
+            }
+            finally {
+                let closed = await operations.close();
+            }
+        }
+    );
+}

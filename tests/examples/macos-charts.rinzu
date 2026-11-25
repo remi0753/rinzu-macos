@@ -1,0 +1,77 @@
+import "example.rinzu" as example;
+import rinzu.macos;
+import rinzu.stdio;
+import rinzu.core;
+import rinzu.timer;
+
+async fn exercise(state: example.Chart, job: rinzu.macos.UiJob) {
+    let canvas = state.current();
+    var ticks = 0;
+    while canvas.frames < 3 && !job.isStopping() {
+        if ticks > 1000 {
+            rinzu.core.panic("chart did not render");
+        }
+        await rinzu.timer.sleep(10);
+        ticks = ticks + 1;
+    }
+    state.running = false;
+    let paused = canvas.setAnimating(false);
+    await rinzu.timer.sleep(80);
+    let before = canvas.frames;
+    var requests = 0;
+    while requests < 1000 {
+        let dirty = canvas.invalidate();
+        requests = requests + 1;
+    }
+    while canvas.frames <= before && !job.isStopping() {
+        await rinzu.timer.sleep(5);
+    }
+    await rinzu.timer.sleep(50);
+    let stats = canvas.clock.statistics();
+    if stats.coalesced < 999 {
+        rinzu.core.panic("draw requests were not coalesced");
+    }
+    let hidden = job.window.hide();
+    let dirtyHidden = canvas.invalidate();
+    await rinzu.timer.sleep(40);
+    let hiddenStats = canvas.clock.statistics();
+    let hiddenResources = rinzu.macos.statistics();
+    if hiddenStats.visible || hiddenResources.frameTimers != 0 {
+        rinzu.core.panic("hidden canvas kept a timer");
+    }
+    let shown = job.window.show();
+    let resized = job.window.setContentSize(880.0, 620.0);
+    let previous = canvas.frames;
+    while canvas.frames <= previous && !job.isStopping() {
+        await rinzu.timer.sleep(5);
+    }
+    let frame = canvas.view.frame();
+    if frame.width != 856.0 || frame.height != 516.0 {
+        rinzu.core.panic("chart layout did not resize");
+    }
+    rinzu.stdio.writeLine("CHARTS:text:frames:coalesced:hidden:resume:resize");
+}
+
+async fn screen(app: rinzu.macos.UiApplication) {
+    let scope = app.primary;
+    await example.withChart(
+        scope,
+        async fn (state: example.Chart, receive: fn (rinzu.macos.UiScope, rinzu.macos.UiEvent) -> Future<Unit>) {
+            let job = scope.start(
+                async fn (owner: rinzu.macos.UiJob) {
+                    try {
+                        await exercise(state, owner);
+                    }
+                    finally {
+                        owner.requestStop();
+                    }
+                }
+            );
+            await scope.dispatch(receive);
+        }
+    );
+}
+
+async fn main() {
+    await example.runApplication(screen);
+}
